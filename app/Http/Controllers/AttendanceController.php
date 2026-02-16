@@ -139,6 +139,10 @@ class AttendanceController extends Controller
             abort(403, 'Only employees can check in.');
         }
 
+        $validated = $request->validate([
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
         if ($this->isHolidayDateForUser($viewer, now())) {
             return redirect()
                 ->route('modules.attendance.index')
@@ -160,6 +164,11 @@ class AttendanceController extends Controller
         $record->status = $record->status ?: Attendance::STATUS_PRESENT;
         $record->check_in_at = now();
         $record->marked_by_user_id = $viewer->id;
+        $record->notes = $this->appendEmployeeActionNote(
+            $record->notes,
+            $validated['notes'] ?? null,
+            'Check-in note'
+        );
 
         if ($record->check_out_at !== null) {
             if ($record->check_out_at->lessThanOrEqualTo($record->check_in_at)) {
@@ -198,6 +207,10 @@ class AttendanceController extends Controller
             abort(403, 'Only employees can check out.');
         }
 
+        $validated = $request->validate([
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
         if ($this->isHolidayDateForUser($viewer, now())) {
             return redirect()
                 ->route('modules.attendance.index')
@@ -234,6 +247,11 @@ class AttendanceController extends Controller
             $record->status = Attendance::STATUS_PRESENT;
         }
         $record->marked_by_user_id = $viewer->id;
+        $record->notes = $this->appendEmployeeActionNote(
+            $record->notes,
+            $validated['notes'] ?? null,
+            'Check-out note'
+        );
         $record->save();
 
         ActivityLogger::log(
@@ -487,6 +505,23 @@ class AttendanceController extends Controller
         }
 
         return Carbon::createFromFormat('Y-m-d H:i', "{$attendanceDate} {$time}");
+    }
+
+    private function appendEmployeeActionNote(?string $existingNotes, mixed $newNote, string $label): ?string
+    {
+        $newText = trim((string) $newNote);
+        if ($newText === '') {
+            return blank($existingNotes) ? null : (string) $existingNotes;
+        }
+
+        $prefixed = "{$label}: {$newText}";
+        $current = trim((string) $existingNotes);
+
+        if ($current === '') {
+            return $prefixed;
+        }
+
+        return "{$current}\n{$prefixed}";
     }
 
     private function isHolidayDateForUser(User $user, Carbon $date): bool

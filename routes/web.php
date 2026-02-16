@@ -9,10 +9,12 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\LeaveController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Middleware\SyncRoleNotifications;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 
@@ -27,7 +29,7 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
 });
 
-Route::middleware('auth')->group(function (): void {
+Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', function (): RedirectResponse {
         return redirect()->route(auth()->user()?->dashboardRouteName() ?? 'login');
@@ -40,6 +42,12 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/settings/company-details', [SettingsController::class, 'updateCompanyDetails'])
         ->middleware('role:admin')
         ->name('settings.company.update');
+    Route::get('/settings/company-logo', [SettingsController::class, 'companyLogo'])
+        ->name('settings.company.logo');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::put('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::put('/notifications/{notification}/unread', [NotificationController::class, 'markUnread'])->name('notifications.unread');
 
     Route::prefix('modules')->name('modules.')->middleware('role:admin,hr,employee')->group(function (): void {
         Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
@@ -62,7 +70,6 @@ Route::middleware('auth')->group(function (): void {
             ->middleware('role:admin')
             ->name('branches.update');
         Route::get('/holidays', [HolidayController::class, 'index'])
-            ->middleware('role:admin,hr')
             ->name('holidays.index');
         Route::post('/holidays', [HolidayController::class, 'store'])
             ->middleware('role:admin,hr')
@@ -94,6 +101,8 @@ Route::middleware('auth')->group(function (): void {
             ->name('attendance.check-out');
         Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll.index');
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/activity', [ReportController::class, 'activity'])->name('reports.activity');
+        Route::get('/reports/activity/{activity}', [ReportController::class, 'activityShow'])->name('reports.activity.show');
         Route::post('/payroll/structure', [PayrollController::class, 'storeStructure'])
             ->middleware('role:admin,hr')
             ->name('payroll.structure.store');
@@ -108,6 +117,9 @@ Route::middleware('auth')->group(function (): void {
             ->name('payroll.status.update');
         Route::get('/leave', [LeaveController::class, 'index'])->name('leave.index');
         Route::post('/leave', [LeaveController::class, 'store'])->name('leave.store');
+        Route::get('/leave/{leaveRequest}/review', [LeaveController::class, 'reviewPage'])
+            ->middleware('role:admin,hr')
+            ->name('leave.review.form');
         Route::put('/leave/{leaveRequest}/review', [LeaveController::class, 'review'])
             ->middleware('role:admin,hr')
             ->name('leave.review');

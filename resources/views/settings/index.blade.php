@@ -6,6 +6,14 @@
 @section('content')
     @php
         $canManageCompanyDetails = auth()->user()?->hasRole(\App\Enums\UserRole::ADMIN);
+        $companyLogoPath = (string) ($companySettings['company_logo_path'] ?? '');
+        $companyLogoUrl = null;
+        if (
+            $companyLogoPath !== ''
+            && \Illuminate\Support\Facades\Storage::disk('public')->exists($companyLogoPath)
+        ) {
+            $companyLogoUrl = route('settings.company.logo');
+        }
     @endphp
 
     @if (session('status'))
@@ -167,7 +175,7 @@
             <p class="text-sm mt-3 text-amber-600">Only admin users can update company details.</p>
         @endunless
 
-        <form method="POST" action="{{ route('settings.company.update') }}" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form method="POST" action="{{ route('settings.company.update') }}" enctype="multipart/form-data" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             @csrf
             <div>
                 <label for="company_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Company Name</label>
@@ -175,6 +183,31 @@
                 @error('company_name')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
+            </div>
+            <div class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                <div class="flex flex-wrap items-start gap-4">
+                    <div class="h-20 w-20 rounded-xl border p-2 flex items-center justify-center overflow-hidden" style="border-color: var(--hr-line); background: #fff;">
+                        @if ($companyLogoUrl)
+                            <img src="{{ $companyLogoUrl }}" alt="Company logo" class="max-h-full max-w-full object-contain">
+                        @else
+                            <span class="text-xs font-semibold text-center leading-tight" style="color: var(--hr-text-muted);">No Logo</span>
+                        @endif
+                    </div>
+                    <div class="flex-1 min-w-[220px]">
+                        <label for="company_logo" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Company Logo</label>
+                        <input id="company_logo" name="company_logo" type="file" accept=".jpg,.jpeg,.png,.webp,.svg" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                        <p class="text-xs mt-2" style="color: var(--hr-text-muted);">Recommended: square logo, PNG/SVG/WebP, max 2MB.</p>
+                        @if ($companyLogoUrl && $canManageCompanyDetails)
+                            <label class="mt-2 inline-flex items-center gap-2 text-xs" style="color: var(--hr-text-muted);">
+                                <input type="checkbox" name="remove_company_logo" value="1" class="rounded border-gray-300">
+                                Remove current logo
+                            </label>
+                        @endif
+                        @error('company_logo')
+                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
             </div>
             <div>
                 <label for="company_code" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Company Code</label>

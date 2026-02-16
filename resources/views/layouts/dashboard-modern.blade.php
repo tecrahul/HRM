@@ -88,9 +88,28 @@
             background: var(--hr-accent-soft);
         }
 
+        .hrm-submenu-toggle {
+            width: 100%;
+            text-align: left;
+        }
+
+        .hrm-submenu-caret {
+            margin-left: auto;
+            transition: transform 160ms ease;
+        }
+
+        .hrm-submenu.is-open .hrm-submenu-caret {
+            transform: rotate(180deg);
+        }
+
         .hrm-modern-shell.is-collapsed .hrm-nav-label,
         .hrm-modern-shell.is-collapsed .hrm-brand-copy,
         .hrm-modern-shell.is-collapsed .hrm-sidebar-foot {
+            display: none;
+        }
+
+        .hrm-modern-shell.is-collapsed .hrm-submenu-links,
+        .hrm-modern-shell.is-collapsed .hrm-submenu-caret {
             display: none;
         }
 
@@ -100,6 +119,56 @@
 
         .hrm-modern-shell.is-collapsed .hrm-modern-nav-link {
             justify-content: center;
+        }
+
+        .hrm-brand-logo-wrap {
+            width: 100%;
+            height: 5rem;
+            border-radius: 1rem;
+            border: 0;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: all 180ms ease;
+        }
+
+        .hrm-brand-logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 0.625rem;
+        }
+
+        .hrm-brand-logo-fallback {
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: var(--hr-accent);
+            transition: all 180ms ease;
+        }
+
+        .hrm-modern-shell.is-collapsed .hrm-brand-logo-wrap {
+            height: 3.25rem;
+            border: 0;
+            background: transparent;
+            border-radius: 0;
+        }
+
+        .hrm-modern-shell.is-collapsed .hrm-brand-logo-img {
+            padding: 0;
+        }
+
+        .hrm-modern-shell.is-collapsed .hrm-brand-logo-fallback {
+            width: 2.25rem;
+            height: 2.25rem;
+            background: transparent;
+            color: var(--hr-text-muted);
         }
 
         .hrm-modern-dot {
@@ -217,6 +286,60 @@
             color: var(--hr-text-main);
         }
 
+        .hrm-notification-menu {
+            position: relative;
+        }
+
+        .hrm-notification-dropdown {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            width: min(360px, 92vw);
+            border-radius: 12px;
+            border: 1px solid var(--hr-line);
+            background: var(--hr-surface-strong);
+            box-shadow: 0 20px 38px -28px rgb(2 8 23 / 0.86);
+            z-index: 90;
+            overflow: hidden;
+        }
+
+        .hrm-notification-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--hr-line);
+        }
+
+        .hrm-notification-list {
+            max-height: 320px;
+            overflow-y: auto;
+            padding: 8px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .hrm-notification-item {
+            border: 1px solid var(--hr-line);
+            border-radius: 10px;
+            padding: 9px;
+            background: var(--hr-surface);
+            display: grid;
+            gap: 6px;
+        }
+
+        .hrm-notification-item.is-unread {
+            border-color: rgb(245 158 11 / 0.45);
+        }
+
+        .hrm-notification-foot {
+            border-top: 1px solid var(--hr-line);
+            padding: 8px 12px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
         .hrm-avatar-online-dot {
             position: absolute;
             right: -1px;
@@ -284,6 +407,12 @@
 
             .ui-kpi-grid.is-5 {
                 grid-template-columns: repeat(5, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 768px) {
+            .ui-kpi-grid.is-3 {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
             }
         }
 
@@ -580,29 +709,45 @@
     $isAdmin = $user?->hasRole(\App\Enums\UserRole::ADMIN->value) ?? false;
     $isEmployee = $user?->hasRole(\App\Enums\UserRole::EMPLOYEE->value) ?? false;
     $dashboardRoute = $user?->dashboardRouteName() ?? 'dashboard';
+    $companySetting = \App\Models\CompanySetting::query()->first(['company_name', 'company_logo_path']);
+    $brandCompanyName = (string) ($companySetting?->company_name ?: config('app.name'));
+    $brandLogoUrl = null;
+    $brandLogoPath = (string) ($companySetting?->company_logo_path ?? '');
+    if (
+        $brandLogoPath !== ''
+        && \Illuminate\Support\Facades\Storage::disk('public')->exists($brandLogoPath)
+    ) {
+        $brandLogoUrl = route('settings.company.logo');
+    }
+    $unreadNotificationsCount = $user ? (int) $user->unreadNotifications()->count() : 0;
+    $headerNotifications = $user
+        ? $user->notifications()->latest()->limit(6)->get()
+        : collect();
 @endphp
 <div id="hrmModernShell" class="hrm-modern-shell">
-    <aside id="hrmModernSidebar" class="hrm-modern-sidebar hrm-modern-surface rounded-r-3xl px-4 py-5 flex flex-col gap-6">
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-                <div class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="7" height="7" rx="2"></rect>
-                        <rect x="14" y="3" width="7" height="7" rx="2"></rect>
-                        <rect x="3" y="14" width="7" height="7" rx="2"></rect>
-                        <rect x="14" y="14" width="7" height="7" rx="2"></rect>
-                    </svg>
-                </div>
-                <div class="hrm-brand-copy">
-                    <p class="text-[11px] uppercase tracking-[0.16em] font-bold" style="color: var(--hr-text-muted);">HR Suite</p>
-                    <h1 class="text-lg font-extrabold tracking-tight">{{ config('app.name') }}</h1>
-                </div>
+    <aside id="hrmModernSidebar" class="hrm-modern-sidebar hrm-modern-surface px-4 py-5 flex flex-col gap-6">
+        <div class="w-full">
+            <div class="hrm-brand-logo-wrap">
+                @if ($brandLogoUrl)
+                    <img src="{{ $brandLogoUrl }}" alt="{{ $brandCompanyName }} logo" class="hrm-brand-logo-img">
+                @else
+                    <span class="hrm-brand-logo-fallback">
+                        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7" rx="2"></rect>
+                            <rect x="14" y="3" width="7" height="7" rx="2"></rect>
+                            <rect x="3" y="14" width="7" height="7" rx="2"></rect>
+                            <rect x="14" y="14" width="7" height="7" rx="2"></rect>
+                        </svg>
+                    </span>
+                @endif
             </div>
-            <button id="hrmSidebarCollapse" type="button" class="hidden lg:inline-flex h-8 w-8 rounded-lg items-center justify-center border" style="border-color: var(--hr-line);">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M15 6l-6 6 6 6"></path>
-                </svg>
-            </button>
+
+            <div class="hrm-brand-copy mt-3 text-center">
+                <p class="text-[11px] uppercase tracking-[0.16em] font-bold" style="color: var(--hr-text-muted);">HR Suite</p>
+                <h1 class="text-lg font-extrabold tracking-tight">{{ $brandCompanyName }}</h1>
+            </div>
+
+            <div class="hrm-brand-copy mt-3 border-t" style="border-color: var(--hr-line);"></div>
         </div>
 
         <nav class="hrm-modern-nav flex flex-col gap-1.5 text-sm font-semibold">
@@ -632,16 +777,6 @@
                     </svg>
                     <span class="hrm-nav-label">Departments</span>
                 </a>
-                <a href="{{ route('modules.holidays.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.holidays.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
-                    <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M8 2v4"></path>
-                        <path d="M16 2v4"></path>
-                        <rect x="3" y="5" width="18" height="16" rx="2"></rect>
-                        <path d="M3 10h18"></path>
-                        <path d="m9.5 14 1.8 1.8 3.2-3.2"></path>
-                    </svg>
-                    <span class="hrm-nav-label">Holidays</span>
-                </a>
                 @if ($isAdmin)
                     <a href="{{ route('modules.branches.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.branches.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
                         <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -654,6 +789,16 @@
                     </a>
                 @endif
             @endif
+            <a href="{{ route('modules.holidays.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.holidays.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 2v4"></path>
+                    <path d="M16 2v4"></path>
+                    <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                    <path d="M3 10h18"></path>
+                    <path d="m9.5 14 1.8 1.8 3.2-3.2"></path>
+                </svg>
+                <span class="hrm-nav-label">Holidays</span>
+            </a>
             <a href="{{ route('modules.employees.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.employees.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
                 <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -680,12 +825,43 @@
                 </svg>
                 <span class="hrm-nav-label">Payroll</span>
             </a>
-            <a href="{{ route('modules.reports.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.reports.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
+            <a href="{{ route('notifications.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('notifications.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
                 <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path>
+                    <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
-                <span class="hrm-nav-label">Reports</span>
+                <span class="hrm-nav-label">Notifications</span>
             </a>
+            @php
+                $reportsMenuOpen = request()->routeIs('modules.reports.*');
+            @endphp
+            <div id="hrmReportsSubmenu" class="hrm-submenu flex flex-col gap-1 {{ $reportsMenuOpen ? 'is-open' : '' }}">
+                <button
+                    id="hrmReportsToggle"
+                    type="button"
+                    class="hrm-modern-nav-link hrm-submenu-toggle {{ $reportsMenuOpen ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3"
+                    aria-controls="hrmReportsLinks"
+                    aria-expanded="{{ $reportsMenuOpen ? 'true' : 'false' }}"
+                >
+                    <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path>
+                    </svg>
+                    <span class="hrm-nav-label">Reports</span>
+                    <svg class="h-4 w-4 shrink-0 hrm-submenu-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m6 9 6 6 6-6"></path>
+                    </svg>
+                </button>
+                <div id="hrmReportsLinks" class="hrm-submenu-links flex flex-col gap-1 {{ $reportsMenuOpen ? '' : 'hidden' }}">
+                    <a href="{{ route('modules.reports.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.reports.index') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                        <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                        <span class="hrm-nav-label">Overview</span>
+                    </a>
+                    <a href="{{ route('modules.reports.activity') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.reports.activity') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                        <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                        <span class="hrm-nav-label">Activity</span>
+                    </a>
+                </div>
+            </div>
             @if ($canManageUsers)
                 <a href="{{ route('settings.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
                     <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -710,6 +886,14 @@
                         <path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path>
                     </svg>
                 </button>
+                <button id="hrmSidebarCollapse" type="button" class="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-xl border" style="border-color: var(--hr-line);" aria-label="Toggle sidebar">
+                    <svg id="hrmSidebarCollapseIcon" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 6l-6 6 6 6"></path>
+                    </svg>
+                    <svg id="hrmSidebarExpandIcon" class="h-5 w-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 6l6 6-6 6"></path>
+                    </svg>
+                </button>
 
                 <div>
                     <p class="text-[11px] uppercase tracking-[0.18em] font-bold" style="color: var(--hr-text-muted);">{{ $roleLabel }} Dashboard</p>
@@ -718,13 +902,68 @@
 
                 <div class="ml-auto flex items-center gap-2 md:gap-3">
                     <div class="flex items-center gap-2">
-                        <button type="button" class="hrm-header-icon-btn" aria-label="Notifications">
-                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                            </svg>
-                            <span class="hrm-header-alert-badge">3</span>
-                        </button>
+                        <div id="hrmNotificationMenu" class="hrm-notification-menu">
+                            <button id="hrmNotificationButton" type="button" class="hrm-header-icon-btn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                                </svg>
+                                @if ($unreadNotificationsCount > 0)
+                                    <span class="hrm-header-alert-badge">{{ min($unreadNotificationsCount, 99) }}</span>
+                                @endif
+                            </button>
+                            <div id="hrmNotificationDropdown" class="hrm-notification-dropdown hidden" role="menu">
+                                <div class="hrm-notification-head">
+                                    <p class="text-sm font-bold">Notifications</p>
+                                    <a href="{{ route('notifications.index') }}" class="text-xs font-semibold" style="color: var(--hr-accent);">View All</a>
+                                </div>
+                                <div class="hrm-notification-list">
+                                    @forelse($headerNotifications as $headerNotification)
+                                        @php
+                                            $payload = (array) $headerNotification->data;
+                                            $title = (string) ($payload['title'] ?? 'Notification');
+                                            $message = (string) ($payload['message'] ?? '');
+                                            $url = (string) ($payload['url'] ?? '');
+                                            $isUnread = $headerNotification->read_at === null;
+                                        @endphp
+                                        <article class="hrm-notification-item {{ $isUnread ? 'is-unread' : '' }}">
+                                            <p class="text-sm font-semibold">{{ $title }}</p>
+                                            <p class="text-xs" style="color: var(--hr-text-muted);">{{ $message }}</p>
+                                            <p class="text-[11px]" style="color: var(--hr-text-muted);">
+                                                {{ $headerNotification->created_at?->format('M d, h:i A') ?? 'N/A' }}
+                                            </p>
+                                            <div class="flex items-center gap-2">
+                                                @if ($url !== '')
+                                                    <a href="{{ $url }}" class="text-xs font-semibold" style="color: var(--hr-accent);">Open</a>
+                                                @endif
+                                                @if ($isUnread)
+                                                    <form method="POST" action="{{ route('notifications.read', $headerNotification->id) }}">
+                                                        @csrf
+                                                        @method('PUT')
+                                                        <button type="submit" class="text-xs font-semibold" style="color: var(--hr-accent);">Mark Read</button>
+                                                    </form>
+                                                @else
+                                                    <form method="POST" action="{{ route('notifications.unread', $headerNotification->id) }}">
+                                                        @csrf
+                                                        @method('PUT')
+                                                        <button type="submit" class="text-xs font-semibold" style="color: var(--hr-text-muted);">Mark Unread</button>
+                                                    </form>
+                                                @endif
+                                            </div>
+                                        </article>
+                                    @empty
+                                        <p class="text-xs px-1 py-2" style="color: var(--hr-text-muted);">No notifications yet.</p>
+                                    @endforelse
+                                </div>
+                                <div class="hrm-notification-foot">
+                                    <form method="POST" action="{{ route('notifications.read-all') }}">
+                                        @csrf
+                                        @method('PUT')
+                                        <button type="submit" class="text-xs font-semibold" style="color: var(--hr-accent);">Mark All Read</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                         <button id="hrmThemeToggle" type="button" class="hrm-header-icon-btn" aria-label="Toggle theme">
                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path>
@@ -777,7 +1016,7 @@
             </div>
         </header>
 
-        <main class="p-4 md:p-6 lg:p-8 space-y-6">
+        <main class="p-4 md:p-6 lg:p-4 space-y-6">
             @yield('content')
         </main>
     </div>
@@ -794,6 +1033,14 @@
         const profileMenu = document.getElementById("hrmProfileMenu");
         const profileMenuButton = document.getElementById("hrmProfileMenuButton");
         const profileDropdown = document.getElementById("hrmProfileDropdown");
+        const notificationMenu = document.getElementById("hrmNotificationMenu");
+        const notificationButton = document.getElementById("hrmNotificationButton");
+        const notificationDropdown = document.getElementById("hrmNotificationDropdown");
+        const sidebarCollapseIcon = document.getElementById("hrmSidebarCollapseIcon");
+        const sidebarExpandIcon = document.getElementById("hrmSidebarExpandIcon");
+        const reportsSubmenu = document.getElementById("hrmReportsSubmenu");
+        const reportsToggle = document.getElementById("hrmReportsToggle");
+        const reportsLinks = document.getElementById("hrmReportsLinks");
 
         const getInitialTheme = () => {
             const storedTheme = localStorage.getItem("hrm-modern-theme");
@@ -822,11 +1069,60 @@
             profileMenuButton.setAttribute("aria-expanded", open ? "true" : "false");
         };
 
+        const setNotificationMenuOpen = (open) => {
+            if (!notificationMenu || !notificationButton || !notificationDropdown) {
+                return;
+            }
+
+            notificationMenu.classList.toggle("is-open", open);
+            notificationDropdown.classList.toggle("hidden", !open);
+            notificationButton.setAttribute("aria-expanded", open ? "true" : "false");
+        };
+
+        const setReportsSubmenuOpen = (open) => {
+            if (!reportsSubmenu || !reportsToggle || !reportsLinks) {
+                return;
+            }
+
+            reportsSubmenu.classList.toggle("is-open", open);
+            reportsLinks.classList.toggle("hidden", !open);
+            reportsToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        };
+
+        const syncSidebarToggleState = () => {
+            if (!shell || !sidebarCollapse || !sidebarCollapseIcon || !sidebarExpandIcon) {
+                return;
+            }
+
+            const collapsed = shell.classList.contains("is-collapsed");
+            sidebarCollapseIcon.classList.toggle("hidden", collapsed);
+            sidebarExpandIcon.classList.toggle("hidden", !collapsed);
+            sidebarCollapse.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+        };
+
         if (profileMenuButton) {
             profileMenuButton.addEventListener("click", (event) => {
                 event.preventDefault();
                 const isOpen = profileMenu?.classList.contains("is-open") ?? false;
+                setNotificationMenuOpen(false);
                 setProfileMenuOpen(!isOpen);
+            });
+        }
+
+        if (notificationButton) {
+            notificationButton.addEventListener("click", (event) => {
+                event.preventDefault();
+                const isOpen = notificationMenu?.classList.contains("is-open") ?? false;
+                setProfileMenuOpen(false);
+                setNotificationMenuOpen(!isOpen);
+            });
+        }
+
+        if (reportsToggle) {
+            reportsToggle.addEventListener("click", (event) => {
+                event.preventDefault();
+                const isOpen = reportsSubmenu?.classList.contains("is-open") ?? false;
+                setReportsSubmenuOpen(!isOpen);
             });
         }
 
@@ -840,6 +1136,7 @@
         if (sidebarCollapse) {
             sidebarCollapse.addEventListener("click", () => {
                 shell.classList.toggle("is-collapsed");
+                syncSidebarToggleState();
             });
         }
 
@@ -861,14 +1158,20 @@
             if (profileMenu && target && !profileMenu.contains(target)) {
                 setProfileMenuOpen(false);
             }
+
+            if (notificationMenu && target && !notificationMenu.contains(target)) {
+                setNotificationMenuOpen(false);
+            }
         });
 
         document.addEventListener("keydown", (event) => {
             if (event.key === "Escape") {
                 setProfileMenuOpen(false);
+                setNotificationMenuOpen(false);
             }
         });
 
+        syncSidebarToggleState();
         applyTheme(getInitialTheme());
     })();
 </script>

@@ -196,7 +196,7 @@ class UserManagementController extends Controller
             "{$createdUser->name} ({$createdUser->email})",
             '#7c3aed',
             $createdUser,
-            ['role' => (string) $createdUser->role]
+            ['role' => $createdUser->role instanceof UserRole ? $createdUser->role->value : (string) $createdUser->role]
         );
 
         return redirect()
@@ -246,7 +246,7 @@ class UserManagementController extends Controller
             "{$user->name} ({$user->email})",
             '#ec4899',
             $user,
-            ['role' => (string) $user->role]
+            ['role' => $user->role instanceof UserRole ? $user->role->value : (string) $user->role]
         );
 
         return redirect()

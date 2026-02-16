@@ -21,7 +21,7 @@
         <article class="hrm-modern-surface rounded-2xl p-5 xl:col-span-1">
             <div class="flex flex-col items-center text-center">
                 <div class="relative group">
-                    <img src="{{ $avatarUrl }}" alt="Profile avatar" class="h-28 w-28 rounded-2xl object-cover border" style="border-color: var(--hr-line);">
+                    <img id="profileAvatarPreview" src="{{ $avatarUrl }}" alt="Profile avatar" class="h-28 w-28 rounded-2xl object-cover border" style="border-color: var(--hr-line);">
                     <label for="avatar" class="absolute inset-0 rounded-2xl flex items-center justify-center text-xs font-semibold text-white cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity" style="background: rgb(2 8 23 / 0.45);">
                         Change Photo
                     </label>
@@ -87,6 +87,10 @@
                 @csrf
                 @method('PUT')
                 <input id="avatar" name="avatar" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" class="hidden">
+                <div id="avatarClientError" class="hidden md:col-span-2 rounded-xl px-3 py-2 text-xs border" style="border-color: #ef444455; background: #ef444412; color: #991b1b;"></div>
+                <p class="md:col-span-2 text-xs" style="color: var(--hr-text-muted);">
+                    Upload image to preview instantly. Crop will open right after selection.
+                </p>
 
                 <div>
                     <label for="name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Full Name</label>
@@ -215,4 +219,325 @@
             </form>
         </article>
     </section>
+
+    <div id="avatarCropModal" class="fixed inset-0 z-[90] hidden items-center justify-center p-4" style="background: rgb(2 8 23 / 0.72);">
+        <div class="w-full max-w-3xl rounded-2xl border p-4 md:p-5" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <h4 class="text-base md:text-lg font-extrabold">Crop Profile Photo</h4>
+                    <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Drag image to reposition and use zoom before applying.</p>
+                </div>
+                <button id="avatarCropClose" type="button" class="rounded-lg px-2 py-1 text-xs font-semibold border" style="border-color: var(--hr-line);">Close</button>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px] gap-4">
+                <div class="rounded-xl border p-3 flex items-center justify-center overflow-hidden" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                    <canvas id="avatarCropCanvas" width="420" height="420" class="w-full max-w-[420px] rounded-xl border touch-none" style="border-color: var(--hr-line);"></canvas>
+                </div>
+
+                <div class="rounded-xl border p-3 space-y-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                    <div>
+                        <label for="avatarZoomRange" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">
+                            Zoom
+                        </label>
+                        <input id="avatarZoomRange" type="range" min="1" max="3" step="0.01" value="1" class="w-full">
+                    </div>
+
+                    <p class="text-xs" style="color: var(--hr-text-muted);">
+                        The cropped image preview updates immediately after clicking Apply.
+                    </p>
+
+                    <div class="flex flex-wrap items-center gap-2 pt-1">
+                        <button id="avatarCropCancel" type="button" class="rounded-xl px-3 py-2 text-sm font-semibold border" style="border-color: var(--hr-line);">
+                            Cancel
+                        </button>
+                        <button id="avatarCropApply" type="button" class="rounded-xl px-3 py-2 text-sm font-semibold text-white" style="background: linear-gradient(120deg, #7c3aed, #ec4899);">
+                            Apply Crop
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
+
+@push('scripts')
+    <script>
+        (() => {
+            const avatarInput = document.getElementById('avatar');
+            const avatarPreview = document.getElementById('profileAvatarPreview');
+            const clientError = document.getElementById('avatarClientError');
+            const cropModal = document.getElementById('avatarCropModal');
+            const cropCanvas = document.getElementById('avatarCropCanvas');
+            const zoomRange = document.getElementById('avatarZoomRange');
+            const cropApply = document.getElementById('avatarCropApply');
+            const cropCancel = document.getElementById('avatarCropCancel');
+            const cropClose = document.getElementById('avatarCropClose');
+
+            if (!avatarInput || !avatarPreview || !cropModal || !cropCanvas || !zoomRange || !cropApply || !cropCancel || !cropClose) {
+                return;
+            }
+
+            const context = cropCanvas.getContext('2d');
+            if (!context) {
+                return;
+            }
+
+            const state = {
+                image: null,
+                scale: 1,
+                minScale: 1,
+                offsetX: 0,
+                offsetY: 0,
+                dragActive: false,
+                dragStartX: 0,
+                dragStartY: 0,
+            };
+
+            let selectedSourceFile = null;
+            let previewObjectUrl = null;
+
+            const showError = (message) => {
+                if (!clientError) {
+                    return;
+                }
+
+                if (!message) {
+                    clientError.classList.add('hidden');
+                    clientError.textContent = '';
+
+                    return;
+                }
+
+                clientError.textContent = message;
+                clientError.classList.remove('hidden');
+            };
+
+            const clampOffsets = () => {
+                if (!state.image) {
+                    return;
+                }
+
+                const drawnWidth = state.image.width * state.scale;
+                const drawnHeight = state.image.height * state.scale;
+                const minX = cropCanvas.width - drawnWidth;
+                const minY = cropCanvas.height - drawnHeight;
+
+                state.offsetX = Math.min(0, Math.max(minX, state.offsetX));
+                state.offsetY = Math.min(0, Math.max(minY, state.offsetY));
+            };
+
+            const renderCropCanvas = () => {
+                context.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+                context.fillStyle = '#0f172a';
+                context.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+                if (!state.image) {
+                    return;
+                }
+
+                const width = state.image.width * state.scale;
+                const height = state.image.height * state.scale;
+                context.drawImage(state.image, state.offsetX, state.offsetY, width, height);
+
+                context.strokeStyle = 'rgba(255,255,255,0.7)';
+                context.lineWidth = 2;
+                context.strokeRect(1, 1, cropCanvas.width - 2, cropCanvas.height - 2);
+            };
+
+            const setModalOpen = (open) => {
+                cropModal.classList.toggle('hidden', !open);
+                cropModal.classList.toggle('flex', open);
+            };
+
+            const resetSelection = () => {
+                selectedSourceFile = null;
+                state.image = null;
+                state.dragActive = false;
+                avatarInput.value = '';
+                setModalOpen(false);
+                renderCropCanvas();
+            };
+
+            const positionForScale = (nextScale) => {
+                const centerX = cropCanvas.width / 2;
+                const centerY = cropCanvas.height / 2;
+                const ratio = nextScale / state.scale;
+
+                state.offsetX = centerX - (centerX - state.offsetX) * ratio;
+                state.offsetY = centerY - (centerY - state.offsetY) * ratio;
+                state.scale = nextScale;
+                clampOffsets();
+                renderCropCanvas();
+            };
+
+            const loadImageForCrop = (file) => {
+                const objectUrl = URL.createObjectURL(file);
+                const image = new Image();
+
+                image.onload = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    state.image = image;
+                    state.minScale = Math.max(cropCanvas.width / image.width, cropCanvas.height / image.height);
+                    state.scale = state.minScale;
+                    state.offsetX = (cropCanvas.width - image.width * state.scale) / 2;
+                    state.offsetY = (cropCanvas.height - image.height * state.scale) / 2;
+                    clampOffsets();
+
+                    const maxScale = Math.max(state.minScale + 0.15, state.minScale * 3);
+                    zoomRange.min = state.minScale.toFixed(2);
+                    zoomRange.max = maxScale.toFixed(2);
+                    zoomRange.step = '0.01';
+                    zoomRange.value = state.scale.toFixed(2);
+
+                    renderCropCanvas();
+                    setModalOpen(true);
+                };
+
+                image.onerror = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    showError('Selected file could not be read as an image.');
+                    resetSelection();
+                };
+
+                image.src = objectUrl;
+            };
+
+            const replaceAvatarFile = (blob) => {
+                const file = new File([blob], `avatar-crop-${Date.now()}.png`, { type: 'image/png' });
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                avatarInput.files = dataTransfer.files;
+
+                if (previewObjectUrl) {
+                    URL.revokeObjectURL(previewObjectUrl);
+                }
+                previewObjectUrl = URL.createObjectURL(blob);
+                avatarPreview.src = previewObjectUrl;
+            };
+
+            avatarInput.addEventListener('change', () => {
+                showError('');
+
+                const file = avatarInput.files?.[0];
+                if (!file) {
+                    return;
+                }
+
+                const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                if (!allowedTypes.includes(file.type)) {
+                    showError('Only JPG, PNG, or WEBP images are allowed.');
+                    resetSelection();
+
+                    return;
+                }
+
+                if (file.size > 4 * 1024 * 1024) {
+                    showError('Image size must be 4MB or less.');
+                    resetSelection();
+
+                    return;
+                }
+
+                selectedSourceFile = file;
+                loadImageForCrop(file);
+            });
+
+            zoomRange.addEventListener('input', () => {
+                if (!state.image) {
+                    return;
+                }
+
+                const nextScale = Number.parseFloat(zoomRange.value);
+                if (Number.isNaN(nextScale) || nextScale <= 0) {
+                    return;
+                }
+
+                positionForScale(nextScale);
+            });
+
+            cropCanvas.addEventListener('pointerdown', (event) => {
+                if (!state.image) {
+                    return;
+                }
+
+                state.dragActive = true;
+                state.dragStartX = event.clientX - state.offsetX;
+                state.dragStartY = event.clientY - state.offsetY;
+                cropCanvas.setPointerCapture(event.pointerId);
+            });
+
+            cropCanvas.addEventListener('pointermove', (event) => {
+                if (!state.dragActive || !state.image) {
+                    return;
+                }
+
+                state.offsetX = event.clientX - state.dragStartX;
+                state.offsetY = event.clientY - state.dragStartY;
+                clampOffsets();
+                renderCropCanvas();
+            });
+
+            window.addEventListener('pointerup', () => {
+                state.dragActive = false;
+            });
+
+            cropCanvas.addEventListener('mouseleave', () => {
+                state.dragActive = false;
+            });
+
+            cropApply.addEventListener('click', () => {
+                if (!state.image || !selectedSourceFile) {
+                    return;
+                }
+
+                const outputCanvas = document.createElement('canvas');
+                outputCanvas.width = 640;
+                outputCanvas.height = 640;
+                const outputContext = outputCanvas.getContext('2d');
+                if (!outputContext) {
+                    showError('Unable to crop image right now. Please try again.');
+
+                    return;
+                }
+
+                const exportScale = outputCanvas.width / cropCanvas.width;
+                outputContext.imageSmoothingEnabled = true;
+                outputContext.imageSmoothingQuality = 'high';
+                outputContext.drawImage(
+                    state.image,
+                    state.offsetX * exportScale,
+                    state.offsetY * exportScale,
+                    state.image.width * state.scale * exportScale,
+                    state.image.height * state.scale * exportScale
+                );
+
+                outputCanvas.toBlob((blob) => {
+                    if (!blob) {
+                        showError('Unable to generate cropped preview. Please try another image.');
+
+                        return;
+                    }
+
+                    replaceAvatarFile(blob);
+                    setModalOpen(false);
+                    showError('');
+                }, 'image/png', 0.92);
+            });
+
+            const cancelCrop = () => {
+                showError('');
+                resetSelection();
+            };
+
+            cropCancel.addEventListener('click', cancelCrop);
+            cropClose.addEventListener('click', cancelCrop);
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && !cropModal.classList.contains('hidden')) {
+                    cancelCrop();
+                }
+            });
+        })();
+    </script>
+@endpush

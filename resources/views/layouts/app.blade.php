@@ -65,14 +65,36 @@
                 <span class="hrm-nav__icon"><x-heroicon-o-calendar-days class="h-4 w-4 text-gold-400" /></span>
                 <span>Leave</span>
             </a>
-            <a href="{{ route('modules.reports.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.*') ? 'is-active' : '' }}">
+            <a href="{{ route('modules.holidays.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.holidays.*') ? 'is-active' : '' }}">
                 <span class="hrm-nav__icon">
                     <svg class="h-4 w-4 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path>
+                        <path d="M8 2v4"></path>
+                        <path d="M16 2v4"></path>
+                        <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                        <path d="M3 10h18"></path>
+                        <path d="m9.5 14 1.8 1.8 3.2-3.2"></path>
                     </svg>
                 </span>
-                <span>Reports</span>
+                <span>Holidays</span>
             </a>
+            <div class="flex flex-col gap-1">
+                <a href="{{ route('modules.reports.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.*') ? 'is-active' : '' }}">
+                    <span class="hrm-nav__icon">
+                        <svg class="h-4 w-4 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path>
+                        </svg>
+                    </span>
+                    <span>Reports</span>
+                </a>
+                <a href="{{ route('modules.reports.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.index') ? 'is-active' : '' }}" style="padding-left: 22px;">
+                    <span class="hrm-nav__dot"></span>
+                    <span>Overview</span>
+                </a>
+                <a href="{{ route('modules.reports.activity') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.activity') ? 'is-active' : '' }}" style="padding-left: 22px;">
+                    <span class="hrm-nav__dot"></span>
+                    <span>Activity</span>
+                </a>
+            </div>
         </nav>
 
         <div class="hrm-sidebar__foot">

@@ -4,6 +4,28 @@
 @section('page_heading', 'My Workspace')
 
 @section('content')
+    @php
+        $attendanceScore = max(0, min(100, (float) $employeeSnapshot['attendanceScore']));
+        $annualAllowance = (float) $employeeSnapshot['approvedLeaveDays'] + (float) $employeeSnapshot['remainingLeave'];
+        $leaveUsedPct = $annualAllowance > 0
+            ? round(min(100, ((float) $employeeSnapshot['approvedLeaveDays'] / $annualAllowance) * 100), 1)
+            : 0.0;
+
+        $payrollStatus = (string) $employeeSnapshot['latestPayrollStatus'];
+        $payrollReadinessPct = match ($payrollStatus) {
+            'paid' => 100.0,
+            'processed' => 75.0,
+            'draft' => 45.0,
+            default => 0.0,
+        };
+
+        $pendingLeaves = max(0, (int) $employeeSnapshot['pendingLeaves']);
+        $leavePendingLoadPct = min(100, (float) ($pendingLeaves * 20));
+
+        $pendingPayslips = max(0, (int) $employeeSnapshot['payrollPending']);
+        $payslipPendingLoadPct = min(100, (float) ($pendingPayslips * 25));
+    @endphp
+
     <section class="ui-hero">
         <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
             <div>
@@ -62,6 +84,78 @@
                 <span class="ui-icon-chip ui-icon-green"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><path d="M7 13l4-4 3 3 5-6"></path></svg></span>
             </div>
             <p class="ui-kpi-meta">Pending payslips {{ $employeeSnapshot['payrollPending'] }}</p>
+        </article>
+    </section>
+
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <article class="ui-section">
+            <div class="ui-section-head">
+                <div>
+                    <h3 class="ui-section-title">My Progress Rings</h3>
+                    <p class="ui-section-subtitle">Attendance and leave usage at a glance.</p>
+                </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="rounded-xl border p-4 flex flex-col items-center text-center" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                    <div class="h-28 w-28 rounded-full p-2" style="background: conic-gradient(#0284c7 0 {{ $attendanceScore }}%, rgb(148 163 184 / 0.2) {{ $attendanceScore }}% 100%);">
+                        <div class="h-full w-full rounded-full flex items-center justify-center" style="background: var(--hr-surface-strong);">
+                            <p class="text-lg font-extrabold">{{ number_format($attendanceScore, 1) }}%</p>
+                        </div>
+                    </div>
+                    <p class="mt-3 text-sm font-semibold">Attendance Score</p>
+                    <p class="text-xs mt-1" style="color: var(--hr-text-muted);">{{ number_format((float) $employeeSnapshot['presentUnits'], 1) }} present units this month</p>
+                </div>
+
+                <div class="rounded-xl border p-4 flex flex-col items-center text-center" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                    <div class="h-28 w-28 rounded-full p-2" style="background: conic-gradient(#d97706 0 {{ $leaveUsedPct }}%, rgb(148 163 184 / 0.2) {{ $leaveUsedPct }}% 100%);">
+                        <div class="h-full w-full rounded-full flex items-center justify-center" style="background: var(--hr-surface-strong);">
+                            <p class="text-lg font-extrabold">{{ number_format($leaveUsedPct, 1) }}%</p>
+                        </div>
+                    </div>
+                    <p class="mt-3 text-sm font-semibold">Annual Leave Used</p>
+                    <p class="text-xs mt-1" style="color: var(--hr-text-muted);">{{ number_format((float) $employeeSnapshot['remainingLeave'], 1) }} days remaining</p>
+                </div>
+            </div>
+        </article>
+
+        <article class="ui-section">
+            <div class="ui-section-head">
+                <div>
+                    <h3 class="ui-section-title">Request And Payroll Signal</h3>
+                    <p class="ui-section-subtitle">Current queue and payroll readiness indicators.</p>
+                </div>
+            </div>
+
+            <div class="mt-4 space-y-4 text-sm">
+                <div>
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <p class="font-semibold">Latest payroll readiness</p>
+                        <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ number_format($payrollReadinessPct, 1) }}%</p>
+                    </div>
+                    <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
+                        <div class="h-full rounded-full" style="width: {{ $payrollReadinessPct }}%; background: #7c3aed;"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <p class="font-semibold">Pending leave load</p>
+                        <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ $pendingLeaves }} request(s)</p>
+                    </div>
+                    <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
+                        <div class="h-full rounded-full" style="width: {{ $leavePendingLoadPct }}%; background: #d97706;"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <p class="font-semibold">Pending payslip load</p>
+                        <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ $pendingPayslips }} cycle(s)</p>
+                    </div>
+                    <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
+                        <div class="h-full rounded-full" style="width: {{ $payslipPendingLoadPct }}%; background: #15803d;"></div>
+                    </div>
+                </div>
+            </div>
         </article>
     </section>
 

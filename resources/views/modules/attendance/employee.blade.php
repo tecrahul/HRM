@@ -34,27 +34,50 @@
                     </p>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
-                <form method="POST" action="{{ route('modules.attendance.check-in') }}">
-                    @csrf
-                    <button
-                        type="submit"
-                        class="ui-btn ui-btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
-                        {{ $canCheckIn ? '' : 'disabled' }}
-                    >
-                        Check In
-                    </button>
-                </form>
-                <form method="POST" action="{{ route('modules.attendance.check-out') }}">
-                    @csrf
-                    <button
-                        type="submit"
-                        class="ui-btn ui-btn-ghost disabled:opacity-60 disabled:cursor-not-allowed"
-                        {{ $canCheckOut ? '' : 'disabled' }}
-                    >
-                        Check Out
-                    </button>
-                </form>
+            <div class="w-full sm:w-auto">
+                @if ($canCheckIn)
+                    <form method="POST" action="{{ route('modules.attendance.check-in') }}" class="space-y-2">
+                        @csrf
+                        <div>
+                            <label for="check_in_notes" class="ui-kpi-label block mb-1">Note (Optional)</label>
+                            <input
+                                id="check_in_notes"
+                                type="text"
+                                name="notes"
+                                value="{{ old('notes') }}"
+                                maxlength="1000"
+                                placeholder="Add a note for check-in"
+                                class="ui-input sm:min-w-[260px]"
+                            >
+                            @error('notes')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <button type="submit" class="ui-btn ui-btn-primary">Check In</button>
+                    </form>
+                @elseif ($canCheckOut)
+                    <form method="POST" action="{{ route('modules.attendance.check-out') }}" class="space-y-2">
+                        @csrf
+                        <div>
+                            <label for="check_out_notes" class="ui-kpi-label block mb-1">Note (Optional)</label>
+                            <input
+                                id="check_out_notes"
+                                type="text"
+                                name="notes"
+                                value="{{ old('notes') }}"
+                                maxlength="1000"
+                                placeholder="Add a note for check-out"
+                                class="ui-input sm:min-w-[260px]"
+                            >
+                            @error('notes')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <button type="submit" class="ui-btn ui-btn-primary">Check Out</button>
+                    </form>
+                @else
+                    <span class="ui-status-chip ui-status-green">Attendance completed for today</span>
+                @endif
             </div>
         </div>
     </section>

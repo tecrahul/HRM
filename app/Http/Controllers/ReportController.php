@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -39,8 +40,6 @@ class ReportController extends Controller
             'q' => ['nullable', 'string', 'max:150'],
             'report_type' => ['nullable', Rule::in(array_keys($reportTypeOptions))],
             'month' => ['nullable', 'date_format:Y-m'],
-            'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'department' => ['nullable', 'string', 'max:120'],
             'branch' => ['nullable', 'string', 'max:120'],
             'employee_id' => [
@@ -56,27 +55,14 @@ class ReportController extends Controller
         $reportType = (string) ($validated['report_type'] ?? 'comprehensive');
         $monthlyCursor = isset($validated['month'])
             ? Carbon::createFromFormat('Y-m', (string) $validated['month'])->startOfMonth()
-            : null;
-
-        if ($this->isMonthlyReport($reportType)) {
-            $monthlyCursor = $monthlyCursor ?? now()->startOfMonth();
-            $from = $monthlyCursor->copy()->startOfMonth()->startOfDay();
-            $to = $monthlyCursor->copy()->endOfMonth()->endOfDay();
-        } else {
-            $from = isset($validated['date_from'])
-                ? Carbon::parse((string) $validated['date_from'])->startOfDay()
-                : now()->startOfMonth()->startOfDay();
-            $to = isset($validated['date_to'])
-                ? Carbon::parse((string) $validated['date_to'])->endOfDay()
-                : now()->endOfMonth()->endOfDay();
-        }
+            : now()->startOfMonth();
+        $from = $monthlyCursor->copy()->startOfMonth()->startOfDay();
+        $to = $monthlyCursor->copy()->endOfMonth()->endOfDay();
 
         $filters = [
             'q' => trim((string) ($validated['q'] ?? '')),
             'report_type' => $reportType,
-            'month' => $monthlyCursor?->format('Y-m') ?? '',
-            'date_from' => $from->toDateString(),
-            'date_to' => $to->toDateString(),
+            'month' => $monthlyCursor->format('Y-m'),
             'department' => trim((string) ($validated['department'] ?? '')),
             'branch' => trim((string) ($validated['branch'] ?? '')),
             'employee_id' => (int) ($validated['employee_id'] ?? 0),
@@ -118,7 +104,10 @@ class ReportController extends Controller
 
         $employeeIds = (clone $employeeQuery)->pluck('id');
         $employeeCount = $employeeIds->count();
-        $periodDays = max(1, $from->diffInDays($to) + 1);
+        $periodDays = max(
+            1,
+            (int) $from->copy()->startOfDay()->diffInDays($to->copy()->startOfDay()) + 1
+        );
 
         $attendanceBase = Attendance::query()
             ->whereIn('user_id', $employeeIds)
@@ -193,31 +182,6 @@ class ReportController extends Controller
                 ->get();
         }
 
-        $activityBaseQuery = null;
-        $activityExportRows = collect();
-        $activities = collect();
-        $activityTotal = 0;
-        if (Schema::hasTable('activities')) {
-            $activityBaseQuery = Activity::query()
-                ->whereBetween('occurred_at', [$from->toDateTimeString(), $to->toDateTimeString()])
-                ->orderByDesc('occurred_at')
-                ->orderByDesc('id');
-
-            if (! $isManagement) {
-                $activityBaseQuery->where('actor_user_id', $viewer->id);
-            }
-
-            $activityTotal = (clone $activityBaseQuery)->count();
-            $activities = (clone $activityBaseQuery)
-                ->with('actor')
-                ->limit(20)
-                ->get();
-            $activityExportRows = (clone $activityBaseQuery)
-                ->with('actor')
-                ->limit(5000)
-                ->get();
-        }
-
         $attendancePresentUnits = (float) ($attendanceTotals?->present_units ?? 0);
         $attendanceTotalRecords = (int) ($attendanceTotals?->total_records ?? 0);
         $attendanceRate = ($employeeCount > 0 && $periodDays > 0)
@@ -238,17 +202,13 @@ class ReportController extends Controller
             'payrollPaidEntries' => (int) ($payrollTotals?->paid_entries ?? 0),
             'payrollNet' => round((float) ($payrollTotals?->net_salary ?? 0), 2),
             'payrollDeductions' => round((float) ($payrollTotals?->total_deductions ?? 0), 2),
-            'activityCount' => $activityTotal,
         ];
 
         if ($filters['export'] === 'csv') {
-            $rows = collect();
-            if ($reportType !== 'activity_monthly') {
-                $allEmployees = (clone $employeeQuery)
-                    ->orderBy('name')
-                    ->get();
-                $rows = $this->buildEmployeeSummaryRows($allEmployees, $from, $to, $payrollEnabled);
-            }
+            $allEmployees = (clone $employeeQuery)
+                ->orderBy('name')
+                ->get();
+            $rows = $this->buildEmployeeSummaryRows($allEmployees, $from, $to, $payrollEnabled);
 
             ActivityLogger::log(
                 $viewer,
@@ -264,10 +224,6 @@ class ReportController extends Controller
                     'to' => $to->toDateString(),
                 ]
             );
-
-            if ($reportType === 'activity_monthly') {
-                return $this->exportActivityCsv($activityExportRows, $from, $to, $reportTypeLabel);
-            }
 
             return $this->exportCsv($rows, $from, $to, $reportType, $reportTypeLabel);
         }
@@ -325,7 +281,7 @@ class ReportController extends Controller
             'isManagement' => $isManagement,
             'filters' => $filters,
             'stats' => $stats,
-            'periodLabel' => $from->format('M d, Y').' to '.$to->format('M d, Y'),
+            'periodLabel' => $monthlyCursor->format('F Y'),
             'reportTypeLabel' => $reportTypeLabel,
             'reportTypeOptions' => $reportTypeOptions,
             'visibleSections' => $visibleSections,
@@ -335,11 +291,194 @@ class ReportController extends Controller
             'leaveStatusBreakdown' => $leaveStatusBreakdown,
             'leaveTypeBreakdown' => $leaveTypeBreakdown,
             'payrollStatusBreakdown' => $payrollStatusBreakdown,
-            'activities' => $activities,
             'payrollEnabled' => $payrollEnabled,
             'departmentOptions' => $departmentOptions,
             'branchOptions' => $branchOptions,
             'employeeOptions' => $employeeOptions,
+        ]);
+    }
+
+    public function activity(Request $request): View
+    {
+        $viewer = $request->user();
+
+        if (! $viewer instanceof User) {
+            abort(403);
+        }
+
+        $isManagement = $viewer->hasAnyRole([
+            UserRole::ADMIN->value,
+            UserRole::HR->value,
+        ]);
+
+        $validated = $request->validate([
+            'from_date' => ['nullable', 'date'],
+            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
+            'q' => ['nullable', 'string', 'max:150'],
+            'event_key' => ['nullable', 'string', 'max:100'],
+            'actor_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
+        ]);
+
+        $defaultFrom = now()->startOfMonth();
+        $defaultTo = now()->endOfMonth();
+
+        $fromDateInput = trim((string) ($validated['from_date'] ?? ''));
+        $toDateInput = trim((string) ($validated['to_date'] ?? ''));
+
+        $resolvedFrom = $fromDateInput !== ''
+            ? Carbon::parse($fromDateInput)->startOfDay()
+            : ($toDateInput !== '' ? Carbon::parse($toDateInput)->startOfDay() : $defaultFrom->copy()->startOfDay());
+        $resolvedTo = $toDateInput !== ''
+            ? Carbon::parse($toDateInput)->endOfDay()
+            : ($fromDateInput !== '' ? Carbon::parse($fromDateInput)->endOfDay() : $defaultTo->copy()->endOfDay());
+
+        $from = $resolvedFrom->copy();
+        $to = $resolvedTo->copy();
+
+        $filters = [
+            'from_date' => $from->toDateString(),
+            'to_date' => $to->toDateString(),
+            'q' => trim((string) ($validated['q'] ?? '')),
+            'event_key' => trim((string) ($validated['event_key'] ?? '')),
+            'actor_user_id' => (int) ($validated['actor_user_id'] ?? 0),
+        ];
+
+        $eventKeyOptions = collect();
+        $actorOptions = collect();
+        $activities = new LengthAwarePaginator(
+            items: collect(),
+            total: 0,
+            perPage: 20,
+            currentPage: 1,
+            options: ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        $stats = [
+            'total' => 0,
+            'uniqueActors' => 0,
+            'systemEvents' => 0,
+        ];
+
+        if (Schema::hasTable('activities')) {
+            $optionsQuery = Activity::query()
+                ->whereBetween('occurred_at', [$from->toDateTimeString(), $to->toDateTimeString()]);
+
+            if (! $isManagement) {
+                $optionsQuery->where('actor_user_id', $viewer->id);
+            }
+
+            $eventKeyOptions = (clone $optionsQuery)
+                ->whereNotNull('event_key')
+                ->where('event_key', '!=', '')
+                ->select('event_key')
+                ->distinct()
+                ->orderBy('event_key')
+                ->pluck('event_key');
+
+            if ($isManagement) {
+                $actorIds = (clone $optionsQuery)
+                    ->whereNotNull('actor_user_id')
+                    ->select('actor_user_id')
+                    ->distinct()
+                    ->pluck('actor_user_id')
+                    ->map(fn ($value): int => (int) $value)
+                    ->filter(fn (int $value): bool => $value > 0)
+                    ->values();
+
+                $actorOptions = User::query()
+                    ->whereIn('id', $actorIds)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'email']);
+            }
+
+            $activityQuery = Activity::query()
+                ->with('actor')
+                ->whereBetween('occurred_at', [$from->toDateTimeString(), $to->toDateTimeString()]);
+
+            if (! $isManagement) {
+                $activityQuery->where('actor_user_id', $viewer->id);
+            }
+
+            if ($filters['q'] !== '') {
+                $activityQuery->where(function (Builder $query) use ($filters): void {
+                    $query
+                        ->where('title', 'like', "%{$filters['q']}%")
+                        ->orWhere('meta', 'like', "%{$filters['q']}%")
+                        ->orWhere('event_key', 'like', "%{$filters['q']}%")
+                        ->orWhereHas('actor', function (Builder $actorQuery) use ($filters): void {
+                            $actorQuery->where('name', 'like', "%{$filters['q']}%");
+                        });
+                });
+            }
+
+            if ($filters['event_key'] !== '') {
+                $activityQuery->where('event_key', $filters['event_key']);
+            }
+
+            if ($isManagement && $filters['actor_user_id'] > 0) {
+                $activityQuery->where('actor_user_id', $filters['actor_user_id']);
+            }
+
+            $stats['total'] = (clone $activityQuery)->count();
+            $stats['uniqueActors'] = (clone $activityQuery)
+                ->whereNotNull('actor_user_id')
+                ->distinct('actor_user_id')
+                ->count('actor_user_id');
+            $stats['systemEvents'] = (clone $activityQuery)
+                ->whereNull('actor_user_id')
+                ->count();
+
+            $activities = (clone $activityQuery)
+                ->orderByDesc('occurred_at')
+                ->orderByDesc('id')
+                ->paginate(20)
+                ->withQueryString();
+        }
+
+        return view('modules.reports.activity', [
+            'filters' => $filters,
+            'stats' => $stats,
+            'activities' => $activities,
+            'eventKeyOptions' => $eventKeyOptions,
+            'actorOptions' => $actorOptions,
+            'isManagement' => $isManagement,
+            'periodLabel' => $from->format('M d, Y').' - '.$to->format('M d, Y'),
+        ]);
+    }
+
+    public function activityShow(Request $request, Activity $activity): View
+    {
+        $viewer = $request->user();
+
+        if (! $viewer instanceof User) {
+            abort(403);
+        }
+
+        $isManagement = $viewer->hasAnyRole([
+            UserRole::ADMIN->value,
+            UserRole::HR->value,
+        ]);
+
+        if (! $isManagement && (int) $activity->actor_user_id !== (int) $viewer->id) {
+            abort(403);
+        }
+
+        $activity->loadMissing(['actor', 'subject']);
+
+        $backFilters = $request->only([
+            'from_date',
+            'to_date',
+            'q',
+            'event_key',
+            'actor_user_id',
+            'page',
+        ]);
+        $backFilters = array_filter($backFilters, fn ($value): bool => filled($value));
+        $backUrl = route('modules.reports.activity', $backFilters);
+
+        return view('modules.reports.activity-show', [
+            'activity' => $activity,
+            'backUrl' => $backUrl,
         ]);
     }
 
@@ -490,48 +629,6 @@ class ReportController extends Controller
     }
 
     /**
-     * @param Collection<int, Activity> $activities
-     */
-    private function exportActivityCsv(
-        Collection $activities,
-        Carbon $from,
-        Carbon $to,
-        string $reportTypeLabel
-    ): StreamedResponse {
-        $filename = sprintf(
-            'hr-activity-report-%s-to-%s.csv',
-            $from->format('Ymd'),
-            $to->format('Ymd')
-        );
-
-        return response()->streamDownload(function () use ($activities, $from, $to, $reportTypeLabel): void {
-            $handle = fopen('php://output', 'wb');
-            if ($handle === false) {
-                return;
-            }
-
-            fputcsv($handle, ['Report Type', $reportTypeLabel]);
-            fputcsv($handle, ['Report Period', $from->toDateString().' to '.$to->toDateString()]);
-            fputcsv($handle, []);
-            fputcsv($handle, ['Time', 'Actor', 'Title', 'Meta', 'Event Key']);
-
-            foreach ($activities as $activity) {
-                fputcsv($handle, [
-                    $activity->occurred_at?->toDateTimeString() ?? '',
-                    $activity->actor?->name ?? 'System',
-                    (string) $activity->title,
-                    (string) ($activity->meta ?? ''),
-                    (string) ($activity->event_key ?? ''),
-                ]);
-            }
-
-            fclose($handle);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
-    }
-
-    /**
      * @return array<string, string>
      */
     private function reportTypeOptions(): array
@@ -541,18 +638,7 @@ class ReportController extends Controller
             'attendance_monthly' => 'Monthly Attendance',
             'leave_monthly' => 'Monthly Leave',
             'payroll_monthly' => 'Monthly Payroll',
-            'activity_monthly' => 'Monthly Activity',
         ];
-    }
-
-    private function isMonthlyReport(string $reportType): bool
-    {
-        return in_array($reportType, [
-            'attendance_monthly',
-            'leave_monthly',
-            'payroll_monthly',
-            'activity_monthly',
-        ], true);
     }
 
     /**
@@ -564,8 +650,7 @@ class ReportController extends Controller
             'attendance_monthly' => ['attendance', 'employee_summary'],
             'leave_monthly' => ['leave', 'employee_summary'],
             'payroll_monthly' => ['payroll', 'employee_summary'],
-            'activity_monthly' => ['activity'],
-            default => ['attendance', 'leave', 'payroll', 'employee_summary', 'activity'],
+            default => ['attendance', 'leave', 'payroll', 'employee_summary'],
         };
     }
 

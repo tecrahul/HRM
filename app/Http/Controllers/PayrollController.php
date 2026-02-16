@@ -10,6 +10,7 @@ use App\Models\PayrollStructure;
 use App\Models\User;
 use App\Support\ActivityLogger;
 use App\Support\HolidayCalendar;
+use App\Support\NotificationCenter;
 use Carbon\Carbon;
 use DomainException;
 use Illuminate\Contracts\View\View;
@@ -132,6 +133,18 @@ class PayrollController extends Controller
             $payroll
         );
 
+        if ($payroll instanceof Payroll) {
+            NotificationCenter::notifyUser(
+                $employee,
+                "payroll.generated.{$employee->id}.{$monthStart->format('Y-m')}",
+                $result['updated'] ? 'Payroll recalculated' : 'Payroll generated',
+                "Payroll for {$monthStart->format('M Y')} is now available.",
+                route('modules.payroll.index'),
+                'info',
+                0
+            );
+        }
+
         return redirect()
             ->route('modules.payroll.index')
             ->with('status', $result['updated'] ? 'Payroll recalculated successfully.' : 'Payroll generated successfully.');
@@ -253,6 +266,18 @@ class PayrollController extends Controller
             $payroll,
             ['status' => (string) $payroll->status]
         );
+
+        if ($payroll->user instanceof User) {
+            NotificationCenter::notifyUser(
+                $payroll->user,
+                "payroll.status.{$payroll->id}.{$payroll->status}",
+                "Payroll {$statusLabel}",
+                "Your payroll status for {$payroll->payroll_month?->format('M Y')} is now {$statusLabel}.",
+                route('modules.payroll.index'),
+                $payroll->status === Payroll::STATUS_PAID ? 'success' : 'warning',
+                0
+            );
+        }
 
         return redirect()
             ->route('modules.payroll.index')

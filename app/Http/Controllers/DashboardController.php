@@ -23,6 +23,7 @@ class DashboardController extends BaseController
         return view('dashboard.admin', [
             ...$this->sharedDashboardData(),
             'latestUsers' => $this->latestUsers(),
+            'adminCharts' => $this->adminCharts(),
         ]);
     }
 
@@ -254,6 +255,129 @@ class DashboardController extends BaseController
             'payrollPaidMonth' => $payrollPaid,
             'payrollPendingMonth' => max(0, $payrollGenerated - $payrollPaid),
             'payrollNetMonth' => $payrollNetMonth,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function adminCharts(): array
+    {
+        $employeeIds = User::query()
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->pluck('id');
+        $employeeCount = $employeeIds->count();
+
+        $periodEnd = now()->startOfDay();
+        $periodStart = $periodEnd->copy()->subDays(13);
+
+        $dayBuckets = collect(range(0, 13))
+            ->mapWithKeys(function (int $offset) use ($periodStart): array {
+                $day = $periodStart->copy()->addDays($offset);
+                $key = $day->toDateString();
+
+                return [
+                    $key => [
+                        'date' => $day,
+                        'attendance_marked' => 0,
+                        'present_units' => 0.0,
+                        'leave_created' => 0,
+                        'leave_approved' => 0,
+                    ],
+                ];
+            });
+
+        if ($employeeCount > 0) {
+            $attendanceRows = Attendance::query()
+                ->whereIn('user_id', $employeeIds)
+                ->whereBetween('attendance_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
+                ->selectRaw('DATE(attendance_date) as day')
+                ->selectRaw('COUNT(*) as marked_count')
+                ->selectRaw("COALESCE(SUM(CASE WHEN status IN ('present', 'remote') THEN 1 WHEN status = 'half_day' THEN 0.5 ELSE 0 END), 0) as present_units")
+                ->groupBy('day')
+                ->get();
+
+            foreach ($attendanceRows as $row) {
+                $key = (string) ($row->day ?? '');
+                if ($key === '' || ! $dayBuckets->has($key)) {
+                    continue;
+                }
+
+                $bucket = (array) $dayBuckets->get($key);
+                $bucket['attendance_marked'] = (int) ($row->marked_count ?? 0);
+                $bucket['present_units'] = round((float) ($row->present_units ?? 0), 1);
+                $dayBuckets->put($key, $bucket);
+            }
+
+            $leaveRows = LeaveRequest::query()
+                ->whereIn('user_id', $employeeIds)
+                ->whereBetween('created_at', [$periodStart->startOfDay(), $periodEnd->copy()->endOfDay()])
+                ->selectRaw('DATE(created_at) as day')
+                ->selectRaw('COUNT(*) as request_count')
+                ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count")
+                ->groupBy('day')
+                ->get();
+
+            foreach ($leaveRows as $row) {
+                $key = (string) ($row->day ?? '');
+                if ($key === '' || ! $dayBuckets->has($key)) {
+                    continue;
+                }
+
+                $bucket = (array) $dayBuckets->get($key);
+                $bucket['leave_created'] = (int) ($row->request_count ?? 0);
+                $bucket['leave_approved'] = (int) ($row->approved_count ?? 0);
+                $dayBuckets->put($key, $bucket);
+            }
+        }
+
+        $days = $dayBuckets->values()
+            ->map(function (array $item) use ($employeeCount): array {
+                $date = $item['date'];
+                $presentUnits = (float) ($item['present_units'] ?? 0);
+                $coverage = $employeeCount > 0
+                    ? round(min(100, max(0, ($presentUnits / $employeeCount) * 100)), 1)
+                    : 0.0;
+
+                return [
+                    'iso' => $date->toDateString(),
+                    'label' => $date->format('M d'),
+                    'short_label' => $date->format('d M'),
+                    'attendance_marked' => (int) ($item['attendance_marked'] ?? 0),
+                    'present_units' => $presentUnits,
+                    'attendance_coverage' => $coverage,
+                    'leave_created' => (int) ($item['leave_created'] ?? 0),
+                    'leave_approved' => (int) ($item['leave_approved'] ?? 0),
+                ];
+            })
+            ->values();
+
+        $avgCoverage = round((float) ($days->avg('attendance_coverage') ?? 0), 1);
+        $latestCoverage = (float) ($days->last()['attendance_coverage'] ?? 0);
+        $bestCoverage = (float) ($days->max('attendance_coverage') ?? 0);
+        $leaveTotal = (int) $days->sum('leave_created');
+        $leaveApproved = (int) $days->sum('leave_approved');
+        $leavePeak = (int) max(1, (int) ($days->max('leave_created') ?? 1));
+        $leaveApprovalRate = $leaveTotal > 0
+            ? round(($leaveApproved / $leaveTotal) * 100, 1)
+            : 0.0;
+
+        return [
+            'periodLabel' => "{$periodStart->format('M d')} - {$periodEnd->format('M d')}",
+            'employeeCount' => $employeeCount,
+            'days' => $days,
+            'attendance' => [
+                'averageCoverage' => $avgCoverage,
+                'latestCoverage' => $latestCoverage,
+                'bestCoverage' => $bestCoverage,
+                'latestMarked' => (int) ($days->last()['attendance_marked'] ?? 0),
+            ],
+            'leave' => [
+                'totalRequests' => $leaveTotal,
+                'approvedRequests' => $leaveApproved,
+                'approvalRate' => $leaveApprovalRate,
+                'peakRequests' => $leavePeak,
+            ],
         ];
     }
 

@@ -260,7 +260,6 @@
 
 @section('content')
     @php
-        $dashboardRoute = auth()->user()?->dashboardRouteName() ?? 'dashboard';
         $viewMode = in_array((string) request()->query('view', 'grid'), ['grid', 'list'], true)
             ? (string) request()->query('view', 'grid')
             : 'grid';
@@ -272,7 +271,6 @@
         $resolvedSelectedId = in_array($preferredSelectedId, $employeeIdsOnPage, true)
             ? $preferredSelectedId
             : ($employeeIdsOnPage[0] ?? null);
-        $maxDepartmentCount = (int) ($departmentBreakdown->max('employee_count') ?? 0);
     @endphp
 
     <div class="emp-admin-theme space-y-6">
@@ -288,32 +286,21 @@
             </section>
         @endif
 
-        <section class="emp-admin-hero rounded-3xl px-5 py-5 md:px-6 md:py-6">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                    <p class="text-sm font-semibold tracking-[0.02em] emp-main-text">{{ number_format((int) ($stats['total'] ?? 0)) }} Employee</p>
-                    <h3 class="mt-1 text-2xl md:text-3xl font-extrabold tracking-tight emp-main-text">Employees Dashboard</h3>
-                    <p class="mt-2 text-sm emp-muted inline-flex items-center gap-2">
-                        <a href="{{ route($dashboardRoute) }}" class="hover:text-sky-500 transition-colors">Dashboard</a>
-                        <span>/</span>
-                        <span class="emp-main-text">Employee</span>
-                    </p>
-                </div>
-                @if ($canManageUsers)
-                    <a
-                        href="{{ route('admin.users.create', ['role' => \App\Enums\UserRole::EMPLOYEE->value]) }}"
-                        class="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/35"
-                        style="background: linear-gradient(135deg, #1d4ed8, #38bdf8);"
-                    >
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 5v14"></path>
-                            <path d="M5 12h14"></path>
-                        </svg>
-                        + Add Employee
-                    </a>
-                @endif
-            </div>
-        </section>
+        @if ($canManageUsers)
+            <section class="flex justify-end">
+                <a
+                    href="{{ route('admin.users.create', ['role' => \App\Enums\UserRole::EMPLOYEE->value]) }}"
+                    class="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/35"
+                    style="background: linear-gradient(135deg, #1d4ed8, #38bdf8);"
+                >
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14"></path>
+                        <path d="M5 12h14"></path>
+                    </svg>
+                    + Add Employee
+                </a>
+            </section>
+        @endif
 
         <section class="emp-toolbar rounded-3xl p-4 md:p-5">
             <form id="employeeFiltersForm" method="GET" action="{{ route('modules.employees.index') }}" class="space-y-4">
@@ -606,29 +593,76 @@
                 <p class="text-xs uppercase tracking-[0.08em] emp-muted">Live distribution</p>
             </div>
 
-            <div class="mt-4 space-y-3">
-                @forelse ($departmentBreakdown as $departmentRow)
-                    @php
-                        $departmentCount = (int) $departmentRow->employee_count;
-                        $barWidth = $maxDepartmentCount > 0
-                            ? max(6, (int) round(($departmentCount / $maxDepartmentCount) * 100))
-                            : 0;
-                    @endphp
-                    <div class="rounded-xl border p-3" style="border-color: var(--emp-card-border); background: var(--emp-control-bg);">
-                        <div class="flex items-center justify-between gap-3 text-sm">
-                            <p class="font-semibold emp-main-text">{{ $departmentRow->department_label }}</p>
-                            <p class="font-semibold text-sky-400">{{ $departmentCount }}</p>
-                        </div>
-                        <div class="mt-2 h-2 w-full overflow-hidden rounded-full" style="background: var(--emp-panel-border);">
-                            <div class="emp-breakdown-bar h-2 rounded-full" style="width: {{ $barWidth }}%;"></div>
+            @php
+                $departmentPalette = ['#38bdf8', '#22c55e', '#f59e0b', '#a78bfa', '#f97316', '#06b6d4', '#ef4444', '#84cc16'];
+                $departmentItems = $departmentBreakdown
+                    ->values()
+                    ->map(function ($departmentRow, int $index) use ($departmentPalette): array {
+                        return [
+                            'label' => (string) $departmentRow->department_label,
+                            'count' => (int) $departmentRow->employee_count,
+                            'color' => $departmentPalette[$index % count($departmentPalette)],
+                        ];
+                    });
+                $departmentTotal = (int) $departmentItems->sum('count');
+                $departmentConicSegments = [];
+                $sliceStart = 0.0;
+
+                foreach ($departmentItems as $index => $item) {
+                    $isLast = $index === ($departmentItems->count() - 1);
+                    $slicePercent = $departmentTotal > 0
+                        ? round(((int) $item['count'] / $departmentTotal) * 100, 2)
+                        : 0.0;
+                    $sliceEnd = $isLast ? 100.0 : min(100.0, $sliceStart + $slicePercent);
+                    $departmentConicSegments[] = "{$item['color']} {$sliceStart}% {$sliceEnd}%";
+                    $sliceStart = $sliceEnd;
+                }
+
+                $pieBackground = $departmentItems->isNotEmpty()
+                    ? 'conic-gradient('.implode(', ', $departmentConicSegments).')'
+                    : 'conic-gradient(rgb(125 144 168 / 0.3) 0 100%)';
+            @endphp
+
+            @if ($departmentItems->isNotEmpty())
+                <div class="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+                    <div class="flex justify-center xl:justify-start">
+                        <div class="h-56 w-56 rounded-full p-4" style="background: {{ $pieBackground }};">
+                            <div class="h-full w-full rounded-full flex flex-col items-center justify-center text-center" style="background: var(--emp-control-bg); border: 1px solid var(--emp-card-border);">
+                                <p class="text-[11px] uppercase tracking-[0.12em] emp-muted font-bold">Departments</p>
+                                <p class="mt-1 text-3xl font-extrabold emp-main-text">{{ $departmentItems->count() }}</p>
+                                <p class="text-xs emp-muted mt-1">{{ number_format($departmentTotal) }} Employees</p>
+                            </div>
                         </div>
                     </div>
-                @empty
-                    <p class="rounded-xl border border-dashed p-4 text-sm emp-muted" style="border-color: var(--emp-card-border); background: var(--emp-control-bg);">
-                        Department distribution will appear once profiles are assigned.
-                    </p>
-                @endforelse
-            </div>
+
+                    <div class="space-y-3">
+                        @foreach ($departmentItems as $departmentItem)
+                            @php
+                                $share = $departmentTotal > 0
+                                    ? round(((int) $departmentItem['count'] / $departmentTotal) * 100, 1)
+                                    : 0.0;
+                            @endphp
+                            <div class="rounded-xl border p-3" style="border-color: var(--emp-card-border); background: var(--emp-control-bg);">
+                                <div class="flex items-center justify-between gap-3 text-sm">
+                                    <p class="font-semibold emp-main-text inline-flex items-center gap-2">
+                                        <span class="h-2.5 w-2.5 rounded-full" style="background: {{ $departmentItem['color'] }};"></span>
+                                        {{ $departmentItem['label'] }}
+                                    </p>
+                                    <p class="font-semibold" style="color: {{ $departmentItem['color'] }};">{{ (int) $departmentItem['count'] }}</p>
+                                </div>
+                                <div class="mt-2 h-2 w-full overflow-hidden rounded-full" style="background: var(--emp-panel-border);">
+                                    <div class="h-2 rounded-full" style="width: {{ $share }}%; background: {{ $departmentItem['color'] }};"></div>
+                                </div>
+                                <p class="mt-1 text-xs emp-muted">{{ number_format($share, 1) }}%</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @else
+                <p class="mt-4 rounded-xl border border-dashed p-4 text-sm emp-muted" style="border-color: var(--emp-card-border); background: var(--emp-control-bg);">
+                    Department distribution will appear once profiles are assigned.
+                </p>
+            @endif
         </section>
     </div>
 @endsection

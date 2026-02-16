@@ -8,6 +8,7 @@ use App\Models\Holiday;
 use App\Models\User;
 use App\Support\ActivityLogger;
 use App\Support\FinancialYear;
+use App\Support\NotificationCenter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -18,9 +19,9 @@ class HolidayController extends Controller
 {
     public function index(Request $request): View
     {
-        $this->ensureManagementAccess($request);
+        $viewer = $this->ensureViewAccess($request);
+        $canManageHolidays = $viewer->hasAnyRole([UserRole::ADMIN->value, UserRole::HR->value]);
 
-        $search = (string) $request->string('q');
         $branchId = (int) $request->integer('branch_id');
         $fy = (int) $request->integer('fy', FinancialYear::currentStartYear());
         if ($fy < 2000 || $fy > 2100) {
@@ -34,16 +35,6 @@ class HolidayController extends Controller
         $holidays = Holiday::query()
             ->with(['branch', 'createdBy'])
             ->withinDateRange($rangeStart, $rangeEnd)
-            ->when($search !== '', function (Builder $query) use ($search): void {
-                $query->where(function (Builder $innerQuery) use ($search): void {
-                    $innerQuery
-                        ->where('name', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhereHas('branch', function (Builder $branchQuery) use ($search): void {
-                            $branchQuery->where('name', 'like', "%{$search}%");
-                        });
-                });
-            })
             ->when($branchId > 0, function (Builder $query) use ($branchId): void {
                 $query->where('branch_id', $branchId);
             })
@@ -55,16 +46,14 @@ class HolidayController extends Controller
         $baseQuery = Holiday::query()->withinDateRange($rangeStart, $rangeEnd);
         $branches = Branch::query()->orderBy('name')->get();
 
-        $currentFy = FinancialYear::currentStartYear();
-        $fyOptions = collect(range($currentFy - 2, $currentFy + 2))
-            ->mapWithKeys(fn (int $startYear): array => [$startYear => FinancialYear::label($startYear)])
-            ->all();
+        $fyOptions = $this->financialYearOptions();
 
         return view('modules.holidays.index', [
             'holidays' => $holidays,
             'branches' => $branches,
             'fyOptions' => $fyOptions,
             'selectedFy' => $fy,
+            'canManageHolidays' => $canManageHolidays,
             'financialYearStartMonth' => FinancialYear::startMonth(),
             'financialYearStartMonthLabel' => FinancialYear::monthLabel(FinancialYear::startMonth()),
             'rangeStart' => $range['start'],
@@ -76,7 +65,6 @@ class HolidayController extends Controller
                 'optional' => (clone $baseQuery)->where('is_optional', true)->count(),
             ],
             'filters' => [
-                'q' => $search,
                 'branch_id' => $branchId > 0 ? (string) $branchId : '',
                 'fy' => (string) $fy,
             ],
@@ -117,6 +105,16 @@ class HolidayController extends Controller
             $holiday
         );
 
+        NotificationCenter::notifyRoles(
+            [UserRole::ADMIN->value, UserRole::HR->value, UserRole::EMPLOYEE->value],
+            "holiday.created.{$holiday->id}",
+            'Holiday calendar updated',
+            "{$holiday->name} was added to the holiday calendar.",
+            route('modules.holidays.index'),
+            'info',
+            0
+        );
+
         return redirect()
             ->route('modules.holidays.index', ['fy' => (string) $request->string('fy')])
             ->with('status', 'Holiday created successfully.');
@@ -125,10 +123,15 @@ class HolidayController extends Controller
     public function edit(Request $request, Holiday $holiday): View
     {
         $this->ensureManagementAccess($request);
+        $selectedFy = (int) $request->integer(
+            'fy',
+            FinancialYear::currentStartYear($holiday->holiday_date?->copy() ?? now())
+        );
 
         return view('modules.holidays.edit', [
             'holiday' => $holiday,
             'branches' => Branch::query()->orderBy('name')->get(),
+            'selectedFy' => $selectedFy,
         ]);
     }
 
@@ -140,7 +143,10 @@ class HolidayController extends Controller
         $branchId = blank($validated['branch_id'] ?? null) ? null : (int) $validated['branch_id'];
         if ($this->duplicateExists((string) $validated['name'], (string) $validated['holiday_date'], $branchId, (int) $holiday->id)) {
             return redirect()
-                ->route('modules.holidays.edit', $holiday)
+                ->route('modules.holidays.edit', [
+                    'holiday' => $holiday,
+                    'fy' => (string) $request->string('fy'),
+                ])
                 ->withErrors(['name' => 'A holiday with this name and date already exists for the selected scope.'])
                 ->withInput();
         }
@@ -165,8 +171,23 @@ class HolidayController extends Controller
             $holiday
         );
 
+        NotificationCenter::notifyRoles(
+            [UserRole::ADMIN->value, UserRole::HR->value, UserRole::EMPLOYEE->value],
+            "holiday.updated.{$holiday->id}",
+            'Holiday calendar updated',
+            "{$holiday->name} was updated in the holiday calendar.",
+            route('modules.holidays.index'),
+            'info',
+            0
+        );
+
+        $selectedFy = (int) $request->integer(
+            'fy',
+            FinancialYear::currentStartYear($holiday->holiday_date?->copy() ?? now())
+        );
+
         return redirect()
-            ->route('modules.holidays.index')
+            ->route('modules.holidays.index', ['fy' => $selectedFy])
             ->with('status', 'Holiday updated successfully.');
     }
 
@@ -187,8 +208,23 @@ class HolidayController extends Controller
             null
         );
 
+        NotificationCenter::notifyRoles(
+            [UserRole::ADMIN->value, UserRole::HR->value, UserRole::EMPLOYEE->value],
+            'holiday.deleted',
+            'Holiday calendar updated',
+            "{$name} ({$date}) was removed from the holiday calendar.",
+            route('modules.holidays.index'),
+            'warning',
+            10
+        );
+
+        $selectedFy = (int) $request->integer(
+            'fy',
+            FinancialYear::currentStartYear($holiday->holiday_date?->copy() ?? now())
+        );
+
         return redirect()
-            ->route('modules.holidays.index')
+            ->route('modules.holidays.index', ['fy' => $selectedFy])
             ->with('status', 'Holiday deleted successfully.');
     }
 
@@ -233,5 +269,34 @@ class HolidayController extends Controller
         }
 
         return $viewer;
+    }
+
+    private function ensureViewAccess(Request $request): User
+    {
+        $viewer = $request->user();
+
+        if (! $viewer instanceof User || ! $viewer->hasAnyRole([
+            UserRole::ADMIN->value,
+            UserRole::HR->value,
+            UserRole::EMPLOYEE->value,
+        ])) {
+            abort(403, 'You do not have access to this resource.');
+        }
+
+        return $viewer;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function financialYearOptions(): array
+    {
+        $currentFy = FinancialYear::currentStartYear();
+        $startYear = max(2000, $currentFy - 10);
+        $endYear = min(2100, $currentFy + 2);
+
+        return collect(range($startYear, $endYear))
+            ->mapWithKeys(fn (int $startYear): array => [$startYear => FinancialYear::label($startYear)])
+            ->all();
     }
 }

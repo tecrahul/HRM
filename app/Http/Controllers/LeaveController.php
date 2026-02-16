@@ -9,6 +9,7 @@ use App\Models\LeaveRequest;
 use App\Models\User;
 use App\Models\UserProfile;
 use App\Support\ActivityLogger;
+use App\Support\NotificationCenter;
 use App\Support\HolidayCalendar;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
@@ -141,6 +142,30 @@ class LeaveController extends Controller
             ]
         );
 
+        if ($isManagement && $targetUser instanceof User) {
+            NotificationCenter::notifyUser(
+                $targetUser,
+                "leave.assigned.{$leaveRequest->id}",
+                'Leave assigned',
+                "A leave request was assigned and approved for {$leaveRequest->start_date?->format('M d, Y')}.",
+                route('modules.leave.index'),
+                'success',
+                0
+            );
+        }
+
+        if (! $isManagement) {
+            NotificationCenter::notifyRoles(
+                [UserRole::ADMIN->value, UserRole::HR->value],
+                "leave.requested.{$leaveRequest->id}",
+                'New leave request',
+                "{$targetName} submitted a leave request for review.",
+                route('modules.leave.review.form', $leaveRequest),
+                'warning',
+                0
+            );
+        }
+
         return redirect()
             ->route('modules.leave.index')
             ->with('status', $isManagement ? 'Leave assigned successfully.' : 'Leave request submitted successfully.');
@@ -157,13 +182,13 @@ class LeaveController extends Controller
 
         if ($leaveRequest->status !== LeaveRequest::STATUS_PENDING) {
             return redirect()
-                ->route('modules.leave.index')
+                ->route('modules.leave.review.form', $leaveRequest)
                 ->with('error', 'Only pending leave requests can be reviewed.');
         }
 
         if ($validated['status'] === LeaveRequest::STATUS_REJECTED && blank($validated['review_note'] ?? null)) {
             return redirect()
-                ->route('modules.leave.index')
+                ->route('modules.leave.review.form', $leaveRequest)
                 ->withErrors(['review_note' => 'Review note is required when rejecting a leave request.'])
                 ->withInput();
         }
@@ -187,9 +212,39 @@ class LeaveController extends Controller
             $leaveRequest
         );
 
+        $reviewedUser = $leaveRequest->user;
+        if ($reviewedUser instanceof User) {
+            NotificationCenter::notifyUser(
+                $reviewedUser,
+                "leave.reviewed.{$leaveRequest->id}.{$leaveRequest->status}",
+                "Leave {$statusLabel}",
+                "Your leave request has been {$statusLabel}.",
+                route('modules.leave.index'),
+                $leaveRequest->status === LeaveRequest::STATUS_APPROVED ? 'success' : 'warning',
+                0
+            );
+        }
+
         return redirect()
             ->route('modules.leave.index')
             ->with('status', 'Leave request reviewed successfully.');
+    }
+
+    public function reviewPage(Request $request, LeaveRequest $leaveRequest): View|RedirectResponse
+    {
+        $this->ensureManagementAccess($request);
+
+        if ($leaveRequest->status !== LeaveRequest::STATUS_PENDING) {
+            return redirect()
+                ->route('modules.leave.index')
+                ->with('error', 'Only pending leave requests can be reviewed.');
+        }
+
+        $leaveRequest->loadMissing(['user.profile']);
+
+        return view('modules.leave.review', [
+            'leaveRequest' => $leaveRequest,
+        ]);
     }
 
     public function cancel(Request $request, LeaveRequest $leaveRequest): RedirectResponse

@@ -10,7 +10,6 @@
         $showLeave = in_array('leave', $visibleSections, true);
         $showPayroll = in_array('payroll', $visibleSections, true);
         $showSummary = in_array('employee_summary', $visibleSections, true);
-        $showActivity = in_array('activity', $visibleSections, true);
         $summaryMode = match ($reportType) {
             'attendance_monthly' => 'attendance',
             'leave_monthly' => 'leave',
@@ -29,6 +28,7 @@
             2 => 'xl:grid-cols-2',
             default => 'xl:grid-cols-3',
         };
+        $attendanceScorePct = max(0, min(100, (float) $stats['attendanceRate']));
     @endphp
 
     @if (session('status'))
@@ -44,75 +44,110 @@
     @endif
 
     <section class="ui-section">
-        <div class="ui-section-head">
-            <div>
-                <h3 class="ui-section-title">Generate Reports</h3>
-                <p class="ui-section-subtitle">{{ $reportTypeLabel }} report for {{ $periodLabel }}</p>
+        <form method="GET" action="{{ route('modules.reports.index') }}" class="space-y-4">
+            <div class="ui-section-head">
+                <div>
+                    <h3 class="ui-section-title">Generate Reports</h3>
+                    <p class="ui-section-subtitle">{{ $reportTypeLabel }} report for {{ $periodLabel }}</p>
+                </div>
+
+                <div class="w-full sm:w-auto">
+                    <label for="report_month" class="ui-kpi-label block mb-2">Report Month</label>
+                    <input
+                        id="report_month"
+                        type="month"
+                        name="month"
+                        value="{{ $filters['month'] }}"
+                        class="ui-input sm:min-w-[220px]"
+                        title="Reporting month"
+                    >
+                </div>
             </div>
-        </div>
 
-        <form method="GET" action="{{ route('modules.reports.index') }}" class="mt-4 grid grid-cols-1 md:grid-cols-10 gap-3">
-            <select name="report_type" class="ui-select md:col-span-2">
-                @foreach($reportTypeOptions as $typeValue => $typeLabel)
-                    <option value="{{ $typeValue }}" {{ $reportType === $typeValue ? 'selected' : '' }}>{{ $typeLabel }}</option>
-                @endforeach
-            </select>
+            <div class="rounded-xl border p-4 space-y-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                <p class="ui-kpi-label">Core Filters</p>
 
-            <input type="month" name="month" value="{{ $filters['month'] }}" class="ui-input" title="Reporting month">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label for="report_type" class="ui-kpi-label block mb-2">Report Type</label>
+                        <select id="report_type" name="report_type" class="ui-select">
+                            @foreach($reportTypeOptions as $typeValue => $typeLabel)
+                                <option value="{{ $typeValue }}" {{ $reportType === $typeValue ? 'selected' : '' }}>{{ $typeLabel }}</option>
+                            @endforeach
+                        </select>
+                    </div>
 
-            <input type="date" name="date_from" value="{{ $filters['date_from'] }}" class="ui-input" title="From date">
-            <input type="date" name="date_to" value="{{ $filters['date_to'] }}" class="ui-input" title="To date">
+                    @if ($isManagement)
+                        <div>
+                            <label for="report_q" class="ui-kpi-label block mb-2">Search Employee</label>
+                            <input
+                                id="report_q"
+                                type="text"
+                                name="q"
+                                value="{{ $filters['q'] }}"
+                                placeholder="Name or email"
+                                class="ui-input"
+                            >
+                        </div>
 
-            @if ($isManagement)
-                <input
-                    type="text"
-                    name="q"
-                    value="{{ $filters['q'] }}"
-                    placeholder="Search employee"
-                    class="ui-input md:col-span-2"
-                >
+                        <div>
+                            <label for="report_department" class="ui-kpi-label block mb-2">Department</label>
+                            <select id="report_department" name="department" class="ui-select">
+                                <option value="">All Departments</option>
+                                @foreach($departmentOptions as $departmentOption)
+                                    <option value="{{ $departmentOption }}" {{ $filters['department'] === $departmentOption ? 'selected' : '' }}>
+                                        {{ $departmentOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+                </div>
 
-                <select name="department" class="ui-select">
-                    <option value="">All Departments</option>
-                    @foreach($departmentOptions as $departmentOption)
-                        <option value="{{ $departmentOption }}" {{ $filters['department'] === $departmentOption ? 'selected' : '' }}>
-                            {{ $departmentOption }}
-                        </option>
-                    @endforeach
-                </select>
+                @if ($isManagement)
+                    <p class="ui-kpi-label pt-1">People Filters</p>
 
-                <select name="branch" class="ui-select">
-                    <option value="">All Branches</option>
-                    @foreach($branchOptions as $branchOption)
-                        <option value="{{ $branchOption }}" {{ $filters['branch'] === $branchOption ? 'selected' : '' }}>
-                            {{ $branchOption }}
-                        </option>
-                    @endforeach
-                </select>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label for="report_branch" class="ui-kpi-label block mb-2">Branch</label>
+                            <select id="report_branch" name="branch" class="ui-select">
+                                <option value="">All Branches</option>
+                                @foreach($branchOptions as $branchOption)
+                                    <option value="{{ $branchOption }}" {{ $filters['branch'] === $branchOption ? 'selected' : '' }}>
+                                        {{ $branchOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
 
-                <select name="employee_id" class="ui-select">
-                    <option value="">All Employees</option>
-                    @foreach($employeeOptions as $employeeOption)
-                        <option value="{{ $employeeOption->id }}" {{ (int) $filters['employee_id'] === (int) $employeeOption->id ? 'selected' : '' }}>
-                            {{ $employeeOption->name }}
-                        </option>
-                    @endforeach
-                </select>
-            @endif
+                        <div>
+                            <label for="report_employee_id" class="ui-kpi-label block mb-2">Employee</label>
+                            <select id="report_employee_id" name="employee_id" class="ui-select">
+                                <option value="">All Employees</option>
+                                @foreach($employeeOptions as $employeeOption)
+                                    <option value="{{ $employeeOption->id }}" {{ (int) $filters['employee_id'] === (int) $employeeOption->id ? 'selected' : '' }}>
+                                        {{ $employeeOption->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                @endif
+            </div>
 
-            <div class="md:col-span-2 flex flex-wrap items-center gap-2">
-                <button type="submit" class="ui-btn ui-btn-primary">Generate</button>
+            <div class="rounded-xl border p-3 flex flex-wrap items-center gap-2" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                <button type="submit" class="ui-btn ui-btn-primary">Generate Report</button>
                 <button type="submit" name="export" value="csv" class="ui-btn">Export CSV</button>
-                <a href="{{ route('modules.reports.index') }}" class="ui-btn ui-btn-ghost">Reset</a>
+                <a href="{{ route('modules.reports.index') }}" class="ui-btn ui-btn-ghost">Clear Filters</a>
             </div>
         </form>
 
-        <p class="text-xs mt-3" style="color: var(--hr-text-muted);">
-            Monthly report types use the selected month as the report window. For comprehensive reports, date range filters apply.
+        <p class="text-xs mt-2" style="color: var(--hr-text-muted);">
+            Choose a report type and month, then optionally narrow by people filters.
         </p>
     </section>
 
-    <section class="ui-kpi-grid mt-5">
+    <section class="ui-kpi-grid is-3 mt-5">
         <article class="ui-kpi-card">
             <div class="flex items-start justify-between gap-3">
                 <div>
@@ -131,12 +166,18 @@
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <p class="ui-kpi-label">Attendance Score</p>
-                        <p class="ui-kpi-value">{{ number_format((float) $stats['attendanceRate'], 1) }}%</p>
+                        <p class="ui-kpi-value">{{ number_format($attendanceScorePct, 1) }}%</p>
                         <p class="ui-kpi-meta">{{ number_format((float) $stats['attendancePresentUnits'], 1) }} present units</p>
                     </div>
-                    <span class="ui-icon-chip ui-icon-sky">
-                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.2 2"></path></svg>
-                    </span>
+                    <div
+                        class="h-14 w-14 rounded-full p-1.5 flex items-center justify-center"
+                        style="background: conic-gradient(#0284c7 0 {{ $attendanceScorePct }}%, rgb(148 163 184 / 0.2) {{ $attendanceScorePct }}% 100%);"
+                        aria-label="Attendance score pie chart"
+                    >
+                        <div class="h-full w-full rounded-full flex items-center justify-center text-[11px] font-extrabold" style="background: var(--hr-surface); color: var(--hr-text-main);">
+                            {{ number_format($attendanceScorePct, 0) }}%
+                        </div>
+                    </div>
                 </div>
             </article>
 
@@ -210,55 +251,107 @@
             </article>
         @endif
 
-        @if ($showActivity)
-            <article class="ui-kpi-card">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <p class="ui-kpi-label">Activity Logged</p>
-                        <p class="ui-kpi-value">{{ $stats['activityCount'] }}</p>
-                        <p class="ui-kpi-meta">Within selected period</p>
-                    </div>
-                    <span class="ui-icon-chip ui-icon-pink">
-                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path></svg>
-                    </span>
-                </div>
-            </article>
-        @endif
     </section>
 
     @if ($showAttendance || $showLeave || $showPayroll)
         <section class="grid grid-cols-1 {{ $breakdownGridClass }} gap-5 mt-5">
             @if ($showAttendance)
-                <article class="ui-section">
-                    <div class="ui-section-head">
-                        <div>
-                            <h3 class="ui-section-title">Attendance Breakdown</h3>
-                            <p class="ui-section-subtitle">Status distribution in selected period.</p>
+            @php
+                $attendanceSegments = collect($attendanceStatusBreakdown ?? [])
+                    ->map(fn ($item) => [
+                        'status' => (string) $item->status,
+                        'label' => str($item->status)->replace('_', ' ')->title(),
+                        'count' => max(0, (int) $item->record_count),
+                        'color' => match ((string) $item->status) {
+                            'present' => '#16a34a',
+                            'remote' => '#0284c7',
+                            'half_day' => '#d97706',
+                            'on_leave' => '#f97316',
+                            'late' => '#c026d3',
+                            'absent' => '#dc2626',
+                            default => '#64748b',
+                        },
+                    ])
+                    ->values();
+                $attendanceTotal = $attendanceSegments->sum('count');
+                $gradientSegments = [];
+                $cursor = 0.0;
+
+                if ($attendanceTotal > 0) {
+                    foreach ($attendanceSegments as $segment) {
+                        if ($segment['count'] <= 0) {
+                            continue;
+                        }
+
+                        $slice = ($segment['count'] / $attendanceTotal) * 100;
+                        $start = $cursor;
+                        $end = $cursor + $slice;
+                        $gradientSegments[] = sprintf(
+                            '%s %s%% %s%%',
+                            $segment['color'],
+                            number_format($start, 2, '.', ''),
+                            number_format($end, 2, '.', '')
+                        );
+                        $cursor = $end;
+                    }
+                }
+
+                $attendancePieBackground = $attendanceTotal > 0 && count($gradientSegments) > 0
+                    ? implode(', ', $gradientSegments)
+                    : 'rgb(148 163 184 / 0.2) 0% 100%';
+            @endphp
+
+            <article class="ui-section">
+                <div class="ui-section-head">
+                    <div>
+                        <h3 class="ui-section-title">Attendance Breakdown</h3>
+                        <p class="ui-section-subtitle">Status distribution in selected period.</p>
+                    </div>
+                </div>
+
+                <div class="mt-4 grid gap-6 lg:grid-cols-[220px,1fr] items-start">
+                    <div class="flex flex-col items-center gap-3">
+                        <div
+                            class="h-44 w-44 rounded-full p-2"
+                            style="background: conic-gradient({{ $attendancePieBackground }});"
+                            aria-label="Attendance pie chart"
+                        >
+                            <div class="h-full w-full rounded-full flex items-center justify-center" style="background: var(--hr-surface);">
+                                <div class="text-center">
+                                    <p class="text-lg font-extrabold">{{ $attendanceTotal }}</p>
+                                    <p class="text-xs" style="color: var(--hr-text-muted);">records</p>
+                                </div>
+                            </div>
                         </div>
+                        <p class="text-xs text-[var(--hr-text-muted)]">Pie chart colors match the list on the right.</p>
                     </div>
 
-                    <ul class="mt-4 space-y-3 text-sm">
-                        @forelse($attendanceStatusBreakdown as $item)
-                            @php
-                                $chipClass = match ((string) $item->status) {
-                                    'present', 'remote' => 'ui-status-green',
-                                    'half_day', 'on_leave' => 'ui-status-amber',
-                                    'absent' => 'ui-status-red',
-                                    default => 'ui-status-slate',
-                                };
-                            @endphp
-                            <li class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                                <div class="flex items-center justify-between gap-2">
-                                    <span class="font-semibold">{{ str($item->status)->replace('_', ' ')->title() }}</span>
-                                    <span class="ui-status-chip {{ $chipClass }}">{{ $item->record_count }}</span>
-                                </div>
-                            </li>
-                        @empty
-                            <li class="ui-empty rounded-xl border" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">No attendance records found.</li>
-                        @endforelse
-                    </ul>
-                </article>
-            @endif
+                    <div class="space-y-2 text-sm">
+                        @if ($attendanceSegments->isEmpty())
+                            <p class="text-xs text-[var(--hr-text-muted)]">No attendance records found.</p>
+                        @else
+                            <p class="text-xs font-semibold text-[var(--hr-text-muted)]">Status legend and counts</p>
+                            <ul class="space-y-2">
+                                @foreach($attendanceSegments as $segment)
+                                    <li class="flex items-center justify-between py-1">
+                                        <div class="flex items-center gap-2 font-semibold">
+                                            <span class="h-2.5 w-2.5 rounded-full" style="background: {{ $segment['color'] }};"></span>
+                                            {{ $segment['label'] }}
+                                        </div>
+                                        <div class="flex items-baseline gap-2">
+                                            <span>{{ $segment['count'] }}</span>
+                                            <span class="text-[0.65rem]" style="color: var(--hr-text-muted);">
+                                                {{ $attendanceTotal > 0 ? number_format(($segment['count'] / $attendanceTotal) * 100, 1) : '0.0' }}%
+                                            </span>
+                                        </div>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                </div>
+            </article>
+        @endif
 
             @if ($showLeave)
                 <article class="ui-section">
@@ -560,41 +653,4 @@
         </section>
     @endif
 
-    @if ($showActivity)
-        <section class="ui-section mt-5">
-            <div class="ui-section-head">
-                <div>
-                    <h3 class="ui-section-title">Recent Activity</h3>
-                    <p class="ui-section-subtitle">Latest tracked activities in selected period.</p>
-                </div>
-            </div>
-
-            <div class="ui-table-wrap">
-                <table class="ui-table">
-                    <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Title</th>
-                        <th>Actor</th>
-                        <th>Meta</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    @forelse($activities as $activity)
-                        <tr>
-                            <td>{{ $activity->occurred_at?->format('M d, Y h:i A') ?? 'N/A' }}</td>
-                            <td>{{ $activity->title }}</td>
-                            <td>{{ $activity->actor?->name ?? 'System' }}</td>
-                            <td>{{ $activity->meta ?? 'N/A' }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="ui-empty">No activity available for this period.</td>
-                        </tr>
-                    @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    @endif
 @endsection

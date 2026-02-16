@@ -21,7 +21,7 @@
                     <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Modify holiday date, scope, and optional status.</p>
                 </div>
             </div>
-            <a href="{{ route('modules.holidays.index') }}" class="rounded-xl px-3 py-2 text-sm font-semibold border inline-flex items-center gap-2" style="border-color: var(--hr-line);">
+            <a href="{{ route('modules.holidays.index', ['fy' => $selectedFy]) }}" class="rounded-xl px-3 py-2 text-sm font-semibold border inline-flex items-center gap-2" style="border-color: var(--hr-line);">
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>
                 Back
             </a>
@@ -30,6 +30,7 @@
         <form method="POST" action="{{ route('modules.holidays.update', $holiday) }}" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             @csrf
             @method('PUT')
+            <input type="hidden" name="fy" value="{{ $selectedFy }}">
 
             <div>
                 <label for="name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Holiday Name</label>
@@ -83,7 +84,7 @@
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>
                     Update Holiday
                 </button>
-                <a href="{{ route('modules.holidays.index') }}" class="rounded-xl px-3.5 py-2 text-sm font-semibold border inline-flex items-center gap-2" style="border-color: var(--hr-line);">
+                <a href="{{ route('modules.holidays.index', ['fy' => $selectedFy]) }}" class="rounded-xl px-3.5 py-2 text-sm font-semibold border inline-flex items-center gap-2" style="border-color: var(--hr-line);">
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>
                     Cancel
                 </a>

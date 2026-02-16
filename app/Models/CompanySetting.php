@@ -11,6 +11,7 @@ class CompanySetting extends Model
      */
     protected $fillable = [
         'company_name',
+        'company_logo_path',
         'company_code',
         'company_email',
         'company_phone',

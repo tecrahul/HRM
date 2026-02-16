@@ -8,6 +8,22 @@
         $attentionEmployees = $latestEmployees
             ->filter(fn ($employee) => in_array($employee->profile?->status, ['inactive', 'suspended'], true))
             ->take(5);
+
+        $employeesTotal = (int) $employeeStats['total'];
+        $activePct = $employeesTotal > 0 ? round(((int) $employeeStats['active'] / $employeesTotal) * 100, 1) : 0.0;
+        $inactivePct = $employeesTotal > 0 ? round(((int) $employeeStats['inactive'] / $employeesTotal) * 100, 1) : 0.0;
+        $suspendedPct = $employeesTotal > 0 ? round(((int) $employeeStats['suspended'] / $employeesTotal) * 100, 1) : 0.0;
+
+        $attendanceCoveragePct = $employeesTotal > 0
+            ? round(min(100, ((int) $moduleStats['attendanceMarkedToday'] / $employeesTotal) * 100), 1)
+            : 0.0;
+        $leaveQueueTotal = (int) $moduleStats['leavePending'] + (int) $moduleStats['leaveApprovedMonth'];
+        $leaveBacklogPct = $leaveQueueTotal > 0
+            ? round(min(100, ((int) $moduleStats['leavePending'] / $leaveQueueTotal) * 100), 1)
+            : 0.0;
+        $payrollPendingPct = (int) $moduleStats['payrollGeneratedMonth'] > 0
+            ? round(min(100, ((int) $moduleStats['payrollPendingMonth'] / (int) $moduleStats['payrollGeneratedMonth']) * 100), 1)
+            : 0.0;
     @endphp
 
     <section class="ui-hero">
@@ -76,6 +92,82 @@
                 </span>
             </div>
             <p class="ui-kpi-meta">Paid {{ $moduleStats['payrollPaidMonth'] }} • Pending {{ $moduleStats['payrollPendingMonth'] }}</p>
+        </article>
+    </section>
+
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <article class="ui-section">
+            <div class="ui-section-head">
+                <div>
+                    <h3 class="ui-section-title">Workforce Status Mix</h3>
+                    <p class="ui-section-subtitle">Active vs inactive vs suspended employee ratio.</p>
+                </div>
+            </div>
+
+            <div class="mt-4 space-y-4">
+                <div class="h-4 rounded-full overflow-hidden flex" style="background: rgb(148 163 184 / 0.16);">
+                    <div style="width: {{ $activePct }}%; background: #16a34a;"></div>
+                    <div style="width: {{ $inactivePct }}%; background: #f59e0b;"></div>
+                    <div style="width: {{ $suspendedPct }}%; background: #dc2626;"></div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <p class="font-semibold">Active</p>
+                        <p class="text-xl font-extrabold mt-1">{{ $employeeStats['active'] }}</p>
+                        <p class="text-xs mt-1" style="color: var(--hr-text-muted);">{{ number_format($activePct, 1) }}%</p>
+                    </div>
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <p class="font-semibold">Inactive</p>
+                        <p class="text-xl font-extrabold mt-1">{{ $employeeStats['inactive'] }}</p>
+                        <p class="text-xs mt-1" style="color: var(--hr-text-muted);">{{ number_format($inactivePct, 1) }}%</p>
+                    </div>
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <p class="font-semibold">Suspended</p>
+                        <p class="text-xl font-extrabold mt-1">{{ $employeeStats['suspended'] }}</p>
+                        <p class="text-xs mt-1" style="color: var(--hr-text-muted);">{{ number_format($suspendedPct, 1) }}%</p>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <article class="ui-section">
+            <div class="ui-section-head">
+                <div>
+                    <h3 class="ui-section-title">HR Queue Pressure</h3>
+                    <p class="ui-section-subtitle">Current operational load across key modules.</p>
+                </div>
+            </div>
+
+            <div class="mt-4 space-y-4 text-sm">
+                <div>
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <p class="font-semibold">Attendance not marked</p>
+                        <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ number_format(100 - $attendanceCoveragePct, 1) }}%</p>
+                    </div>
+                    <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
+                        <div class="h-full rounded-full" style="width: {{ 100 - $attendanceCoveragePct }}%; background: #0284c7;"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <p class="font-semibold">Leave backlog</p>
+                        <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ number_format($leaveBacklogPct, 1) }}%</p>
+                    </div>
+                    <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
+                        <div class="h-full rounded-full" style="width: {{ $leaveBacklogPct }}%; background: #d97706;"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <p class="font-semibold">Payroll pending</p>
+                        <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ number_format($payrollPendingPct, 1) }}%</p>
+                    </div>
+                    <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
+                        <div class="h-full rounded-full" style="width: {{ $payrollPendingPct }}%; background: #7c3aed;"></div>
+                    </div>
+                </div>
+            </div>
         </article>
     </section>
 
