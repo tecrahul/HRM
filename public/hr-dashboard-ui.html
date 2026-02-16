@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HRM Dashboard Mockup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-base: #f2f7ff;
+            --bg-grad-a: #d7efff;
+            --bg-grad-b: #ffe5d1;
+            --surface: rgba(255, 255, 255, 0.82);
+            --surface-strong: #ffffff;
+            --line: rgba(134, 162, 194, 0.28);
+            --text-main: #1f2a44;
+            --text-muted: #5f6f87;
+            --accent: #0ea5a4;
+            --accent-soft: rgba(14, 165, 164, 0.15);
+            --shadow-soft: 0 18px 40px -24px rgba(13, 27, 62, 0.36);
+        }
+
+        html.dark {
+            --bg-base: #0b1326;
+            --bg-grad-a: #182c46;
+            --bg-grad-b: #2b1f44;
+            --surface: rgba(17, 28, 48, 0.86);
+            --surface-strong: #131f36;
+            --line: rgba(125, 150, 185, 0.24);
+            --text-main: #d7e6ff;
+            --text-muted: #8ea5c7;
+            --accent: #5eead4;
+            --accent-soft: rgba(94, 234, 212, 0.16);
+            --shadow-soft: 0 18px 40px -24px rgba(2, 8, 23, 0.78);
+        }
+
+        body {
+            font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+            background:
+                radial-gradient(1100px 600px at -10% -10%, var(--bg-grad-a), transparent 55%),
+                radial-gradient(900px 600px at 110% 0%, var(--bg-grad-b), transparent 55%),
+                var(--bg-base);
+            color: var(--text-main);
+        }
+
+        .dashboard-shell {
+            display: grid;
+            grid-template-columns: 270px minmax(0, 1fr);
+            min-height: 100vh;
+            transition: grid-template-columns 220ms ease;
+        }
+
+        .dashboard-shell.sidebar-collapsed {
+            grid-template-columns: 90px minmax(0, 1fr);
+        }
+
+        .surface-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow-soft);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .metric-card {
+            transition: transform 180ms ease, box-shadow 180ms ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 35px -26px rgba(7, 18, 42, 0.5);
+        }
+
+        .sidebar-link {
+            border: 1px solid transparent;
+            transition: all 150ms ease;
+        }
+
+        .sidebar-link:hover {
+            border-color: var(--line);
+            background: var(--accent-soft);
+        }
+
+        .sidebar-link.is-active {
+            border-color: rgba(14, 165, 164, 0.35);
+            background: var(--accent-soft);
+            color: var(--text-main);
+        }
+
+        .dashboard-shell.sidebar-collapsed .nav-label,
+        .dashboard-shell.sidebar-collapsed .brand-copy,
+        .dashboard-shell.sidebar-collapsed .sidebar-footer {
+            display: none;
+        }
+
+        .dashboard-shell.sidebar-collapsed .sidebar-nav {
+            align-items: center;
+        }
+
+        .dashboard-shell.sidebar-collapsed .sidebar-link {
+            justify-content: center;
+        }
+
+        .status-chip {
+            font-size: 0.72rem;
+            line-height: 1;
+            padding: 0.38rem 0.52rem;
+            border-radius: 999px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            border: 1px solid transparent;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-shell {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            #sidebar {
+                position: fixed;
+                inset: 0 auto 0 0;
+                width: 270px;
+                transform: translateX(-108%);
+                transition: transform 220ms ease;
+                z-index: 70;
+            }
+
+            #sidebar.sidebar-open {
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body class="h-full">
+<div id="dashboardShell" class="dashboard-shell">
+    <aside id="sidebar" class="surface-card rounded-r-3xl px-4 py-5 flex flex-col gap-6">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: var(--accent-soft); color: var(--accent);">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7" rx="2"></rect>
+                        <rect x="14" y="3" width="7" height="7" rx="2"></rect>
+                        <rect x="3" y="14" width="7" height="7" rx="2"></rect>
+                        <rect x="14" y="14" width="7" height="7" rx="2"></rect>
+                    </svg>
+                </div>
+                <div class="brand-copy">
+                    <p class="text-[11px] uppercase tracking-[0.16em] font-bold" style="color: var(--text-muted);">HR Suite</p>
+                    <h1 class="text-lg font-extrabold tracking-tight">GXON Inspired</h1>
+                </div>
+            </div>
+            <button id="collapseSidebar" class="hidden lg:inline-flex h-8 w-8 rounded-lg items-center justify-center border" style="border-color: var(--line);">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 6l-6 6 6 6"></path>
+                </svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav flex flex-col gap-1.5 text-sm font-semibold">
+            <a href="#" class="sidebar-link is-active rounded-xl px-3 py-2.5 flex items-center gap-3">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 10.5L12 3l9 7.5"></path><path d="M5 9.9V21h14V9.9"></path>
+                </svg>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="#" class="sidebar-link rounded-xl px-3 py-2.5 flex items-center gap-3">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="8.5" cy="7" r="4"></circle><path d="M20 8v6"></path><path d="M23 11h-6"></path>
+                </svg>
+                <span class="nav-label">Employees</span>
+            </a>
+            <a href="#" class="sidebar-link rounded-xl px-3 py-2.5 flex items-center gap-3">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.2 2"></path>
+                </svg>
+                <span class="nav-label">Attendance</span>
+            </a>
+            <a href="#" class="sidebar-link rounded-xl px-3 py-2.5 flex items-center gap-3">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                    <path d="M3 10h18"></path>
+                </svg>
+                <span class="nav-label">Leave</span>
+            </a>
+            <a href="#" class="sidebar-link rounded-xl px-3 py-2.5 flex items-center gap-3">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path>
+                </svg>
+                <span class="nav-label">Payroll</span>
+            </a>
+            <a href="#" class="sidebar-link rounded-xl px-3 py-2.5 flex items-center gap-3">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path>
+                </svg>
+                <span class="nav-label">Reports</span>
+            </a>
+            <a href="#" class="sidebar-link rounded-xl px-3 py-2.5 flex items-center gap-3">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6h.08A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15.08 4.6h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.22.48.34 1.01.34 1.55s-.12 1.07-.34 1.55z"></path>
+                </svg>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer mt-auto rounded-2xl p-3 text-xs" style="background: var(--accent-soft); border: 1px dashed var(--line); color: var(--text-muted);">
+            <p class="font-bold text-[11px] uppercase tracking-[0.14em]">HR Pulse</p>
+            <p class="mt-1 leading-relaxed">System health is stable. Next payroll lock in 2 days.</p>
+        </div>
+    </aside>
+
+    <div class="min-w-0 flex flex-col">
+        <header class="sticky top-0 z-40 border-b backdrop-blur px-4 py-3 md:px-6" style="background: var(--surface); border-color: var(--line);">
+            <div class="flex items-center gap-3">
+                <button id="mobileSidebarToggle" class="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border" style="border-color: var(--line);">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path>
+                    </svg>
+                </button>
+
+                <div>
+                    <p class="text-[11px] uppercase tracking-[0.18em] font-bold" style="color: var(--text-muted);">HR Dashboard</p>
+                    <h2 class="text-lg md:text-xl font-extrabold tracking-tight">Workforce Analytics</h2>
+                </div>
+
+                <div class="ml-auto flex items-center gap-2 md:gap-3">
+                    <button class="relative h-10 w-10 rounded-xl border inline-flex items-center justify-center" style="border-color: var(--line);">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span class="absolute -top-1 -right-1 h-5 min-w-5 px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center" style="background: #f97316;">4</span>
+                    </button>
+
+                    <button id="themeToggle" class="h-10 rounded-xl border px-3 inline-flex items-center gap-2 text-sm font-semibold" style="border-color: var(--line);">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3c0 0 0 0 0 0A7 7 0 0 0 21 12.79z"></path>
+                        </svg>
+                        <span id="themeLabel">Dark</span>
+                    </button>
+
+                    <button class="h-10 rounded-xl border px-2.5 inline-flex items-center gap-2" style="border-color: var(--line);">
+                        <img src="https://i.pravatar.cc/80?img=12" alt="User Avatar" class="h-7 w-7 rounded-lg object-cover">
+                        <span class="hidden sm:block text-left">
+                            <span class="block text-xs font-semibold">Ava Martinez</span>
+                            <span class="block text-[11px]" style="color: var(--text-muted);">HR Manager</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-4 md:p-6 lg:p-8 space-y-6 md:space-y-7">
+            <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <article class="surface-card metric-card rounded-2xl p-4 md:p-5">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--text-muted);">Total Employees</p>
+                            <h3 class="mt-2 text-3xl font-extrabold">324</h3>
+                        </div>
+                        <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgba(59, 130, 246, 0.16); color: #2563eb;">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="8.5" cy="7" r="4"></circle><path d="M20 8v6"></path><path d="M23 11h-6"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <p class="mt-3 text-sm" style="color: var(--text-muted);">+8.2% vs last month</p>
+                </article>
+
+                <article class="surface-card metric-card rounded-2xl p-4 md:p-5">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--text-muted);">On Leave Today</p>
+                            <h3 class="mt-2 text-3xl font-extrabold">19</h3>
+                        </div>
+                        <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgba(234, 179, 8, 0.16); color: #ca8a04;">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                                <path d="M3 10h18"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <p class="mt-3 text-sm" style="color: var(--text-muted);">3 requests pending approval</p>
+                </article>
+
+                <article class="surface-card metric-card rounded-2xl p-4 md:p-5">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--text-muted);">New Joiners</p>
+                            <h3 class="mt-2 text-3xl font-extrabold">12</h3>
+                        </div>
+                        <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgba(16, 185, 129, 0.16); color: #059669;">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14"></path><path d="M5 12h14"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <p class="mt-3 text-sm" style="color: var(--text-muted);">Hiring velocity is steady</p>
+                </article>
+
+                <article class="surface-card metric-card rounded-2xl p-4 md:p-5">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--text-muted);">Attendance Rate</p>
+                            <h3 class="mt-2 text-3xl font-extrabold">94.6%</h3>
+                        </div>
+                        <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgba(249, 115, 22, 0.16); color: #ea580c;">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
+                        </span>
+                    </div>
+                    <p class="mt-3 text-sm" style="color: var(--text-muted);">+1.4% from previous month</p>
+                </article>
+            </section>
+
+            <section class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                <article class="surface-card rounded-2xl p-4 md:p-5 xl:col-span-2">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-extrabold">Monthly Workforce Trend</h3>
+                            <p class="text-sm mt-1" style="color: var(--text-muted);">Switch between attendance and new hires.</p>
+                        </div>
+                        <select id="trendType" class="rounded-xl px-3 py-2 text-sm font-semibold border bg-transparent" style="border-color: var(--line);">
+                            <option value="attendance">Attendance %</option>
+                            <option value="hires">New Hires</option>
+                        </select>
+                    </div>
+                    <div class="mt-4 h-[300px]">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </article>
+
+                <article class="surface-card rounded-2xl p-4 md:p-5">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-extrabold">Recent Activity</h3>
+                        <span class="status-chip" style="background: var(--accent-soft); border-color: var(--line); color: var(--accent);">Live</span>
+                    </div>
+                    <ul id="activityList" class="mt-4 space-y-3"></ul>
+                </article>
+            </section>
+
+            <section class="surface-card rounded-2xl p-4 md:p-5">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-lg font-extrabold">Latest Employee Records</h3>
+                        <p class="text-sm mt-1" style="color: var(--text-muted);">Sample data with quick actions for HR operations.</p>
+                    </div>
+                    <button class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white" style="background: linear-gradient(120deg, #0ea5a4, #22d3ee);">Add Employee</button>
+                </div>
+                <div class="mt-4 overflow-x-auto">
+                    <table class="w-full min-w-[760px] text-sm">
+                        <thead>
+                        <tr class="border-b text-left" style="border-color: var(--line); color: var(--text-muted);">
+                            <th class="py-3 px-2 font-semibold">Employee</th>
+                            <th class="py-3 px-2 font-semibold">Department</th>
+                            <th class="py-3 px-2 font-semibold">Status</th>
+                            <th class="py-3 px-2 font-semibold">Attendance</th>
+                            <th class="py-3 px-2 font-semibold">Joining Date</th>
+                            <th class="py-3 px-2 font-semibold">Action</th>
+                        </tr>
+                        </thead>
+                        <tbody id="employeeTable"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script>
+    const shell = document.getElementById("dashboardShell");
+    const sidebar = document.getElementById("sidebar");
+    const themeToggle = document.getElementById("themeToggle");
+    const themeLabel = document.getElementById("themeLabel");
+    const collapseSidebarBtn = document.getElementById("collapseSidebar");
+    const mobileSidebarToggle = document.getElementById("mobileSidebarToggle");
+    const trendType = document.getElementById("trendType");
+
+    const employees = [
+        { name: "Ariana Gomez", role: "UI Designer", dept: "Design", status: "Active", attendance: "97%", joined: "Jan 16, 2026" },
+        { name: "Noah Patel", role: "Backend Engineer", dept: "Engineering", status: "Probation", attendance: "92%", joined: "Feb 01, 2026" },
+        { name: "Mia Clarke", role: "HR Executive", dept: "Human Resources", status: "On Leave", attendance: "88%", joined: "Nov 08, 2025" },
+        { name: "Ethan Reed", role: "Payroll Analyst", dept: "Finance", status: "Active", attendance: "95%", joined: "Dec 11, 2025" },
+        { name: "Sofia Kim", role: "Product Manager", dept: "Product", status: "Active", attendance: "96%", joined: "Jan 27, 2026" }
+    ];
+
+    const activities = [
+        { title: "Leave request approved", meta: "Mia Clarke • 10 mins ago", tone: "#f59e0b" },
+        { title: "Payroll run completed", meta: "Finance Team • 35 mins ago", tone: "#0ea5a4" },
+        { title: "New employee onboarded", meta: "Noah Patel • 1 hour ago", tone: "#3b82f6" },
+        { title: "Attendance anomaly flagged", meta: "Shift C • 2 hours ago", tone: "#f97316" }
+    ];
+
+    const trendSeries = {
+        attendance: {
+            label: "Attendance %",
+            values: [90, 92, 93, 91, 94, 95, 96, 95, 94, 95, 96, 97],
+            type: "line"
+        },
+        hires: {
+            label: "New Hires",
+            values: [4, 7, 6, 8, 9, 6, 10, 8, 11, 9, 12, 13],
+            type: "bar"
+        }
+    };
+
+    let trendChart;
+
+    function applyTheme(theme) {
+        document.documentElement.classList.toggle("dark", theme === "dark");
+        localStorage.setItem("hr-theme", theme);
+        themeLabel.textContent = theme === "dark" ? "Light" : "Dark";
+        renderTrendChart(trendType.value);
+    }
+
+    function getTheme() {
+        const saved = localStorage.getItem("hr-theme");
+        if (saved === "light" || saved === "dark") {
+            return saved;
+        }
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+
+    function renderEmployees() {
+        const table = document.getElementById("employeeTable");
+        table.innerHTML = employees.map((emp) => {
+            const statusConfig = {
+                Active: { fg: "#15803d", bg: "rgba(34, 197, 94, 0.14)" },
+                "On Leave": { fg: "#d97706", bg: "rgba(250, 204, 21, 0.14)" },
+                Probation: { fg: "#1d4ed8", bg: "rgba(59, 130, 246, 0.14)" }
+            };
+            const status = statusConfig[emp.status] || statusConfig.Active;
+            const initials = emp.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+            return `
+                <tr class="border-b" style="border-color: var(--line);">
+                    <td class="py-3 px-2">
+                        <div class="flex items-center gap-3">
+                            <span class="h-9 w-9 rounded-xl flex items-center justify-center text-xs font-extrabold" style="background: var(--accent-soft); color: var(--accent);">${initials}</span>
+                            <div>
+                                <p class="font-semibold">${emp.name}</p>
+                                <p class="text-xs" style="color: var(--text-muted);">${emp.role}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-3 px-2">${emp.dept}</td>
+                    <td class="py-3 px-2">
+                        <span class="status-chip" style="color:${status.fg};background:${status.bg};">${emp.status}</span>
+                    </td>
+                    <td class="py-3 px-2 font-semibold">${emp.attendance}</td>
+                    <td class="py-3 px-2">${emp.joined}</td>
+                    <td class="py-3 px-2">
+                        <div class="flex items-center gap-2">
+                            <button class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border" style="border-color: var(--line);">View</button>
+                            <button class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border" style="border-color: var(--line);">Edit</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    function renderActivities() {
+        const list = document.getElementById("activityList");
+        list.innerHTML = activities.map((item) => `
+            <li class="rounded-xl p-3 border" style="border-color: var(--line); background: var(--surface-strong);">
+                <div class="flex items-start gap-3">
+                    <span class="mt-1 h-2.5 w-2.5 rounded-full shrink-0" style="background:${item.tone};"></span>
+                    <div>
+                        <p class="font-semibold">${item.title}</p>
+                        <p class="text-xs mt-1" style="color: var(--text-muted);">${item.meta}</p>
+                    </div>
+                </div>
+            </li>
+        `).join("");
+    }
+
+    function renderTrendChart(type) {
+        const ctx = document.getElementById("trendChart");
+        if (!window.Chart) {
+            ctx.parentElement.innerHTML = '<div class="h-full w-full rounded-xl border flex items-center justify-center text-sm" style="border-color: var(--line); color: var(--text-muted);">Chart library unavailable</div>';
+            return;
+        }
+        const rootStyles = getComputedStyle(document.documentElement);
+        const axisColor = rootStyles.getPropertyValue("--text-muted").trim() || "#64748b";
+        const accentColor = rootStyles.getPropertyValue("--accent").trim() || "#0ea5a4";
+        const gridColor = rootStyles.getPropertyValue("--line").trim() || "rgba(148,163,184,0.2)";
+
+        const selected = trendSeries[type];
+        if (!selected) {
+            return;
+        }
+
+        if (trendChart) {
+            trendChart.destroy();
+        }
+
+        trendChart = new Chart(ctx, {
+            type: selected.type,
+            data: {
+                labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+                datasets: [
+                    {
+                        label: selected.label,
+                        data: selected.values,
+                        borderColor: accentColor,
+                        backgroundColor: selected.type === "line" ? "rgba(14,165,164,0.14)" : "rgba(14,165,164,0.58)",
+                        borderWidth: 2,
+                        fill: selected.type === "line",
+                        tension: 0.34,
+                        maxBarThickness: 28,
+                        borderRadius: selected.type === "bar" ? 8 : 0,
+                        pointRadius: selected.type === "line" ? 3 : 0,
+                        pointBackgroundColor: accentColor
+                    }
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: axisColor, font: { weight: 600 } },
+                        grid: { color: "transparent" }
+                    },
+                    y: {
+                        ticks: { color: axisColor },
+                        grid: { color: gridColor }
+                    }
+                }
+            }
+        });
+    }
+
+    themeToggle.addEventListener("click", () => {
+        const nextTheme = document.documentElement.classList.contains("dark") ? "light" : "dark";
+        applyTheme(nextTheme);
+    });
+
+    collapseSidebarBtn.addEventListener("click", () => {
+        shell.classList.toggle("sidebar-collapsed");
+    });
+
+    mobileSidebarToggle.addEventListener("click", () => {
+        sidebar.classList.toggle("sidebar-open");
+    });
+
+    document.addEventListener("click", (event) => {
+        const clickedInsideSidebar = event.target.closest("#sidebar");
+        const clickedToggle = event.target.closest("#mobileSidebarToggle");
+        if (window.innerWidth <= 1024 && !clickedInsideSidebar && !clickedToggle) {
+            sidebar.classList.remove("sidebar-open");
+        }
+    });
+
+    trendType.addEventListener("change", (event) => {
+        renderTrendChart(event.target.value);
+    });
+
+    renderEmployees();
+    renderActivities();
+    applyTheme(getTheme());
+</script>
+</body>
+</html>
