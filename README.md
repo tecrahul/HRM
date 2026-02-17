@@ -28,6 +28,34 @@ This command runs:
 
 3. Update database credentials in `.env` if your local MySQL setup differs from defaults.
 
+## Production File Permissions and Storage Link
+
+Profile avatars, company logos, and uploaded attachments are served from `public/storage`, so the storage symlink must exist in production.
+
+Run from the project root:
+
+```bash
+php artisan storage:link
+```
+
+Set ownership and permissions so the web server can read app files and write only where needed.
+Replace `<deploy-user>` and `<web-group>` with your server values (common web group: `www-data`).
+
+```bash
+# app ownership (example)
+sudo chown -R <deploy-user>:<web-group> /var/www/hrm-system
+
+# default permissions for code
+sudo find /var/www/hrm-system -type f -exec chmod 644 {} \;
+sudo find /var/www/hrm-system -type d -exec chmod 755 {} \;
+
+# writable directories required by Laravel
+sudo chown -R <deploy-user>:<web-group> /var/www/hrm-system/storage /var/www/hrm-system/bootstrap/cache
+sudo chmod -R 775 /var/www/hrm-system/storage /var/www/hrm-system/bootstrap/cache
+```
+
+If uploads still fail on production, also verify PHP/web-server upload limits (`upload_max_filesize`, `post_max_size`, and nginx `client_max_body_size` if using nginx).
+
 ## Seed Demo Data (Optional)
 
 Use the custom demo command:

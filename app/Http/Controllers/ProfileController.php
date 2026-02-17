@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Activity;
 use App\Models\CompanySetting;
 use App\Support\ActivityLogger;
 use App\Support\TwoFactorAuthenticator;
@@ -9,6 +10,8 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -22,6 +25,18 @@ class ProfileController extends Controller
         $user = $request->user();
         $user?->loadMissing('profile');
         $twoFactorFeatureEnabled = CompanySetting::twoFactorEnabled();
+        $lastPasswordChangedAt = null;
+        if ($user && Schema::hasTable('activities')) {
+            $lastPasswordActivity = Activity::query()
+                ->where('actor_user_id', $user->id)
+                ->where('event_key', 'profile.password_updated')
+                ->latest('occurred_at')
+                ->first(['occurred_at']);
+            $lastPasswordChangedAt = $lastPasswordActivity?->occurred_at;
+            if (is_string($lastPasswordChangedAt)) {
+                $lastPasswordChangedAt = Carbon::parse($lastPasswordChangedAt);
+            }
+        }
 
         $twoFactorSetup = null;
         if ($twoFactorFeatureEnabled && $user && ! $user->hasTwoFactorEnabled()) {
@@ -44,6 +59,7 @@ class ProfileController extends Controller
             'twoFactorSetup' => $twoFactorSetup,
             'freshRecoveryCodes' => is_array($freshRecoveryCodes) ? $freshRecoveryCodes : [],
             'twoFactorFeatureEnabled' => $twoFactorFeatureEnabled,
+            'lastPasswordChangedAt' => $lastPasswordChangedAt,
         ]);
     }
 
@@ -161,13 +177,15 @@ class ProfileController extends Controller
         if ($user->hasTwoFactorEnabled()) {
             return redirect()
                 ->route('profile.edit')
-                ->with('two_factor_status', 'Two-factor authentication is already enabled.');
+                ->with('two_factor_status', 'Two-factor authentication is already enabled.')
+                ->with('profile_scroll_target', 'profileMfaSection');
         }
 
         if (! CompanySetting::twoFactorEnabled()) {
             return redirect()
                 ->route('profile.edit')
-                ->with('two_factor_status', 'Two-factor authentication is disabled by admin settings.');
+                ->with('two_factor_status', 'Two-factor authentication is disabled by admin settings.')
+                ->with('profile_scroll_target', 'profileMfaSection');
         }
 
         $validated = $request->validateWithBag('twoFactorEnable', [
@@ -217,7 +235,8 @@ class ProfileController extends Controller
 
         return redirect()
             ->route('profile.edit')
-            ->with('two_factor_status', 'Two-factor authentication enabled successfully.');
+            ->with('two_factor_status', 'Two-factor authentication enabled successfully.')
+            ->with('profile_scroll_target', 'profileMfaSection');
     }
 
     public function disableTwoFactor(Request $request): RedirectResponse
@@ -230,7 +249,8 @@ class ProfileController extends Controller
         if (! $user->hasTwoFactorEnabled()) {
             return redirect()
                 ->route('profile.edit')
-                ->with('two_factor_status', 'Two-factor authentication is already disabled.');
+                ->with('two_factor_status', 'Two-factor authentication is already disabled.')
+                ->with('profile_scroll_target', 'profileMfaSection');
         }
 
         $request->validateWithBag('twoFactorDisable', [
@@ -256,7 +276,8 @@ class ProfileController extends Controller
 
         return redirect()
             ->route('profile.edit')
-            ->with('two_factor_status', 'Two-factor authentication disabled.');
+            ->with('two_factor_status', 'Two-factor authentication disabled.')
+            ->with('profile_scroll_target', 'profileMfaSection');
     }
 
     public function regenerateTwoFactorRecoveryCodes(
@@ -271,13 +292,15 @@ class ProfileController extends Controller
         if (! $user->hasTwoFactorEnabled()) {
             return redirect()
                 ->route('profile.edit')
-                ->with('two_factor_status', 'Enable two-factor authentication first.');
+                ->with('two_factor_status', 'Enable two-factor authentication first.')
+                ->with('profile_scroll_target', 'profileMfaSection');
         }
 
         if (! CompanySetting::twoFactorEnabled()) {
             return redirect()
                 ->route('profile.edit')
-                ->with('two_factor_status', 'Two-factor authentication is disabled by admin settings.');
+                ->with('two_factor_status', 'Two-factor authentication is disabled by admin settings.')
+                ->with('profile_scroll_target', 'profileMfaSection');
         }
 
         $request->validateWithBag('twoFactorRecoveryCodes', [
@@ -300,7 +323,8 @@ class ProfileController extends Controller
 
         return redirect()
             ->route('profile.edit')
-            ->with('two_factor_status', 'Recovery codes regenerated. Store them in a safe place.');
+            ->with('two_factor_status', 'Recovery codes regenerated. Store them in a safe place.')
+            ->with('profile_scroll_target', 'profileMfaSection');
     }
 
     private function sanitizeAndStoreAvatar(UploadedFile $avatar): string
