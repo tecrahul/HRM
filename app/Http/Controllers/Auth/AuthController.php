@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CompanySetting;
 use App\Models\User;
 use App\Support\ActivityLogger;
+use App\Support\TwoFactorAuthenticator;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,9 @@ use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class AuthController extends Controller
 {
+    private const TWO_FACTOR_SESSION_USER_ID = 'auth.two_factor.user_id';
+    private const TWO_FACTOR_SESSION_REMEMBER = 'auth.two_factor.remember';
+
     /**
      * @return array{brandCompanyName: string, brandLogoUrl: ?string}
      */
@@ -44,11 +48,13 @@ class AuthController extends Controller
         ];
     }
 
-    public function showLoginForm(): View|RedirectResponse
+    public function showLoginForm(Request $request): View|RedirectResponse
     {
         if (Auth::check()) {
             return redirect()->route(Auth::user()?->dashboardRouteName() ?? 'login');
         }
+
+        $this->clearPendingTwoFactorSession($request);
 
         return view('auth.login', array_merge([
             'signupEnabled' => CompanySetting::signupEnabled(),
@@ -63,12 +69,39 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (! Auth::validate($credentials)) {
             throw ValidationException::withMessages([
                 'email' => 'Invalid login credentials.',
             ]);
         }
 
+        $remember = $request->boolean('remember');
+        $user = User::query()->firstWhere('email', $credentials['email']);
+        if (! $user instanceof User) {
+            throw ValidationException::withMessages([
+                'email' => 'Invalid login credentials.',
+            ]);
+        }
+
+        if ($user->hasTwoFactorEnabled()) {
+            $this->clearPendingTwoFactorSession($request);
+            $request->session()->put(self::TWO_FACTOR_SESSION_USER_ID, $user->id);
+            $request->session()->put(self::TWO_FACTOR_SESSION_REMEMBER, $remember);
+            $request->session()->regenerate();
+
+            ActivityLogger::log(
+                $user,
+                'auth.two_factor.challenge_requested',
+                'Two-factor challenge requested',
+                $user->email,
+                '#f59e0b',
+                $user
+            );
+
+            return redirect()->route('two-factor.challenge');
+        }
+
+        Auth::login($user, $remember);
         $request->session()->regenerate();
 
         ActivityLogger::log(
@@ -81,6 +114,82 @@ class AuthController extends Controller
         );
 
         return redirect()->intended(route($request->user()?->dashboardRouteName() ?? 'login'));
+    }
+
+    public function showTwoFactorChallengeForm(Request $request): View|RedirectResponse
+    {
+        if (Auth::check()) {
+            return redirect()->route(Auth::user()?->dashboardRouteName() ?? 'login');
+        }
+
+        if (! $this->hasPendingTwoFactorSession($request)) {
+            return redirect()->route('login');
+        }
+
+        $user = $this->pendingTwoFactorUser($request);
+        if (! $user instanceof User || ! $user->hasTwoFactorEnabled()) {
+            $this->clearPendingTwoFactorSession($request);
+
+            return redirect()->route('login');
+        }
+
+        return view('auth.two-factor-challenge', array_merge([
+            'email' => $user->email,
+        ], $this->brandingPayload()));
+    }
+
+    public function completeTwoFactorChallenge(
+        Request $request,
+        TwoFactorAuthenticator $twoFactorAuthenticator
+    ): RedirectResponse {
+        if (! $this->hasPendingTwoFactorSession($request)) {
+            return redirect()->route('login');
+        }
+
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:20'],
+        ]);
+
+        $user = $this->pendingTwoFactorUser($request);
+        if (! $user instanceof User || ! $user->hasTwoFactorEnabled()) {
+            $this->clearPendingTwoFactorSession($request);
+
+            return redirect()->route('login');
+        }
+
+        $authenticatedWithRecoveryCode = false;
+        $secret = (string) $user->two_factor_secret;
+        $code = (string) $validated['code'];
+
+        if (! $twoFactorAuthenticator->verifyCode($secret, $code)) {
+            $authenticatedWithRecoveryCode = $user->consumeTwoFactorRecoveryCode($code);
+
+            if (! $authenticatedWithRecoveryCode) {
+                throw ValidationException::withMessages([
+                    'code' => 'Invalid authentication code.',
+                ]);
+            }
+
+            $user->save();
+        }
+
+        $remember = (bool) $request->session()->pull(self::TWO_FACTOR_SESSION_REMEMBER, false);
+        $this->clearPendingTwoFactorSession($request);
+        Auth::login($user, $remember);
+        $request->session()->regenerate();
+
+        ActivityLogger::log(
+            $user,
+            $authenticatedWithRecoveryCode ? 'auth.two_factor.login_recovery_code' : 'auth.two_factor.login_verified',
+            $authenticatedWithRecoveryCode
+                ? 'User completed login with a recovery code'
+                : 'User completed login with two-factor code',
+            $user->email,
+            $authenticatedWithRecoveryCode ? '#f59e0b' : '#10b981',
+            $user
+        );
+
+        return redirect()->intended(route($user->dashboardRouteName()));
     }
 
     public function showSignupForm(): View|RedirectResponse
@@ -252,5 +361,27 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
+    }
+
+    private function hasPendingTwoFactorSession(Request $request): bool
+    {
+        return $request->session()->has(self::TWO_FACTOR_SESSION_USER_ID);
+    }
+
+    private function pendingTwoFactorUser(Request $request): ?User
+    {
+        $pendingUserId = $request->session()->get(self::TWO_FACTOR_SESSION_USER_ID);
+
+        return is_numeric($pendingUserId)
+            ? User::query()->find((int) $pendingUserId)
+            : null;
+    }
+
+    private function clearPendingTwoFactorSession(Request $request): void
+    {
+        $request->session()->forget([
+            self::TWO_FACTOR_SESSION_USER_ID,
+            self::TWO_FACTOR_SESSION_REMEMBER,
+        ]);
     }
 }

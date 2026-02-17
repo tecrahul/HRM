@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\ActivityLogger;
+use App\Support\TwoFactorAuthenticator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,11 +16,32 @@ use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class ProfileController extends Controller
 {
-    public function edit(Request $request): View
+    public function edit(Request $request, TwoFactorAuthenticator $twoFactorAuthenticator): View
     {
-        $request->user()?->loadMissing('profile');
+        $user = $request->user();
+        $user?->loadMissing('profile');
 
-        return view('profile.edit');
+        $twoFactorSetup = null;
+        if ($user && ! $user->hasTwoFactorEnabled()) {
+            $setupSecret = (string) $request->session()->get('profile.two_factor.pending_secret', '');
+            if ($setupSecret === '') {
+                $setupSecret = $twoFactorAuthenticator->generateSecret();
+                $request->session()->put('profile.two_factor.pending_secret', $setupSecret);
+            }
+
+            $twoFactorSetup = [
+                'secret' => $setupSecret,
+                'secret_formatted' => $twoFactorAuthenticator->formatSecretForDisplay($setupSecret),
+                'otpauth_uri' => $twoFactorAuthenticator->provisioningUri($user, $setupSecret),
+            ];
+        }
+
+        $freshRecoveryCodes = session('two_factor_recovery_codes');
+
+        return view('profile.edit', [
+            'twoFactorSetup' => $twoFactorSetup,
+            'freshRecoveryCodes' => is_array($freshRecoveryCodes) ? $freshRecoveryCodes : [],
+        ]);
     }
 
     public function update(Request $request): RedirectResponse
@@ -124,6 +146,146 @@ class ProfileController extends Controller
         return redirect()
             ->route('profile.edit')
             ->with('password_status', 'Password changed successfully.');
+    }
+
+    public function enableTwoFactor(Request $request, TwoFactorAuthenticator $twoFactorAuthenticator): RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user) {
+            abort(403);
+        }
+
+        if ($user->hasTwoFactorEnabled()) {
+            return redirect()
+                ->route('profile.edit')
+                ->with('two_factor_status', 'Two-factor authentication is already enabled.');
+        }
+
+        $validated = $request->validateWithBag('twoFactorEnable', [
+            'current_password' => ['required', 'current_password'],
+            'code' => ['required', 'string', 'max:20'],
+        ]);
+
+        $pendingSecret = (string) $request->session()->get('profile.two_factor.pending_secret', '');
+        if ($pendingSecret === '') {
+            $request->session()->put('profile.two_factor.pending_secret', $twoFactorAuthenticator->generateSecret());
+            $exception = ValidationException::withMessages([
+                'code' => 'Two-factor setup expired. Try again with the refreshed secret.',
+            ]);
+            $exception->errorBag = 'twoFactorEnable';
+
+            throw $exception;
+        }
+
+        if (! $twoFactorAuthenticator->verifyCode($pendingSecret, (string) $validated['code'])) {
+            $exception = ValidationException::withMessages([
+                'code' => 'Invalid authentication code. Please re-check your authenticator app.',
+            ]);
+            $exception->errorBag = 'twoFactorEnable';
+
+            throw $exception;
+        }
+
+        $recoveryCodes = $twoFactorAuthenticator->generateRecoveryCodes();
+        $user->forceFill([
+            'two_factor_secret' => $pendingSecret,
+            'two_factor_enabled_at' => now(),
+        ]);
+        $user->replaceTwoFactorRecoveryCodes($recoveryCodes);
+        $user->save();
+
+        $request->session()->forget('profile.two_factor.pending_secret');
+        $request->session()->flash('two_factor_recovery_codes', $recoveryCodes);
+
+        ActivityLogger::log(
+            $user,
+            'profile.two_factor.enabled',
+            'Two-factor authentication enabled',
+            "{$user->name} enabled two-factor authentication",
+            '#10b981',
+            $user
+        );
+
+        return redirect()
+            ->route('profile.edit')
+            ->with('two_factor_status', 'Two-factor authentication enabled successfully.');
+    }
+
+    public function disableTwoFactor(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user) {
+            abort(403);
+        }
+
+        if (! $user->hasTwoFactorEnabled()) {
+            return redirect()
+                ->route('profile.edit')
+                ->with('two_factor_status', 'Two-factor authentication is already disabled.');
+        }
+
+        $request->validateWithBag('twoFactorDisable', [
+            'current_password' => ['required', 'current_password'],
+        ]);
+
+        $user->forceFill([
+            'two_factor_secret' => null,
+            'two_factor_recovery_codes' => null,
+            'two_factor_enabled_at' => null,
+        ])->save();
+
+        $request->session()->forget('profile.two_factor.pending_secret');
+
+        ActivityLogger::log(
+            $user,
+            'profile.two_factor.disabled',
+            'Two-factor authentication disabled',
+            "{$user->name} disabled two-factor authentication",
+            '#6b7280',
+            $user
+        );
+
+        return redirect()
+            ->route('profile.edit')
+            ->with('two_factor_status', 'Two-factor authentication disabled.');
+    }
+
+    public function regenerateTwoFactorRecoveryCodes(
+        Request $request,
+        TwoFactorAuthenticator $twoFactorAuthenticator
+    ): RedirectResponse {
+        $user = $request->user();
+        if (! $user) {
+            abort(403);
+        }
+
+        if (! $user->hasTwoFactorEnabled()) {
+            return redirect()
+                ->route('profile.edit')
+                ->with('two_factor_status', 'Enable two-factor authentication first.');
+        }
+
+        $request->validateWithBag('twoFactorRecoveryCodes', [
+            'current_password' => ['required', 'current_password'],
+        ]);
+
+        $recoveryCodes = $twoFactorAuthenticator->generateRecoveryCodes();
+        $user->replaceTwoFactorRecoveryCodes($recoveryCodes);
+        $user->save();
+        $request->session()->flash('two_factor_recovery_codes', $recoveryCodes);
+
+        ActivityLogger::log(
+            $user,
+            'profile.two_factor.recovery_codes_regenerated',
+            'Two-factor recovery codes regenerated',
+            "{$user->name} regenerated two-factor recovery codes",
+            '#f59e0b',
+            $user
+        );
+
+        return redirect()
+            ->route('profile.edit')
+            ->with('two_factor_status', 'Recovery codes regenerated. Store them in a safe place.');
     }
 
     private function sanitizeAndStoreAvatar(UploadedFile $avatar): string

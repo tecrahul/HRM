@@ -30,6 +30,10 @@ Route::get('/branding/company-logo', [SettingsController::class, 'companyLogo'])
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
+    Route::get('/two-factor-challenge', [AuthController::class, 'showTwoFactorChallengeForm'])
+        ->name('two-factor.challenge');
+    Route::post('/two-factor-challenge', [AuthController::class, 'completeTwoFactorChallenge'])
+        ->name('two-factor.challenge.attempt');
 
     Route::middleware('auth-feature:signup')->group(function (): void {
         Route::get('/signup', [AuthController::class, 'showSignupForm'])->name('register');
@@ -52,6 +56,12 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
+    Route::post('/profile/two-factor/enable', [ProfileController::class, 'enableTwoFactor'])
+        ->name('profile.two-factor.enable');
+    Route::post('/profile/two-factor/disable', [ProfileController::class, 'disableTwoFactor'])
+        ->name('profile.two-factor.disable');
+    Route::post('/profile/two-factor/recovery-codes/regenerate', [ProfileController::class, 'regenerateTwoFactorRecoveryCodes'])
+        ->name('profile.two-factor.recovery-codes.regenerate');
     Route::get('/settings', [SettingsController::class, 'index'])
         ->middleware('role:admin,hr')
         ->name('settings.index');

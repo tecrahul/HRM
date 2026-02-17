@@ -35,6 +35,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -48,7 +50,74 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_enabled_at' => 'datetime',
         ];
+    }
+
+    public function hasTwoFactorEnabled(): bool
+    {
+        return filled($this->two_factor_secret) && $this->two_factor_enabled_at !== null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function twoFactorRecoveryCodeHashes(): array
+    {
+        $hashes = $this->two_factor_recovery_codes;
+        if (! is_array($hashes)) {
+            return [];
+        }
+
+        return array_values(array_filter($hashes, static fn (mixed $value): bool => is_string($value) && $value !== ''));
+    }
+
+    /**
+     * @param list<string> $codes
+     */
+    public function replaceTwoFactorRecoveryCodes(array $codes): void
+    {
+        $this->two_factor_recovery_codes = array_map(
+            static fn (string $code): string => hash('sha256', self::normalizeTwoFactorRecoveryCode($code)),
+            array_values($codes)
+        );
+    }
+
+    public function consumeTwoFactorRecoveryCode(string $code): bool
+    {
+        $normalizedCode = self::normalizeTwoFactorRecoveryCode($code);
+        if ($normalizedCode === '') {
+            return false;
+        }
+
+        $targetHash = hash('sha256', $normalizedCode);
+        $remainingHashes = [];
+        $matched = false;
+
+        foreach ($this->twoFactorRecoveryCodeHashes() as $hash) {
+            if (! $matched && hash_equals($hash, $targetHash)) {
+                $matched = true;
+
+                continue;
+            }
+
+            $remainingHashes[] = $hash;
+        }
+
+        if ($matched) {
+            $this->two_factor_recovery_codes = $remainingHashes;
+        }
+
+        return $matched;
+    }
+
+    private static function normalizeTwoFactorRecoveryCode(string $code): string
+    {
+        $normalized = preg_replace('/[\s-]+/', '', strtoupper(trim($code)));
+
+        return is_string($normalized) ? $normalized : '';
     }
 
     public function hasRole(UserRole|string $role): bool
