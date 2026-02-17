@@ -14,6 +14,7 @@ class EnsureAuthFeatureEnabled
         $enabled = match ($feature) {
             'signup' => CompanySetting::signupEnabled(),
             'password-reset' => CompanySetting::passwordResetEnabled(),
+            'two-factor' => CompanySetting::twoFactorEnabled(),
             default => false,
         };
 

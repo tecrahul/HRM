@@ -2,21 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\UserRole;
-use App\Models\Attendance;
-use App\Models\Branch;
 use App\Models\CompanySetting;
-use App\Models\Department;
-use App\Models\LeaveRequest;
-use App\Models\Payroll;
-use App\Models\User;
 use App\Support\ActivityLogger;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Response;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -41,6 +33,7 @@ class SettingsController extends Controller
             'company_address',
             'signup_enabled',
             'password_reset_enabled',
+            'two_factor_enabled',
         ];
     }
 
@@ -63,6 +56,7 @@ class SettingsController extends Controller
             'company_address' => null,
             'signup_enabled' => CompanySetting::DEFAULT_SIGNUP_ENABLED,
             'password_reset_enabled' => CompanySetting::DEFAULT_PASSWORD_RESET_ENABLED,
+            'two_factor_enabled' => CompanySetting::DEFAULT_TWO_FACTOR_ENABLED,
         ];
     }
 
@@ -70,50 +64,13 @@ class SettingsController extends Controller
     {
         $record = CompanySetting::query()->first();
         $companySettings = array_merge($this->defaults(), $record?->only($this->fields()) ?? []);
-        $employeeIds = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
-            ->pluck('id');
-
-        $today = now()->toDateString();
-        $monthStart = now()->startOfMonth()->toDateString();
-        $monthEnd = now()->endOfMonth()->toDateString();
-
-        $systemSnapshot = [
-            'usersTotal' => User::query()->count(),
-            'employeesTotal' => $employeeIds->count(),
-            'departmentsTotal' => Department::query()->count(),
-            'branchesTotal' => Branch::query()->count(),
-            'attendanceMarkedToday' => Attendance::query()
-                ->whereIn('user_id', $employeeIds)
-                ->whereDate('attendance_date', $today)
-                ->count(),
-            'leavePending' => LeaveRequest::query()
-                ->whereIn('user_id', $employeeIds)
-                ->where('status', LeaveRequest::STATUS_PENDING)
-                ->count(),
-            'payrollGeneratedMonth' => 0,
-        ];
-
-        if (Schema::hasTable('payrolls')) {
-            $systemSnapshot['payrollGeneratedMonth'] = Payroll::query()
-                ->whereIn('user_id', $employeeIds)
-                ->whereBetween('payroll_month', [$monthStart, $monthEnd])
-                ->count();
-        }
+        $financialYearMonthOptions = collect(range(1, 12))
+            ->mapWithKeys(fn (int $month): array => [$month => Carbon::create(2024, $month, 1)->format('F')])
+            ->all();
 
         return view('settings.index', [
             'companySettings' => $companySettings,
-            'financialYearMonthOptions' => collect(range(1, 12))
-                ->mapWithKeys(fn (int $month): array => [$month => Carbon::create(2024, $month, 1)->format('F')])
-                ->all(),
-            'systemSnapshot' => $systemSnapshot,
-            'appMeta' => [
-                'appName' => config('app.name'),
-                'appUrl' => config('app.url'),
-                'appTimezone' => config('app.timezone'),
-                'phpVersion' => PHP_VERSION,
-                'laravelVersion' => app()->version(),
-            ],
+            'financialYearMonthOptions' => $financialYearMonthOptions,
         ]);
     }
 
@@ -134,10 +91,12 @@ class SettingsController extends Controller
             'remove_company_logo' => ['nullable', 'boolean'],
             'signup_enabled' => ['nullable', 'boolean'],
             'password_reset_enabled' => ['nullable', 'boolean'],
+            'two_factor_enabled' => ['nullable', 'boolean'],
         ]);
 
         $validated['signup_enabled'] = $request->boolean('signup_enabled');
         $validated['password_reset_enabled'] = $request->boolean('password_reset_enabled');
+        $validated['two_factor_enabled'] = $request->boolean('two_factor_enabled');
         $validated['currency'] = strtoupper($validated['currency']);
         unset($validated['company_logo'], $validated['remove_company_logo']);
 

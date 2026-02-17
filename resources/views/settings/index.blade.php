@@ -8,6 +8,26 @@
         $canManageCompanyDetails = auth()->user()?->hasRole(\App\Enums\UserRole::ADMIN);
         $companyLogoPath = (string) ($companySettings['company_logo_path'] ?? '');
         $companyLogoUrl = null;
+        $profileFieldsForCompletion = [
+            'company_name',
+            'company_code',
+            'company_email',
+            'company_phone',
+            'company_website',
+            'tax_id',
+            'company_address',
+        ];
+        $completedProfileFields = collect($profileFieldsForCompletion)->filter(
+            static fn (string $field): bool => filled($companySettings[$field] ?? null)
+        )->count();
+        $profileCompletionPercent = (int) round(
+            ($completedProfileFields / count($profileFieldsForCompletion)) * 100
+        );
+        $authControlsEnabled = collect(['signup_enabled', 'password_reset_enabled', 'two_factor_enabled'])->filter(
+            static fn (string $field): bool => (bool) ($companySettings[$field] ?? false)
+        )->count();
+        $currentFinancialMonth = (int) ($companySettings['financial_year_start_month'] ?? 4);
+        $financialYearStartLabel = $financialYearMonthOptions[$currentFinancialMonth] ?? 'April';
         if (
             $companyLogoPath !== ''
             && \Illuminate\Support\Facades\Storage::disk('public')->exists($companyLogoPath)
@@ -28,44 +48,48 @@
         <article class="ui-kpi-card">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Total Users</p>
-                    <p class="mt-2 text-3xl font-extrabold">{{ $systemSnapshot['usersTotal'] }}</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Profile Completion</p>
+                    <p class="mt-2 text-3xl font-extrabold">{{ $profileCompletionPercent }}%</p>
+                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $completedProfileFields }}/{{ count($profileFieldsForCompletion) }} fields configured</p>
                 </div>
                 <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(59 130 246 / 0.16); color: #2563eb;">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-3-3.87"></path><path d="M7 21v-2a4 4 0 0 1 3-3.87"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
                 </span>
             </div>
         </article>
         <article class="ui-kpi-card">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Employees</p>
-                    <p class="mt-2 text-3xl font-extrabold">{{ $systemSnapshot['employeesTotal'] }}</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Branding</p>
+                    <p class="mt-2 text-3xl font-extrabold">{{ $companyLogoUrl ? 'Configured' : 'Not Set' }}</p>
+                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">Company logo for login and dashboards</p>
                 </div>
                 <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(16 185 129 / 0.16); color: #059669;">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle></svg>
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></svg>
                 </span>
             </div>
         </article>
         <article class="ui-kpi-card">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Attendance Today</p>
-                    <p class="mt-2 text-3xl font-extrabold">{{ $systemSnapshot['attendanceMarkedToday'] }}</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Auth Controls</p>
+                    <p class="mt-2 text-3xl font-extrabold">{{ $authControlsEnabled }}/3 Enabled</p>
+                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">Sign up, password reset, and 2FA</p>
                 </div>
                 <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(14 165 233 / 0.16); color: #0284c7;">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                 </span>
             </div>
         </article>
         <article class="ui-kpi-card">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Pending Leaves</p>
-                    <p class="mt-2 text-3xl font-extrabold">{{ $systemSnapshot['leavePending'] }}</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Locale & Finance</p>
+                    <p class="mt-2 text-3xl font-extrabold">{{ $companySettings['currency'] }}</p>
+                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['timezone'] }} - FY starts {{ $financialYearStartLabel }}</p>
                 </div>
                 <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(245 158 11 / 0.16); color: #d97706;">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path></svg>
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"></path><path d="M12 6v12"></path></svg>
                 </span>
             </div>
         </article>
@@ -75,11 +99,11 @@
         <article class="ui-section">
             <div class="flex items-center gap-2">
                 <span class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="2"></rect><rect x="14" y="3" width="7" height="7" rx="2"></rect><rect x="3" y="14" width="7" height="7" rx="2"></rect><rect x="14" y="14" width="7" height="7" rx="2"></rect></svg>
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path></svg>
                 </span>
-                <h3 class="text-lg font-extrabold">Module Snapshot</h3>
+                <h3 class="text-lg font-extrabold">Company Settings Snapshot</h3>
             </div>
-            <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Live module records from the database.</p>
+            <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Current values configured for your organization profile.</p>
 
             <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
@@ -87,36 +111,36 @@
                         <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(236 72 153 / 0.16); color: #db2777;">
                             <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path></svg>
                         </span>
-                        <p class="font-semibold">Departments</p>
+                        <p class="font-semibold">Company Name</p>
                     </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $systemSnapshot['departmentsTotal'] }} configured</p>
+                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['company_name'] ?: 'Not set' }}</p>
                 </div>
                 <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
                     <div class="flex items-center gap-2">
                         <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(99 102 241 / 0.16); color: #4f46e5;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16"></path><path d="M6 20V8l6-4 6 4v12"></path></svg>
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18"></path><path d="M3 12h18"></path><path d="M3 19h18"></path></svg>
                         </span>
-                        <p class="font-semibold">Branches</p>
+                        <p class="font-semibold">Company Code</p>
                     </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $systemSnapshot['branchesTotal'] }} configured</p>
+                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['company_code'] ?: 'Not set' }}</p>
                 </div>
                 <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
                     <div class="flex items-center gap-2">
                         <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(124 58 237 / 0.16); color: #7c3aed;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="m22 6-10 7L2 6"></path></svg>
                         </span>
-                        <p class="font-semibold">Payroll (Month)</p>
+                        <p class="font-semibold">Official Email</p>
                     </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $systemSnapshot['payrollGeneratedMonth'] }} generated</p>
+                    <p class="mt-1 text-xs break-all" style="color: var(--hr-text-muted);">{{ $companySettings['company_email'] ?: 'Not set' }}</p>
                 </div>
                 <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
                     <div class="flex items-center gap-2">
                         <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(14 165 233 / 0.16); color: #0284c7;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"></circle><path d="M5.5 21a8.5 8.5 0 0 1 13 0"></path></svg>
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3.46 3.46"></path><path d="M17 10a5 5 0 1 0-10 0 5 5 0 0 0 10 0z"></path></svg>
                         </span>
-                        <p class="font-semibold">Company Profile</p>
+                        <p class="font-semibold">Website</p>
                     </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $canManageCompanyDetails ? 'Editable' : 'Read only' }}</p>
+                    <p class="mt-1 text-xs break-all" style="color: var(--hr-text-muted);">{{ $companySettings['company_website'] ?: 'Not set' }}</p>
                 </div>
             </div>
         </article>
@@ -124,32 +148,40 @@
         <article class="ui-section">
             <div class="flex items-center gap-2">
                 <span class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82"></path><path d="M4.6 9a1.65 1.65 0 0 0-.33-1.82"></path></svg>
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                 </span>
-                <h3 class="text-lg font-extrabold">Platform Information</h3>
+                <h3 class="text-lg font-extrabold">Access & Preferences</h3>
             </div>
-            <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Application metadata from runtime configuration.</p>
+            <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Authentication and regional preferences from the saved settings.</p>
 
             <dl class="mt-4 space-y-2 text-sm">
                 <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Application</dt>
-                    <dd class="font-semibold">{{ $appMeta['appName'] ?: 'N/A' }}</dd>
+                    <dt style="color: var(--hr-text-muted);">Sign Up</dt>
+                    <dd class="font-semibold">{{ $companySettings['signup_enabled'] ? 'Enabled' : 'Disabled' }}</dd>
                 </div>
                 <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">URL</dt>
-                    <dd class="font-semibold">{{ $appMeta['appUrl'] ?: 'N/A' }}</dd>
+                    <dt style="color: var(--hr-text-muted);">Password Reset</dt>
+                    <dd class="font-semibold">{{ $companySettings['password_reset_enabled'] ? 'Enabled' : 'Disabled' }}</dd>
+                </div>
+                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                    <dt style="color: var(--hr-text-muted);">Two-Factor Authentication</dt>
+                    <dd class="font-semibold">{{ $companySettings['two_factor_enabled'] ? 'Enabled' : 'Disabled' }}</dd>
                 </div>
                 <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
                     <dt style="color: var(--hr-text-muted);">Timezone</dt>
-                    <dd class="font-semibold">{{ $appMeta['appTimezone'] ?: 'N/A' }}</dd>
+                    <dd class="font-semibold">{{ $companySettings['timezone'] }}</dd>
                 </div>
                 <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Laravel</dt>
-                    <dd class="font-semibold">{{ $appMeta['laravelVersion'] }}</dd>
+                    <dt style="color: var(--hr-text-muted);">Currency</dt>
+                    <dd class="font-semibold">{{ $companySettings['currency'] }}</dd>
                 </div>
                 <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">PHP</dt>
-                    <dd class="font-semibold">{{ $appMeta['phpVersion'] }}</dd>
+                    <dt style="color: var(--hr-text-muted);">Financial Year Start</dt>
+                    <dd class="font-semibold">{{ $financialYearStartLabel }}</dd>
+                </div>
+                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                    <dt style="color: var(--hr-text-muted);">Edit Access</dt>
+                    <dd class="font-semibold">{{ $canManageCompanyDetails ? 'Admin' : 'Read only' }}</dd>
                 </div>
             </dl>
         </article>
@@ -177,6 +209,23 @@
 
         <form method="POST" action="{{ route('settings.company.update') }}" enctype="multipart/form-data" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             @csrf
+            <div class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h4 class="text-sm font-extrabold">Security Controls</h4>
+                        <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Two-factor authentication can be globally enabled or disabled from Authentication Access.</p>
+                    </div>
+                    <span class="text-[11px] font-bold uppercase tracking-[0.1em] rounded-full px-2.5 py-1" style="background: var(--hr-accent-soft); color: var(--hr-accent); border: 1px solid var(--hr-line);">
+                        2FA: {{ ($companySettings['two_factor_enabled'] ?? true) ? 'Enabled' : 'Disabled' }}
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <a href="#authentication-access" class="text-xs font-semibold inline-flex items-center gap-2" style="color: var(--hr-accent);">
+                        Go to Authentication Access
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                    </a>
+                </div>
+            </div>
             <div>
                 <label for="company_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Company Name</label>
                 <input id="company_name" name="company_name" type="text" value="{{ old('company_name', $companySettings['company_name']) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
@@ -296,9 +345,9 @@
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
-            <div class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+            <div id="authentication-access" class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
                 <h4 class="text-sm font-extrabold">Authentication Access</h4>
-                <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Control whether users can sign up and reset passwords from the login screen.</p>
+                <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Control whether users can sign up, reset passwords, and use two-factor authentication.</p>
                 <div class="mt-3 space-y-3">
                     <label class="flex items-start gap-3 text-sm">
                         <input
@@ -326,6 +375,20 @@
                         <span>
                             <span class="font-semibold block">Enable Password Reset</span>
                             <span class="text-xs" style="color: var(--hr-text-muted);">Allow users to request email reset links and set a new password.</span>
+                        </span>
+                    </label>
+                    <label class="flex items-start gap-3 text-sm">
+                        <input
+                            type="checkbox"
+                            name="two_factor_enabled"
+                            value="1"
+                            class="mt-0.5 rounded border-gray-300"
+                            @checked((bool) old('two_factor_enabled', $companySettings['two_factor_enabled'] ?? true))
+                            @disabled(! $canManageCompanyDetails)
+                        >
+                        <span>
+                            <span class="font-semibold block">Enable Two-Factor Authentication</span>
+                            <span class="text-xs" style="color: var(--hr-text-muted);">Allow users to enable and use TOTP-based two-factor authentication at login.</span>
                         </span>
                     </label>
                 </div>

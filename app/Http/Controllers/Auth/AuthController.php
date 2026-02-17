@@ -83,7 +83,7 @@ class AuthController extends Controller
             ]);
         }
 
-        if ($user->hasTwoFactorEnabled()) {
+        if (CompanySetting::twoFactorEnabled() && $user->hasTwoFactorEnabled()) {
             $this->clearPendingTwoFactorSession($request);
             $request->session()->put(self::TWO_FACTOR_SESSION_USER_ID, $user->id);
             $request->session()->put(self::TWO_FACTOR_SESSION_REMEMBER, $remember);
@@ -122,6 +122,12 @@ class AuthController extends Controller
             return redirect()->route(Auth::user()?->dashboardRouteName() ?? 'login');
         }
 
+        if (! CompanySetting::twoFactorEnabled()) {
+            $this->clearPendingTwoFactorSession($request);
+
+            return redirect()->route('login');
+        }
+
         if (! $this->hasPendingTwoFactorSession($request)) {
             return redirect()->route('login');
         }
@@ -143,6 +149,12 @@ class AuthController extends Controller
         TwoFactorAuthenticator $twoFactorAuthenticator
     ): RedirectResponse {
         if (! $this->hasPendingTwoFactorSession($request)) {
+            return redirect()->route('login');
+        }
+
+        if (! CompanySetting::twoFactorEnabled()) {
+            $this->clearPendingTwoFactorSession($request);
+
             return redirect()->route('login');
         }
 

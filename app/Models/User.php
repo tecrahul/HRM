@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -209,5 +210,43 @@ class User extends Authenticatable
     public function activities(): HasMany
     {
         return $this->hasMany(Activity::class, 'actor_user_id');
+    }
+
+    public function sentMessages(): HasMany
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
+    public function receivedMessages(): HasMany
+    {
+        return $this->hasMany(Message::class, 'receiver_id');
+    }
+
+    public function createdConversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class, 'created_by_user_id');
+    }
+
+    public function supervisedProfiles(): HasMany
+    {
+        return $this->hasMany(UserProfile::class, 'supervisor_user_id');
+    }
+
+    public function directReportsQuery(): Builder
+    {
+        return self::query()
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->whereHas('profile', function (Builder $query): void {
+                $query->where('supervisor_user_id', $this->id);
+            });
+    }
+
+    public function isSupervisor(): bool
+    {
+        if (! $this->hasRole(UserRole::EMPLOYEE->value)) {
+            return false;
+        }
+
+        return $this->directReportsQuery()->exists();
     }
 }

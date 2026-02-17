@@ -4,7 +4,7 @@
     $profile = $managedUser?->profile;
     $departmentOptions = $departmentOptions ?? [];
     $branchOptions = $branchOptions ?? [];
-    $managerOptions = $managerOptions ?? [];
+    $supervisorOptions = $supervisorOptions ?? collect();
 @endphp
 
 <form method="POST" action="{{ $action }}" class="space-y-5">
@@ -182,21 +182,26 @@
                 @enderror
             </div>
             <div>
-                <label for="manager_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Reporting Manager</label>
+                <label for="supervisor_user_id" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Direct Supervisor</label>
                 @php
-                    $currentManager = old('manager_name', $profile?->manager_name);
+                    $currentSupervisorId = (string) old('supervisor_user_id', $profile?->supervisor_user_id ? (string) $profile?->supervisor_user_id : '');
                 @endphp
-                <select id="manager_name" name="manager_name" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
-                    <option value="">Select reporting manager</option>
-                    @foreach($managerOptions as $managerOption)
-                        <option value="{{ $managerOption }}" {{ $currentManager === $managerOption ? 'selected' : '' }}>
-                            {{ $managerOption }}
+                <select id="supervisor_user_id" name="supervisor_user_id" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                    <option value="">Select supervisor</option>
+                    @foreach($supervisorOptions as $supervisorOption)
+                        @php
+                            $supervisorRole = $supervisorOption->role instanceof \App\Enums\UserRole
+                                ? $supervisorOption->role->label()
+                                : ucfirst((string) $supervisorOption->role);
+                        @endphp
+                        <option value="{{ $supervisorOption->id }}" {{ $currentSupervisorId === (string) $supervisorOption->id ? 'selected' : '' }}>
+                            {{ $supervisorOption->name }} ({{ $supervisorRole }})
                         </option>
                     @endforeach
-                    @if(! blank($currentManager) && ! in_array($currentManager, $managerOptions, true))
-                        <option value="{{ $currentManager }}" selected>{{ $currentManager }}</option>
-                    @endif
                 </select>
+                @error('supervisor_user_id')
+                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                @enderror
                 @error('manager_name')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror

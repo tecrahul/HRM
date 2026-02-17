@@ -28,6 +28,7 @@ class UserProfile extends Model
         'national_id',
         'work_location',
         'manager_name',
+        'supervisor_user_id',
         'linkedin_url',
         'address',
         'emergency_contact_name',
@@ -48,5 +49,10 @@ class UserProfile extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function supervisor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_user_id');
     }
 }

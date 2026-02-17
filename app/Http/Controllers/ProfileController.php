@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CompanySetting;
 use App\Support\ActivityLogger;
 use App\Support\TwoFactorAuthenticator;
 use Illuminate\Contracts\View\View;
@@ -20,9 +21,10 @@ class ProfileController extends Controller
     {
         $user = $request->user();
         $user?->loadMissing('profile');
+        $twoFactorFeatureEnabled = CompanySetting::twoFactorEnabled();
 
         $twoFactorSetup = null;
-        if ($user && ! $user->hasTwoFactorEnabled()) {
+        if ($twoFactorFeatureEnabled && $user && ! $user->hasTwoFactorEnabled()) {
             $setupSecret = (string) $request->session()->get('profile.two_factor.pending_secret', '');
             if ($setupSecret === '') {
                 $setupSecret = $twoFactorAuthenticator->generateSecret();
@@ -41,6 +43,7 @@ class ProfileController extends Controller
         return view('profile.edit', [
             'twoFactorSetup' => $twoFactorSetup,
             'freshRecoveryCodes' => is_array($freshRecoveryCodes) ? $freshRecoveryCodes : [],
+            'twoFactorFeatureEnabled' => $twoFactorFeatureEnabled,
         ]);
     }
 
@@ -161,6 +164,12 @@ class ProfileController extends Controller
                 ->with('two_factor_status', 'Two-factor authentication is already enabled.');
         }
 
+        if (! CompanySetting::twoFactorEnabled()) {
+            return redirect()
+                ->route('profile.edit')
+                ->with('two_factor_status', 'Two-factor authentication is disabled by admin settings.');
+        }
+
         $validated = $request->validateWithBag('twoFactorEnable', [
             'current_password' => ['required', 'current_password'],
             'code' => ['required', 'string', 'max:20'],
@@ -263,6 +272,12 @@ class ProfileController extends Controller
             return redirect()
                 ->route('profile.edit')
                 ->with('two_factor_status', 'Enable two-factor authentication first.');
+        }
+
+        if (! CompanySetting::twoFactorEnabled()) {
+            return redirect()
+                ->route('profile.edit')
+                ->with('two_factor_status', 'Two-factor authentication is disabled by admin settings.');
         }
 
         $request->validateWithBag('twoFactorRecoveryCodes', [

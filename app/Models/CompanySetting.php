@@ -10,6 +10,7 @@ class CompanySetting extends Model
 {
     public const DEFAULT_SIGNUP_ENABLED = false;
     public const DEFAULT_PASSWORD_RESET_ENABLED = true;
+    public const DEFAULT_TWO_FACTOR_ENABLED = true;
 
     /**
      * @var list<string>
@@ -28,6 +29,7 @@ class CompanySetting extends Model
         'company_address',
         'signup_enabled',
         'password_reset_enabled',
+        'two_factor_enabled',
     ];
 
     /**
@@ -39,6 +41,7 @@ class CompanySetting extends Model
             'financial_year_start_month' => 'integer',
             'signup_enabled' => 'boolean',
             'password_reset_enabled' => 'boolean',
+            'two_factor_enabled' => 'boolean',
         ];
     }
 
@@ -70,5 +73,20 @@ class CompanySetting extends Model
         }
 
         return $value === null ? self::DEFAULT_PASSWORD_RESET_ENABLED : (bool) $value;
+    }
+
+    public static function twoFactorEnabled(): bool
+    {
+        if (! Schema::hasTable((new self())->getTable())) {
+            return self::DEFAULT_TWO_FACTOR_ENABLED;
+        }
+
+        try {
+            $value = self::query()->value('two_factor_enabled');
+        } catch (Throwable) {
+            return self::DEFAULT_TWO_FACTOR_ENABLED;
+        }
+
+        return $value === null ? self::DEFAULT_TWO_FACTOR_ENABLED : (bool) $value;
     }
 }

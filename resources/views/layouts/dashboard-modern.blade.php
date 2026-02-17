@@ -723,6 +723,21 @@
     $headerNotifications = $user
         ? $user->notifications()->latest()->limit(6)->get()
         : collect();
+    $unreadCommunicationCount = 0;
+    $headerCommunicationMessages = collect();
+    if ($user && \Illuminate\Support\Facades\Schema::hasTable('messages')) {
+        $unreadCommunicationCount = (int) \App\Models\Message::query()
+            ->where('receiver_id', $user->id)
+            ->where('read_status', false)
+            ->count();
+        $headerCommunicationMessages = \App\Models\Message::query()
+            ->with('sender:id,name')
+            ->where('receiver_id', $user->id)
+            ->where('read_status', false)
+            ->latest()
+            ->limit(6)
+            ->get();
+    }
 @endphp
 <div id="hrmModernShell" class="hrm-modern-shell">
     <aside id="hrmModernSidebar" class="hrm-modern-sidebar hrm-modern-surface px-4 py-5 flex flex-col gap-6">
@@ -825,6 +840,17 @@
                 </svg>
                 <span class="hrm-nav-label">Payroll</span>
             </a>
+            <a href="{{ route('modules.communication.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.communication.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
+                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span class="hrm-nav-label">Communication</span>
+                @if ($unreadCommunicationCount > 0)
+                    <span class="ml-auto text-[10px] font-bold leading-none rounded-full px-1.5 py-1 text-white" style="background: #ef4444;">
+                        {{ min($unreadCommunicationCount, 99) }}
+                    </span>
+                @endif
+            </a>
             <a href="{{ route('notifications.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('notifications.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
                 <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
@@ -902,6 +928,50 @@
 
                 <div class="ml-auto flex items-center gap-2 md:gap-3">
                     <div class="flex items-center gap-2">
+                        <div id="hrmCommunicationMenu" class="hrm-notification-menu">
+                            <button id="hrmCommunicationButton" type="button" class="hrm-header-icon-btn" aria-label="Communication" aria-haspopup="true" aria-expanded="false">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                @if ($unreadCommunicationCount > 0)
+                                    <span class="hrm-header-alert-badge">{{ min($unreadCommunicationCount, 99) }}</span>
+                                @endif
+                            </button>
+                            <div id="hrmCommunicationDropdown" class="hrm-notification-dropdown hidden" role="menu">
+                                <div class="hrm-notification-head">
+                                    <p class="text-sm font-bold">New Messages</p>
+                                    <a href="{{ route('modules.communication.index', ['tab' => 'inbox']) }}" class="text-xs font-semibold" style="color: var(--hr-accent);">View Inbox</a>
+                                </div>
+                                <div class="hrm-notification-list">
+                                    @forelse($headerCommunicationMessages as $headerMessage)
+                                        @php
+                                            $senderName = (string) ($headerMessage->sender?->name ?? 'Unknown Sender');
+                                            $previewText = str((string) $headerMessage->message)->squish()->limit(110);
+                                        @endphp
+                                        <article class="hrm-notification-item is-unread">
+                                            <p class="text-sm font-semibold">{{ $senderName }}</p>
+                                            <p class="text-xs" style="color: var(--hr-text-muted);">{{ $previewText }}</p>
+                                            <p class="text-[11px]" style="color: var(--hr-text-muted);">
+                                                {{ $headerMessage->created_at?->format('M d, h:i A') ?? 'N/A' }}
+                                            </p>
+                                            <div class="flex items-center gap-2">
+                                                <a href="{{ route('modules.communication.index', ['tab' => 'inbox']) }}" class="text-xs font-semibold" style="color: var(--hr-accent);">Open Inbox</a>
+                                                <form method="POST" action="{{ route('modules.communication.messages.read', $headerMessage) }}">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <button type="submit" class="text-xs font-semibold" style="color: var(--hr-accent);">Mark Read</button>
+                                                </form>
+                                            </div>
+                                        </article>
+                                    @empty
+                                        <p class="text-xs px-1 py-2" style="color: var(--hr-text-muted);">No new messages.</p>
+                                    @endforelse
+                                </div>
+                                <div class="hrm-notification-foot">
+                                    <a href="{{ route('modules.communication.index', ['tab' => 'inbox']) }}" class="text-xs font-semibold" style="color: var(--hr-accent);">Go to Communication</a>
+                                </div>
+                            </div>
+                        </div>
                         <div id="hrmNotificationMenu" class="hrm-notification-menu">
                             <button id="hrmNotificationButton" type="button" class="hrm-header-icon-btn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1033,6 +1103,9 @@
         const profileMenu = document.getElementById("hrmProfileMenu");
         const profileMenuButton = document.getElementById("hrmProfileMenuButton");
         const profileDropdown = document.getElementById("hrmProfileDropdown");
+        const communicationMenu = document.getElementById("hrmCommunicationMenu");
+        const communicationButton = document.getElementById("hrmCommunicationButton");
+        const communicationDropdown = document.getElementById("hrmCommunicationDropdown");
         const notificationMenu = document.getElementById("hrmNotificationMenu");
         const notificationButton = document.getElementById("hrmNotificationButton");
         const notificationDropdown = document.getElementById("hrmNotificationDropdown");
@@ -1077,6 +1150,16 @@
             notificationMenu.classList.toggle("is-open", open);
             notificationDropdown.classList.toggle("hidden", !open);
             notificationButton.setAttribute("aria-expanded", open ? "true" : "false");
+        };
+
+        const setCommunicationMenuOpen = (open) => {
+            if (!communicationMenu || !communicationButton || !communicationDropdown) {
+                return;
+            }
+
+            communicationMenu.classList.toggle("is-open", open);
+            communicationDropdown.classList.toggle("hidden", !open);
+            communicationButton.setAttribute("aria-expanded", open ? "true" : "false");
         };
 
         const setReportsSubmenuOpen = (open) => {
@@ -1141,7 +1224,18 @@
                 event.preventDefault();
                 const isOpen = profileMenu?.classList.contains("is-open") ?? false;
                 setNotificationMenuOpen(false);
+                setCommunicationMenuOpen(false);
                 setProfileMenuOpen(!isOpen);
+            });
+        }
+
+        if (communicationButton) {
+            communicationButton.addEventListener("click", (event) => {
+                event.preventDefault();
+                const isOpen = communicationMenu?.classList.contains("is-open") ?? false;
+                setProfileMenuOpen(false);
+                setNotificationMenuOpen(false);
+                setCommunicationMenuOpen(!isOpen);
             });
         }
 
@@ -1150,6 +1244,7 @@
                 event.preventDefault();
                 const isOpen = notificationMenu?.classList.contains("is-open") ?? false;
                 setProfileMenuOpen(false);
+                setCommunicationMenuOpen(false);
                 setNotificationMenuOpen(!isOpen);
             });
         }
@@ -1198,12 +1293,17 @@
             if (notificationMenu && target && !notificationMenu.contains(target)) {
                 setNotificationMenuOpen(false);
             }
+
+            if (communicationMenu && target && !communicationMenu.contains(target)) {
+                setCommunicationMenuOpen(false);
+            }
         });
 
         document.addEventListener("keydown", (event) => {
             if (event.key === "Escape") {
                 setProfileMenuOpen(false);
                 setNotificationMenuOpen(false);
+                setCommunicationMenuOpen(false);
             }
         });
 

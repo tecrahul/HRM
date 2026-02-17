@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\CommunicationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\EmployeeController;
@@ -30,10 +31,12 @@ Route::get('/branding/company-logo', [SettingsController::class, 'companyLogo'])
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
-    Route::get('/two-factor-challenge', [AuthController::class, 'showTwoFactorChallengeForm'])
-        ->name('two-factor.challenge');
-    Route::post('/two-factor-challenge', [AuthController::class, 'completeTwoFactorChallenge'])
-        ->name('two-factor.challenge.attempt');
+    Route::middleware('auth-feature:two-factor')->group(function (): void {
+        Route::get('/two-factor-challenge', [AuthController::class, 'showTwoFactorChallengeForm'])
+            ->name('two-factor.challenge');
+        Route::post('/two-factor-challenge', [AuthController::class, 'completeTwoFactorChallenge'])
+            ->name('two-factor.challenge.attempt');
+    });
 
     Route::middleware('auth-feature:signup')->group(function (): void {
         Route::get('/signup', [AuthController::class, 'showSignupForm'])->name('register');
@@ -138,6 +141,23 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
             ->middleware('role:employee')
             ->name('attendance.check-out');
         Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll.index');
+        Route::get('/communication', [CommunicationController::class, 'index'])->name('communication.index');
+        Route::post('/communication/direct', [CommunicationController::class, 'sendDirectMessage'])
+            ->name('communication.direct.send');
+        Route::post('/communication/broadcast', [CommunicationController::class, 'sendBroadcast'])
+            ->middleware('role:admin,hr')
+            ->name('communication.broadcast.send');
+        Route::post('/communication/broadcast/all', [CommunicationController::class, 'sendBroadcastAll'])
+            ->middleware('role:admin,hr')
+            ->name('communication.broadcast.all');
+        Route::post('/communication/broadcast/team', [CommunicationController::class, 'sendBroadcastTeam'])
+            ->middleware('role:employee')
+            ->name('communication.broadcast.team');
+        Route::post('/communication/broadcast/targeted', [CommunicationController::class, 'sendTargetedBroadcast'])
+            ->middleware('role:admin')
+            ->name('communication.broadcast.targeted');
+        Route::put('/communication/messages/{message}/read', [CommunicationController::class, 'markRead'])
+            ->name('communication.messages.read');
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/activity', [ReportController::class, 'activity'])->name('reports.activity');
         Route::get('/reports/activity/{activity}', [ReportController::class, 'activityShow'])->name('reports.activity.show');

@@ -95,6 +95,7 @@ class SettingsCompanyDetailsTest extends TestCase
                 'currency' => 'USD',
                 'financial_year_start_month' => 4,
                 'signup_enabled' => '1',
+                'two_factor_enabled' => '1',
             ]);
 
         $response
@@ -105,6 +106,7 @@ class SettingsCompanyDetailsTest extends TestCase
             'company_name' => 'Security Config Inc',
             'signup_enabled' => 1,
             'password_reset_enabled' => 0,
+            'two_factor_enabled' => 1,
         ]);
     }
 }

@@ -10,6 +10,7 @@
         $role = $user?->role;
         $roleLabel = $role instanceof \App\Enums\UserRole ? $role->label() : ucfirst((string) $role);
         $twoFactorEnabled = (bool) ($user?->hasTwoFactorEnabled());
+        $twoFactorFeatureEnabled = (bool) ($twoFactorFeatureEnabled ?? true);
         $avatarUrl = $profile?->avatar_url ?? null;
         if (blank($avatarUrl)) {
             $avatarUrl = asset('images/user-avatar.svg');
@@ -402,6 +403,12 @@
                 </div>
             @endif
 
+            @if (! $twoFactorFeatureEnabled)
+                <div class="mt-4 rounded-xl px-3 py-2 text-sm border" style="border-color: #f59e0b55; background: #f59e0b12; color: #92400e;">
+                    Two-factor authentication is currently disabled in admin settings.
+                </div>
+            @endif
+
             @if ($twoFactorEnabled)
                 <div class="mt-4 rounded-xl border p-3 text-sm" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
                     <p class="font-semibold">Status: Active</p>
@@ -410,7 +417,7 @@
                     </p>
                 </div>
 
-                @if (! empty($freshRecoveryCodes))
+                @if ($twoFactorFeatureEnabled && ! empty($freshRecoveryCodes))
                     <div class="mt-4 rounded-xl border p-4" style="border-color: #f59e0b66; background: #fffbeb;">
                         <p class="text-sm font-semibold text-amber-700">New recovery codes generated</p>
                         <p class="text-xs mt-1 text-amber-700">Save these once-only codes now. They will not be shown again.</p>
@@ -422,25 +429,27 @@
                     </div>
                 @endif
 
-                @if ($errors->twoFactorRecoveryCodes->any())
+                @if ($twoFactorFeatureEnabled && $errors->twoFactorRecoveryCodes->any())
                     <div class="mt-4 rounded-xl px-3 py-2 text-sm border" style="border-color: #ef444455; background: #ef444412; color: #991b1b;">
                         Recovery codes were not regenerated. Check password and try again.
                     </div>
                 @endif
 
-                <form method="POST" action="{{ route('profile.two-factor.recovery-codes.regenerate') }}" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                    @csrf
-                    <div class="md:col-span-2">
-                        <label for="two_factor_recovery_current_password" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Current Password</label>
-                        <input id="two_factor_recovery_current_password" name="current_password" type="password" autocomplete="current-password" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
-                        @error('current_password', 'twoFactorRecoveryCodes')
-                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div class="flex items-end">
-                        <button type="submit" class="w-full rounded-xl px-3.5 py-2 text-sm font-semibold border" style="border-color: var(--hr-line);">Regenerate Recovery Codes</button>
-                    </div>
-                </form>
+                @if ($twoFactorFeatureEnabled)
+                    <form method="POST" action="{{ route('profile.two-factor.recovery-codes.regenerate') }}" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                        @csrf
+                        <div class="md:col-span-2">
+                            <label for="two_factor_recovery_current_password" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Current Password</label>
+                            <input id="two_factor_recovery_current_password" name="current_password" type="password" autocomplete="current-password" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                            @error('current_password', 'twoFactorRecoveryCodes')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="w-full rounded-xl px-3.5 py-2 text-sm font-semibold border" style="border-color: var(--hr-line);">Regenerate Recovery Codes</button>
+                        </div>
+                    </form>
+                @endif
 
                 @if ($errors->twoFactorDisable->any())
                     <div class="mt-4 rounded-xl px-3 py-2 text-sm border" style="border-color: #ef444455; background: #ef444412; color: #991b1b;">
@@ -462,47 +471,53 @@
                     </div>
                 </form>
             @else
-                <div class="mt-4 rounded-xl border p-4 space-y-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <p class="text-sm font-semibold">Setup Instructions</p>
-                    <p class="text-xs" style="color: var(--hr-text-muted);">Add a new account in your authenticator app using this secret key.</p>
-                    <div>
-                        <p class="text-[11px] font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Secret Key</p>
-                        <code class="mt-1 inline-flex rounded-lg border px-2 py-1 text-xs font-semibold" style="border-color: var(--hr-line); background: #fff;">
-                            {{ $twoFactorSetup['secret_formatted'] ?? 'Unavailable' }}
-                        </code>
+                @if ($twoFactorFeatureEnabled)
+                    <div class="mt-4 rounded-xl border p-4 space-y-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <p class="text-sm font-semibold">Setup Instructions</p>
+                        <p class="text-xs" style="color: var(--hr-text-muted);">Add a new account in your authenticator app using this secret key.</p>
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Secret Key</p>
+                            <code class="mt-1 inline-flex rounded-lg border px-2 py-1 text-xs font-semibold" style="border-color: var(--hr-line); background: #fff;">
+                                {{ $twoFactorSetup['secret_formatted'] ?? 'Unavailable' }}
+                            </code>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Provisioning URI</p>
+                            <input type="text" readonly value="{{ $twoFactorSetup['otpauth_uri'] ?? '' }}" class="mt-1 w-full rounded-xl border px-3 py-2 text-xs bg-white" style="border-color: var(--hr-line);">
+                        </div>
                     </div>
-                    <div>
-                        <p class="text-[11px] font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Provisioning URI</p>
-                        <input type="text" readonly value="{{ $twoFactorSetup['otpauth_uri'] ?? '' }}" class="mt-1 w-full rounded-xl border px-3 py-2 text-xs bg-white" style="border-color: var(--hr-line);">
-                    </div>
-                </div>
 
-                @if ($errors->twoFactorEnable->any())
-                    <div class="mt-4 rounded-xl px-3 py-2 text-sm border" style="border-color: #ef444455; background: #ef444412; color: #991b1b;">
-                        Could not enable two-factor authentication. Verify the code and password.
+                    @if ($errors->twoFactorEnable->any())
+                        <div class="mt-4 rounded-xl px-3 py-2 text-sm border" style="border-color: #ef444455; background: #ef444412; color: #991b1b;">
+                            Could not enable two-factor authentication. Verify the code and password.
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('profile.two-factor.enable') }}" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @csrf
+                        <div>
+                            <label for="two_factor_enable_current_password" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Current Password</label>
+                            <input id="two_factor_enable_current_password" name="current_password" type="password" autocomplete="current-password" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                            @error('current_password', 'twoFactorEnable')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="two_factor_enable_code" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Authenticator Code</label>
+                            <input id="two_factor_enable_code" name="code" type="text" value="{{ old('code') }}" placeholder="123456" autocomplete="one-time-code" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                            @error('code', 'twoFactorEnable')
+                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div class="md:col-span-2">
+                            <button type="submit" class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white" style="background: linear-gradient(120deg, #7c3aed, #ec4899);">Enable 2FA</button>
+                        </div>
+                    </form>
+                @else
+                    <div class="mt-4 rounded-xl border p-4 text-sm" style="border-color: var(--hr-line); background: var(--hr-surface-strong); color: var(--hr-text-muted);">
+                        2FA setup is disabled by admin settings.
                     </div>
                 @endif
-
-                <form method="POST" action="{{ route('profile.two-factor.enable') }}" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    @csrf
-                    <div>
-                        <label for="two_factor_enable_current_password" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Current Password</label>
-                        <input id="two_factor_enable_current_password" name="current_password" type="password" autocomplete="current-password" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
-                        @error('current_password', 'twoFactorEnable')
-                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label for="two_factor_enable_code" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Authenticator Code</label>
-                        <input id="two_factor_enable_code" name="code" type="text" value="{{ old('code') }}" placeholder="123456" autocomplete="one-time-code" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
-                        @error('code', 'twoFactorEnable')
-                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div class="md:col-span-2">
-                        <button type="submit" class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white" style="background: linear-gradient(120deg, #7c3aed, #ec4899);">Enable 2FA</button>
-                    </div>
-                </form>
             @endif
         </article>
 

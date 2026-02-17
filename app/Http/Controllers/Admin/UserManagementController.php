@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\UserProfile;
 use App\Support\ActivityLogger;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,22 +35,16 @@ class UserManagementController extends Controller
         return ['full_time', 'part_time', 'contract'];
     }
 
-    /**
-     * @return list<string>
-     */
-    private function managerOptions(?int $excludeUserId = null): array
+    private function supervisorOptions(?int $excludeUserId = null): EloquentCollection
     {
         return User::query()
-            ->whereIn('role', [UserRole::ADMIN->value, UserRole::HR->value])
             ->when($excludeUserId !== null, function ($query) use ($excludeUserId): void {
                 $query->whereKeyNot($excludeUserId);
             })
+            ->whereNotNull('name')
+            ->where('name', '!=', '')
             ->orderBy('name')
-            ->pluck('name')
-            ->filter(fn ($name): bool => ! blank($name))
-            ->unique()
-            ->values()
-            ->all();
+            ->get(['id', 'name', 'role']);
     }
 
     /**
@@ -167,7 +162,7 @@ class UserManagementController extends Controller
             'employmentTypes' => $this->employmentTypes(),
             'departmentOptions' => $this->departmentOptions(),
             'branchOptions' => $this->branchOptions(),
-            'managerOptions' => $this->managerOptions(),
+            'supervisorOptions' => $this->supervisorOptions(),
         ]);
     }
 
@@ -216,7 +211,7 @@ class UserManagementController extends Controller
             'employmentTypes' => $this->employmentTypes(),
             'departmentOptions' => $this->departmentOptions(),
             'branchOptions' => $this->branchOptions(),
-            'managerOptions' => $this->managerOptions($user->id),
+            'supervisorOptions' => $this->supervisorOptions($user->id),
         ]);
     }
 
@@ -237,7 +232,7 @@ class UserManagementController extends Controller
             }
 
             $user->update($userPayload);
-            $user->profile()->updateOrCreate([], $this->extractProfilePayload($validated));
+            $user->profile()->updateOrCreate([], $this->extractProfilePayload($validated, $user->id));
         });
 
         ActivityLogger::log(
@@ -298,6 +293,10 @@ class UserManagementController extends Controller
         $passwordRules = $user
             ? ['nullable', 'confirmed', PasswordRule::min(8)->mixedCase()->numbers()->symbols()]
             : ['required', 'confirmed', PasswordRule::min(8)->mixedCase()->numbers()->symbols()];
+        $supervisorRules = ['nullable', 'integer', Rule::exists('users', 'id')];
+        if ($userId !== null) {
+            $supervisorRules[] = 'different:'.$userId;
+        }
 
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -320,6 +319,7 @@ class UserManagementController extends Controller
             'national_id' => ['nullable', 'string', 'max:80'],
             'work_location' => ['nullable', 'string', 'max:120'],
             'manager_name' => ['nullable', 'string', 'max:120'],
+            'supervisor_user_id' => $supervisorRules,
             'linkedin_url' => ['nullable', 'url', 'max:255'],
             'address' => ['nullable', 'string', 'max:1000'],
             'emergency_contact_name' => ['nullable', 'string', 'max:120'],
@@ -331,8 +331,22 @@ class UserManagementController extends Controller
      * @param array<string, mixed> $validated
      * @return array<string, mixed>
      */
-    private function extractProfilePayload(array $validated): array
+    private function extractProfilePayload(array $validated, ?int $managedUserId = null): array
     {
+        $supervisorUserId = (int) ($validated['supervisor_user_id'] ?? 0);
+        if ($managedUserId !== null && $supervisorUserId === $managedUserId) {
+            $supervisorUserId = 0;
+        }
+
+        $supervisorName = null;
+        if ($supervisorUserId > 0) {
+            $supervisorName = User::query()
+                ->whereKey($supervisorUserId)
+                ->value('name');
+        }
+
+        $managerName = $supervisorName ?: ($validated['manager_name'] ?: null);
+
         return [
             'phone' => $validated['phone'] ?: null,
             'alternate_phone' => $validated['alternate_phone'] ?: null,
@@ -348,7 +362,8 @@ class UserManagementController extends Controller
             'nationality' => $validated['nationality'] ?: null,
             'national_id' => $validated['national_id'] ?: null,
             'work_location' => $validated['work_location'] ?: null,
-            'manager_name' => $validated['manager_name'] ?: null,
+            'manager_name' => $managerName,
+            'supervisor_user_id' => $supervisorUserId > 0 ? $supervisorUserId : null,
             'linkedin_url' => $validated['linkedin_url'] ?: null,
             'address' => $validated['address'] ?: null,
             'emergency_contact_name' => $validated['emergency_contact_name'] ?: null,
