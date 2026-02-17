@@ -88,9 +88,6 @@
                 @method('PUT')
                 <input id="avatar" name="avatar" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" class="hidden">
                 <div id="avatarClientError" class="hidden md:col-span-2 rounded-xl px-3 py-2 text-xs border" style="border-color: #ef444455; background: #ef444412; color: #991b1b;"></div>
-                <p class="md:col-span-2 text-xs" style="color: var(--hr-text-muted);">
-                    Upload image to preview instantly. Crop will open right after selection.
-                </p>
 
                 <div>
                     <label for="name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Full Name</label>
@@ -217,6 +214,172 @@
                     <a href="{{ route($user?->dashboardRouteName() ?? 'dashboard') }}" class="rounded-xl px-3.5 py-2 text-sm font-semibold border" style="border-color: var(--hr-line);">Back to Dashboard</a>
                 </div>
             </form>
+        </article>
+    </section>
+
+    <section class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <article class="hrm-modern-surface rounded-2xl p-5 xl:col-span-2">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <h3 class="text-lg font-extrabold">Change Password</h3>
+                    <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Update your account password from dashboard using your current password.</p>
+                </div>
+                <span class="text-[11px] font-bold uppercase tracking-[0.1em] rounded-full px-2.5 py-1" style="background: var(--hr-accent-soft); color: var(--hr-accent); border: 1px solid var(--hr-line);">Secure</span>
+            </div>
+
+            @if (session('password_status'))
+                <div class="mt-4 rounded-xl px-3 py-2 text-sm border" style="border-color: #22c55e55; background: #22c55e12; color: #166534;">
+                    {{ session('password_status') }}
+                </div>
+            @endif
+
+            @if ($errors->passwordUpdate->any())
+                <div class="mt-4 rounded-xl px-3 py-2 text-sm border" style="border-color: #ef444455; background: #ef444412; color: #991b1b;">
+                    Please fix the password fields and try again.
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('profile.password.update') }}" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                @csrf
+                @method('PUT')
+
+                <div class="md:col-span-2">
+                    <label for="current_password" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Current Password</label>
+                    <div class="relative">
+                        <input id="current_password" name="current_password" type="password" autocomplete="current-password" class="w-full rounded-xl border px-3 py-2.5 pr-10 bg-transparent" style="border-color: var(--hr-line);">
+                        <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100/60 hover:text-slate-700" data-password-toggle data-target="current_password" data-visible="false" aria-label="Show password">
+                            <svg class="icon-shown h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <svg class="icon-hidden hidden h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path d="M3 3l18 18"></path>
+                                <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                                <path d="M9.9 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a13.4 13.4 0 0 1-4 4.9"></path>
+                                <path d="M6.6 6.6C4 8.3 2 12 2 12s3.5 6 10 6a10.4 10.4 0 0 0 5.2-1.4"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    @error('current_password', 'passwordUpdate')
+                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="new_password" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">New Password</label>
+                    <div class="relative">
+                        <input id="new_password" name="password" type="password" autocomplete="new-password" class="w-full rounded-xl border px-3 py-2.5 pr-10 bg-transparent" style="border-color: var(--hr-line);">
+                        <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100/60 hover:text-slate-700" data-password-toggle data-target="new_password" data-visible="false" aria-label="Show password">
+                            <svg class="icon-shown h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <svg class="icon-hidden hidden h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path d="M3 3l18 18"></path>
+                                <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                                <path d="M9.9 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a13.4 13.4 0 0 1-4 4.9"></path>
+                                <path d="M6.6 6.6C4 8.3 2 12 2 12s3.5 6 10 6a10.4 10.4 0 0 0 5.2-1.4"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    @error('password', 'passwordUpdate')
+                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="new_password_confirmation" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Confirm New Password</label>
+                    <div class="relative">
+                        <input id="new_password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" class="w-full rounded-xl border px-3 py-2.5 pr-10 bg-transparent" style="border-color: var(--hr-line);">
+                        <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100/60 hover:text-slate-700" data-password-toggle data-target="new_password_confirmation" data-visible="false" aria-label="Show password">
+                            <svg class="icon-shown h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <svg class="icon-hidden hidden h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path d="M3 3l18 18"></path>
+                                <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                                <path d="M9.9 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a13.4 13.4 0 0 1-4 4.9"></path>
+                                <path d="M6.6 6.6C4 8.3 2 12 2 12s3.5 6 10 6a10.4 10.4 0 0 0 5.2-1.4"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="md:col-span-2 flex flex-wrap gap-2 pt-1">
+                    <button id="passwordUpdateSubmit" type="submit" class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-55" style="background: linear-gradient(120deg, #7c3aed, #ec4899);" disabled aria-disabled="true">Update Password</button>
+                </div>
+            </form>
+        </article>
+
+        <article class="hrm-modern-surface rounded-2xl p-5 xl:col-span-1">
+            <h3 class="text-base font-extrabold">Password Guidance</h3>
+            <ul class="mt-3 space-y-2 text-sm">
+                <li class="flex items-start gap-2 text-red-600" data-password-rule="length">
+                    <span class="mt-0.5 inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
+                        <svg data-icon-pass class="hidden h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 10l4 4 8-8"></path>
+                        </svg>
+                        <svg data-icon-fail class="h-4 w-4 text-red-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 5l10 10"></path>
+                            <path d="M15 5L5 15"></path>
+                        </svg>
+                    </span>
+                    <span>Use minimum 8 characters.</span>
+                </li>
+                <li class="flex items-start gap-2 text-red-600" data-password-rule="upper">
+                    <span class="mt-0.5 inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
+                        <svg data-icon-pass class="hidden h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 10l4 4 8-8"></path>
+                        </svg>
+                        <svg data-icon-fail class="h-4 w-4 text-red-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 5l10 10"></path>
+                            <path d="M15 5L5 15"></path>
+                        </svg>
+                    </span>
+                    <span>Include at least 1 uppercase letter (A-Z).</span>
+                </li>
+                <li class="flex items-start gap-2 text-red-600" data-password-rule="lower">
+                    <span class="mt-0.5 inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
+                        <svg data-icon-pass class="hidden h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 10l4 4 8-8"></path>
+                        </svg>
+                        <svg data-icon-fail class="h-4 w-4 text-red-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 5l10 10"></path>
+                            <path d="M15 5L5 15"></path>
+                        </svg>
+                    </span>
+                    <span>Include at least 1 lowercase letter (a-z).</span>
+                </li>
+                <li class="flex items-start gap-2 text-red-600" data-password-rule="number">
+                    <span class="mt-0.5 inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
+                        <svg data-icon-pass class="hidden h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 10l4 4 8-8"></path>
+                        </svg>
+                        <svg data-icon-fail class="h-4 w-4 text-red-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 5l10 10"></path>
+                            <path d="M15 5L5 15"></path>
+                        </svg>
+                    </span>
+                    <span>Include at least 1 number (0-9).</span>
+                </li>
+                <li class="flex items-start gap-2 text-red-600" data-password-rule="special">
+                    <span class="mt-0.5 inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
+                        <svg data-icon-pass class="hidden h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 10l4 4 8-8"></path>
+                        </svg>
+                        <svg data-icon-fail class="h-4 w-4 text-red-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 5l10 10"></path>
+                            <path d="M15 5L5 15"></path>
+                        </svg>
+                    </span>
+                    <span>Include at least 1 special character (for example: ! @ # $ %).</span>
+                </li>
+            </ul>
+            <ul class="mt-3 space-y-2 text-sm" style="color: var(--hr-text-muted);">
+                <li>Choose a unique password not used in other apps.</li>
+                <li>Do not share your password with anyone.</li>
+            </ul>
         </article>
     </section>
 
@@ -538,6 +701,64 @@
                     cancelCrop();
                 }
             });
+        })();
+
+        (() => {
+            const passwordInput = document.getElementById('new_password');
+            const currentPasswordInput = document.getElementById('current_password');
+            const passwordConfirmationInput = document.getElementById('new_password_confirmation');
+            const submitButton = document.getElementById('passwordUpdateSubmit');
+            const ruleItems = document.querySelectorAll('[data-password-rule]');
+
+            if (!passwordInput || !currentPasswordInput || !passwordConfirmationInput || !submitButton || ruleItems.length === 0) {
+                return;
+            }
+
+            const rules = {
+                length: (value) => value.length >= 8,
+                upper: (value) => /[A-Z]/.test(value),
+                lower: (value) => /[a-z]/.test(value),
+                number: (value) => /\d/.test(value),
+                special: (value) => /[^A-Za-z0-9]/.test(value),
+            };
+
+            const updatePasswordRuleState = () => {
+                const value = passwordInput.value ?? '';
+                let allRulesSatisfied = true;
+
+                ruleItems.forEach((item) => {
+                    const ruleName = item.getAttribute('data-password-rule') ?? '';
+                    const isSatisfied = typeof rules[ruleName] === 'function' ? rules[ruleName](value) : false;
+                    const passIcon = item.querySelector('[data-icon-pass]');
+                    const failIcon = item.querySelector('[data-icon-fail]');
+
+                    allRulesSatisfied = allRulesSatisfied && isSatisfied;
+
+                    if (passIcon) {
+                        passIcon.classList.toggle('hidden', !isSatisfied);
+                    }
+
+                    if (failIcon) {
+                        failIcon.classList.toggle('hidden', isSatisfied);
+                    }
+
+                    item.classList.toggle('text-emerald-600', isSatisfied);
+                    item.classList.toggle('text-red-600', !isSatisfied);
+                });
+
+                const hasCurrentPassword = (currentPasswordInput.value ?? '').length > 0;
+                const hasMatchingConfirmation = (passwordConfirmationInput.value ?? '').length > 0
+                    && (passwordConfirmationInput.value ?? '') === value;
+                const canSubmit = hasCurrentPassword && allRulesSatisfied && hasMatchingConfirmation;
+
+                submitButton.disabled = !canSubmit;
+                submitButton.setAttribute('aria-disabled', canSubmit ? 'false' : 'true');
+            };
+
+            currentPasswordInput.addEventListener('input', updatePasswordRuleState);
+            passwordInput.addEventListener('input', updatePasswordRuleState);
+            passwordConfirmationInput.addEventListener('input', updatePasswordRuleState);
+            updatePasswordRuleState();
         })();
     </script>
 @endpush

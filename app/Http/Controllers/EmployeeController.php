@@ -71,6 +71,52 @@ class EmployeeController extends Controller
             ->where('role', UserRole::EMPLOYEE->value)
             ->pluck('id');
 
+        $now = now();
+        $today = $now->toDateString();
+        $yesterday = $now->copy()->subDay()->toDateString();
+        $currentMonthStart = $now->copy()->startOfMonth();
+        $previousMonthStart = $currentMonthStart->copy()->subMonthNoOverflow();
+        $previousMonthEnd = $currentMonthStart->copy()->subSecond();
+
+        $todayOnLeaveUserIds = LeaveRequest::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->pluck('user_id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $yesterdayOnLeaveCount = LeaveRequest::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereDate('start_date', '<=', $yesterday)
+            ->whereDate('end_date', '>=', $yesterday)
+            ->distinct('user_id')
+            ->count('user_id');
+
+        $newJoinersThisMonth = UserProfile::query()
+            ->whereIn('user_id', $employeeIds)
+            ->whereBetween('joined_on', [$currentMonthStart->toDateString(), $today])
+            ->count();
+
+        $newJoinersLastMonth = UserProfile::query()
+            ->whereIn('user_id', $employeeIds)
+            ->whereBetween('joined_on', [$previousMonthStart->toDateString(), $previousMonthEnd->toDateString()])
+            ->count();
+
+        $headcountAddedThisMonth = User::query()
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->whereBetween('created_at', [$currentMonthStart, $now])
+            ->count();
+
+        $headcountAddedLastMonth = User::query()
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->whereBetween('created_at', [$previousMonthStart, $previousMonthEnd])
+            ->count();
+
         $stats = [
             'total' => $employeeIds->count(),
             'active' => UserProfile::query()
@@ -81,10 +127,19 @@ class EmployeeController extends Controller
                 ->whereIn('user_id', $employeeIds)
                 ->where('status', 'inactive')
                 ->count(),
-            'newJoiners' => UserProfile::query()
-                ->whereIn('user_id', $employeeIds)
-                ->whereDate('joined_on', '>=', now()->subDays(30))
-                ->count(),
+            'newJoiners' => $newJoinersThisMonth,
+            'onLeaveToday' => count($todayOnLeaveUserIds),
+        ];
+
+        $statTrends = [
+            'headcountAddedThisMonth' => $headcountAddedThisMonth,
+            'headcountAddedLastMonth' => $headcountAddedLastMonth,
+            'headcountDeltaThisMonth' => $headcountAddedThisMonth - $headcountAddedLastMonth,
+            'activeRate' => $stats['total'] > 0 ? round(($stats['active'] / $stats['total']) * 100, 1) : 0.0,
+            'newJoinersLastMonth' => $newJoinersLastMonth,
+            'newJoinersDelta' => $newJoinersThisMonth - $newJoinersLastMonth,
+            'onLeaveYesterday' => $yesterdayOnLeaveCount,
+            'onLeaveDelta' => count($todayOnLeaveUserIds) - $yesterdayOnLeaveCount,
         ];
 
         $departmentOptions = UserProfile::query()
@@ -130,17 +185,7 @@ class EmployeeController extends Controller
             ->limit(5)
             ->get();
 
-        $today = now()->toDateString();
-        $onLeaveUserIds = LeaveRequest::query()
-            ->whereIn('user_id', $employeeIds)
-            ->where('status', LeaveRequest::STATUS_APPROVED)
-            ->whereDate('start_date', '<=', $today)
-            ->whereDate('end_date', '>=', $today)
-            ->pluck('user_id')
-            ->map(fn ($id): int => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
+        $onLeaveUserIds = $todayOnLeaveUserIds;
 
         return view('modules.employees.admin', [
             'employees' => $employees,
@@ -156,6 +201,7 @@ class EmployeeController extends Controller
                 'status' => $status,
             ],
             'onLeaveUserIds' => $onLeaveUserIds,
+            'statTrends' => $statTrends,
             'selectedEmployeeId' => (int) $request->integer('selected'),
             'canManageUsers' => $request->user()?->hasAnyRole([UserRole::ADMIN->value, UserRole::HR->value]) ?? false,
         ]);

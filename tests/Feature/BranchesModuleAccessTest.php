@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\User;
+use App\Models\UserProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -59,6 +60,17 @@ class BranchesModuleAccessTest extends TestCase
         $branch = Branch::query()->where('code', 'NYHQ')->first();
         $this->assertNotNull($branch);
 
+        $employee = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+
+        UserProfile::query()->create([
+            'user_id' => $employee->id,
+            'branch' => 'New York HQ',
+            'employment_type' => 'full_time',
+            'status' => 'active',
+        ]);
+
         $this->actingAs($admin)
             ->put(route('modules.branches.update', $branch), [
                 'name' => 'NY Main Office',
@@ -73,6 +85,11 @@ class BranchesModuleAccessTest extends TestCase
             'id' => $branch->id,
             'name' => 'NY Main Office',
             'code' => 'NY-MAIN',
+        ]);
+
+        $this->assertDatabaseHas('user_profiles', [
+            'user_id' => $employee->id,
+            'branch' => 'NY Main Office',
         ]);
     }
 
@@ -95,5 +112,60 @@ class BranchesModuleAccessTest extends TestCase
             ->get(route('modules.departments.index'))
             ->assertOk()
             ->assertDontSee(route('modules.branches.index'));
+    }
+
+    public function test_branch_cannot_be_deleted_when_assigned_to_employee(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::ADMIN->value,
+        ]);
+
+        $branch = Branch::query()->create([
+            'name' => 'Austin',
+            'code' => 'AUS',
+            'is_active' => true,
+        ]);
+
+        $employee = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+
+        UserProfile::query()->create([
+            'user_id' => $employee->id,
+            'branch' => 'Austin',
+            'employment_type' => 'full_time',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($admin)
+            ->delete(route('modules.branches.destroy', $branch))
+            ->assertRedirect(route('modules.branches.index'))
+            ->assertSessionHas('error', 'Cannot delete branch. It is assigned to 1 employee(s).');
+
+        $this->assertDatabaseHas('branches', [
+            'id' => $branch->id,
+        ]);
+    }
+
+    public function test_admin_can_delete_unassigned_branch(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::ADMIN->value,
+        ]);
+
+        $branch = Branch::query()->create([
+            'name' => 'Berlin',
+            'code' => 'BER',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->delete(route('modules.branches.destroy', $branch))
+            ->assertRedirect(route('modules.branches.index'))
+            ->assertSessionHas('status', 'Branch deleted successfully.');
+
+        $this->assertDatabaseMissing('branches', [
+            'id' => $branch->id,
+        ]);
     }
 }

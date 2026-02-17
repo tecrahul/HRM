@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Department;
 use App\Models\User;
+use App\Models\UserProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -107,5 +108,105 @@ class DepartmentsModuleAccessTest extends TestCase
             ->get(route('modules.departments.index'))
             ->assertOk()
             ->assertSee(route('modules.departments.index'));
+    }
+
+    public function test_admin_can_edit_department_and_sync_employee_profile_department_name(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::ADMIN->value,
+        ]);
+
+        $department = Department::query()->create([
+            'name' => 'Engineering',
+            'code' => 'ENG',
+            'is_active' => true,
+        ]);
+
+        $employee = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+
+        UserProfile::query()->create([
+            'user_id' => $employee->id,
+            'department' => 'Engineering',
+            'employment_type' => 'full_time',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('modules.departments.update', $department), [
+                'name' => 'Product Engineering',
+                'code' => 'P-ENG',
+                'description' => 'Updated unit',
+                'is_active' => '1',
+            ])
+            ->assertRedirect(route('modules.departments.index'))
+            ->assertSessionHas('status', 'Department updated successfully.');
+
+        $this->assertDatabaseHas('departments', [
+            'id' => $department->id,
+            'name' => 'Product Engineering',
+            'code' => 'P-ENG',
+        ]);
+
+        $this->assertDatabaseHas('user_profiles', [
+            'user_id' => $employee->id,
+            'department' => 'Product Engineering',
+        ]);
+    }
+
+    public function test_department_cannot_be_deleted_when_assigned_to_employee(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::ADMIN->value,
+        ]);
+
+        $department = Department::query()->create([
+            'name' => 'Finance',
+            'code' => 'FIN',
+            'is_active' => true,
+        ]);
+
+        $employee = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+
+        UserProfile::query()->create([
+            'user_id' => $employee->id,
+            'department' => 'Finance',
+            'employment_type' => 'full_time',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($admin)
+            ->delete(route('modules.departments.destroy', $department))
+            ->assertRedirect(route('modules.departments.index'))
+            ->assertSessionHas('error', 'Cannot delete department. It is assigned to 1 employee(s).');
+
+        $this->assertDatabaseHas('departments', [
+            'id' => $department->id,
+        ]);
+    }
+
+    public function test_admin_can_delete_unassigned_department(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::ADMIN->value,
+        ]);
+
+        $department = Department::query()->create([
+            'name' => 'Audit',
+            'code' => 'AUD',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->delete(route('modules.departments.destroy', $department))
+            ->assertRedirect(route('modules.departments.index'))
+            ->assertSessionHas('status', 'Department deleted successfully.');
+
+        $this->assertDatabaseMissing('departments', [
+            'id' => $department->id,
+        ]);
     }
 }

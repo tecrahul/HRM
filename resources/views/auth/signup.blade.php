@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | {{ config('app.name') }}</title>
+    <title>Sign Up | {{ config('app.name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -326,46 +326,6 @@
             display: block;
         }
 
-        .form-meta {
-            margin: 4px 0 18px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-        }
-
-        .remember {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
-            color: #534b6c;
-            user-select: none;
-        }
-
-        .remember input {
-            width: 15px;
-            height: 15px;
-            accent-color: var(--primary-a);
-        }
-
-        .forgot {
-            font-size: 0.9rem;
-            text-decoration: none;
-            color: #7c3aed;
-            font-weight: 600;
-        }
-
-        .forgot:hover {
-            text-decoration: underline;
-        }
-
-        .forgot.is-disabled {
-            color: #9c94b3;
-            pointer-events: none;
-            text-decoration: none;
-        }
-
         .login-btn {
             width: 100%;
             border: 0;
@@ -407,17 +367,6 @@
             font-weight: 600;
         }
 
-        .success-banner {
-            margin-bottom: 14px;
-            padding: 11px 12px;
-            border-radius: 12px;
-            border: 1px solid #b8e6d1;
-            background: #effcf5;
-            color: #0f766e;
-            font-size: 0.86rem;
-            font-weight: 600;
-        }
-
         .form-links {
             margin-top: 14px;
             font-size: 0.9rem;
@@ -445,10 +394,10 @@
                 min-height: auto;
             }
 
-        .auth-hero {
-            min-height: 240px;
-            padding: 28px;
-        }
+            .auth-hero {
+                min-height: 240px;
+                padding: 28px;
+            }
 
             .brand-logo-shell {
                 min-width: 48px;
@@ -467,10 +416,6 @@
             .auth-form-wrap {
                 padding: 24px;
             }
-
-            .form-meta {
-                flex-wrap: wrap;
-            }
         }
     </style>
 </head>
@@ -482,28 +427,46 @@
         @include('auth.partials.brand-lockup')
 
         <div class="hero-copy">
-            <p class="hero-kicker">Welcome Back</p>
-            <h1 class="hero-title">Manage your workforce with confidence.</h1>
-            <p class="hero-text">Sign in to access your HR dashboard, keep team operations in sync, and stay on top of daily people workflows.</p>
+            <p class="hero-kicker">Join The Team</p>
+            <h1 class="hero-title">Create your workspace account in minutes.</h1>
+            <p class="hero-text">Set up your account to access attendance, leave, payroll, and day-to-day employee tools from one place.</p>
         </div>
     </section>
 
     <section class="auth-form-wrap">
         <header class="form-header">
-            <h2>Sign in to {{ config('app.name') }}</h2>
-            <p>Enter your email and password to continue.</p>
+            <h2>Create an account</h2>
+            <p>Enter your details to get started.</p>
         </header>
 
-        <form method="POST" action="{{ route('login.attempt') }}" class="auth-form">
+        <form method="POST" action="{{ route('register.attempt') }}" class="auth-form">
             @csrf
 
             @if ($errors->any())
-                <div class="error-banner">Please check your credentials and try again.</div>
+                <div class="error-banner">Please correct the highlighted fields and try again.</div>
             @endif
 
-            @if (session('status'))
-                <div class="success-banner">{{ session('status') }}</div>
-            @endif
+            <div class="field">
+                <label for="name">Full Name</label>
+                <div class="input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <circle cx="12" cy="7" r="4"></circle>
+                        <path d="M5.5 21a8.5 8.5 0 0 1 13 0"></path>
+                    </svg>
+                    <input
+                        id="name"
+                        type="text"
+                        name="name"
+                        value="{{ old('name') }}"
+                        placeholder="Jane Doe"
+                        required
+                        autofocus
+                    >
+                </div>
+                @error('name')
+                    <p class="error">{{ $message }}</p>
+                @enderror
+            </div>
 
             <div class="field">
                 <label for="email">Email</label>
@@ -519,7 +482,6 @@
                         value="{{ old('email') }}"
                         placeholder="you@example.com"
                         required
-                        autofocus
                     >
                 </div>
                 @error('email')
@@ -538,7 +500,7 @@
                         id="password"
                         type="password"
                         name="password"
-                        placeholder="Enter your password"
+                        placeholder="Create a strong password"
                         required
                     >
                     <button type="button" class="password-toggle" data-password-toggle data-target="password" data-visible="false" aria-label="Show password">
@@ -559,27 +521,39 @@
                 @enderror
             </div>
 
-            <div class="form-meta">
-                <label for="remember" class="remember">
-                    <input id="remember" type="checkbox" name="remember" value="1" @checked(old('remember'))>
-                    Remember me
-                </label>
-
-                @if (($passwordResetEnabled ?? false) && Route::has('password.request'))
-                    <a href="{{ route('password.request') }}" class="forgot">Forgot password?</a>
-                @else
-                    <a href="#" class="forgot is-disabled" aria-disabled="true">Forgot password?</a>
-                @endif
+            <div class="field">
+                <label for="password_confirmation">Confirm Password</label>
+                <div class="input-wrap has-toggle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <rect x="4" y="11" width="16" height="9" rx="2"></rect>
+                        <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                    </svg>
+                    <input
+                        id="password_confirmation"
+                        type="password"
+                        name="password_confirmation"
+                        placeholder="Re-enter your password"
+                        required
+                    >
+                    <button type="button" class="password-toggle" data-password-toggle data-target="password_confirmation" data-visible="false" aria-label="Show password">
+                        <svg class="icon-shown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        <svg class="icon-hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M3 3l18 18"></path>
+                            <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                            <path d="M9.9 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a13.4 13.4 0 0 1-4 4.9"></path>
+                            <path d="M6.6 6.6C4 8.3 2 12 2 12s3.5 6 10 6a10.4 10.4 0 0 0 5.2-1.4"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
-            <button type="submit" class="login-btn">Login</button>
+            <button type="submit" class="login-btn">Create Account</button>
 
             <p class="form-links">
-                @if (($signupEnabled ?? false) && Route::has('register'))
-                    New here? <a href="{{ route('register') }}">Create an account</a>
-                @else
-                    New account signup is currently disabled.
-                @endif
+                Already have an account? <a href="{{ route('login') }}">Sign in</a>
             </p>
         </form>
     </section>

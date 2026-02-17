@@ -39,6 +39,8 @@ class SettingsController extends Controller
             'currency',
             'financial_year_start_month',
             'company_address',
+            'signup_enabled',
+            'password_reset_enabled',
         ];
     }
 
@@ -59,6 +61,8 @@ class SettingsController extends Controller
             'currency' => 'USD',
             'financial_year_start_month' => 4,
             'company_address' => null,
+            'signup_enabled' => CompanySetting::DEFAULT_SIGNUP_ENABLED,
+            'password_reset_enabled' => CompanySetting::DEFAULT_PASSWORD_RESET_ENABLED,
         ];
     }
 
@@ -128,8 +132,12 @@ class SettingsController extends Controller
             'company_address' => ['nullable', 'string', 'max:1000'],
             'company_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
             'remove_company_logo' => ['nullable', 'boolean'],
+            'signup_enabled' => ['nullable', 'boolean'],
+            'password_reset_enabled' => ['nullable', 'boolean'],
         ]);
 
+        $validated['signup_enabled'] = $request->boolean('signup_enabled');
+        $validated['password_reset_enabled'] = $request->boolean('password_reset_enabled');
         $validated['currency'] = strtoupper($validated['currency']);
         unset($validated['company_logo'], $validated['remove_company_logo']);
 

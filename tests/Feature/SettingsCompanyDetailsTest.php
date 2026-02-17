@@ -38,6 +38,7 @@ class SettingsCompanyDetailsTest extends TestCase
             'tax_id' => '11-1111111',
             'timezone' => 'America/Chicago',
             'currency' => 'usd',
+            'financial_year_start_month' => 4,
             'company_address' => '42 Lake Avenue, Chicago, IL',
         ];
 
@@ -74,8 +75,36 @@ class SettingsCompanyDetailsTest extends TestCase
                 'company_name' => 'Restricted Update',
                 'timezone' => 'America/New_York',
                 'currency' => 'USD',
+                'financial_year_start_month' => 4,
             ]);
 
         $response->assertForbidden();
+    }
+
+    public function test_admin_can_toggle_signup_and_password_reset(): void
+    {
+        $user = User::factory()->create([
+            'role' => UserRole::ADMIN->value,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('settings.company.update'), [
+                'company_name' => 'Security Config Inc',
+                'timezone' => 'America/New_York',
+                'currency' => 'USD',
+                'financial_year_start_month' => 4,
+                'signup_enabled' => '1',
+            ]);
+
+        $response
+            ->assertRedirect(route('settings.index'))
+            ->assertSessionHas('status', 'Company details updated successfully.');
+
+        $this->assertDatabaseHas('company_settings', [
+            'company_name' => 'Security Config Inc',
+            'signup_enabled' => 1,
+            'password_reset_enabled' => 0,
+        ]);
     }
 }

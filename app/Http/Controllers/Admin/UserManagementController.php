@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class UserManagementController extends Controller
 {
@@ -295,8 +296,8 @@ class UserManagementController extends Controller
     {
         $userId = $user?->id;
         $passwordRules = $user
-            ? ['nullable', 'string', 'min:8', 'confirmed']
-            : ['required', 'string', 'min:8', 'confirmed'];
+            ? ['nullable', 'confirmed', PasswordRule::min(8)->mixedCase()->numbers()->symbols()]
+            : ['required', 'confirmed', PasswordRule::min(8)->mixedCase()->numbers()->symbols()];
 
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],

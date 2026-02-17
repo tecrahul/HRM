@@ -329,17 +329,38 @@ class AttendanceController extends Controller
             ->where('role', $employeeRole)
             ->pluck('id');
 
-        $today = now()->toDateString();
-        $monthStart = now()->startOfMonth()->toDateString();
-        $monthEnd = now()->endOfMonth()->toDateString();
+        $now = now();
+        $today = $now->toDateString();
+        $yesterday = $now->copy()->subDay()->toDateString();
+        $monthStartCarbon = $now->copy()->startOfMonth();
+        $monthEndCarbon = $now->copy()->endOfMonth();
+        $monthStart = $monthStartCarbon->toDateString();
+        $monthEnd = $monthEndCarbon->toDateString();
+        $previousMonthEnd = $monthStartCarbon->copy()->subSecond();
 
         $baseTodayQuery = Attendance::query()
             ->whereIn('user_id', $employeeIds)
             ->whereDate('attendance_date', $today);
 
+        $baseYesterdayQuery = Attendance::query()
+            ->whereIn('user_id', $employeeIds)
+            ->whereDate('attendance_date', $yesterday);
+
         $totalEmployees = $employeeIds->count();
+        $totalEmployeesLastMonth = User::query()
+            ->where('role', $employeeRole)
+            ->where('created_at', '<=', $previousMonthEnd)
+            ->count();
         $markedToday = (clone $baseTodayQuery)->count();
+        $markedYesterday = (clone $baseYesterdayQuery)->count();
         $presentToday = (clone $baseTodayQuery)
+            ->whereIn('status', [
+                Attendance::STATUS_PRESENT,
+                Attendance::STATUS_HALF_DAY,
+                Attendance::STATUS_REMOTE,
+            ])
+            ->count();
+        $presentYesterday = (clone $baseYesterdayQuery)
             ->whereIn('status', [
                 Attendance::STATUS_PRESENT,
                 Attendance::STATUS_HALF_DAY,
@@ -349,6 +370,15 @@ class AttendanceController extends Controller
         $absentToday = (clone $baseTodayQuery)
             ->where('status', Attendance::STATUS_ABSENT)
             ->count();
+        $absentYesterday = (clone $baseYesterdayQuery)
+            ->where('status', Attendance::STATUS_ABSENT)
+            ->count();
+        $pendingToday = max(0, $totalEmployees - $markedToday);
+        $pendingYesterday = max(0, $totalEmployees - $markedYesterday);
+        $coverageToday = $totalEmployees > 0 ? round(($markedToday / $totalEmployees) * 100, 1) : 0.0;
+        $coverageYesterday = $totalEmployees > 0 ? round(($markedYesterday / $totalEmployees) * 100, 1) : 0.0;
+        $presentShareToday = $markedToday > 0 ? round(($presentToday / $markedToday) * 100, 1) : 0.0;
+        $presentShareYesterday = $markedYesterday > 0 ? round(($presentYesterday / $markedYesterday) * 100, 1) : 0.0;
 
         $monthlyBaseQuery = Attendance::query()
             ->whereIn('user_id', $employeeIds)
@@ -372,8 +402,22 @@ class AttendanceController extends Controller
                 'markedToday' => $markedToday,
                 'presentToday' => $presentToday,
                 'absentToday' => $absentToday,
-                'pendingToday' => max(0, $totalEmployees - $markedToday),
+                'pendingToday' => $pendingToday,
                 'recordsThisMonth' => (clone $monthlyBaseQuery)->count(),
+            ],
+            'statTrends' => [
+                'headcountDelta' => $totalEmployees - $totalEmployeesLastMonth,
+                'markedDelta' => $markedToday - $markedYesterday,
+                'presentDelta' => $presentToday - $presentYesterday,
+                'absentDelta' => $absentToday - $absentYesterday,
+                'pendingDelta' => $pendingToday - $pendingYesterday,
+                'coverageToday' => $coverageToday,
+                'coverageYesterday' => $coverageYesterday,
+                'presentShareToday' => $presentShareToday,
+                'presentShareYesterday' => $presentShareYesterday,
+                'markedYesterday' => $markedYesterday,
+                'presentYesterday' => $presentYesterday,
+                'pendingYesterday' => $pendingYesterday,
             ],
             'filters' => [
                 'q' => $search,

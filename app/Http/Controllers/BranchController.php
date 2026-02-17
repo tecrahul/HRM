@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\Branch;
+use App\Models\UserProfile;
 use App\Support\ActivityLogger;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class BranchController extends Controller
@@ -67,13 +71,19 @@ class BranchController extends Controller
             'is_active' => ['nullable', 'boolean'],
         ]);
 
-        $branch->update([
-            'name' => $validated['name'],
-            'code' => $validated['code'] ?: null,
-            'location' => $validated['location'] ?: null,
-            'description' => $validated['description'] ?: null,
-            'is_active' => (bool) ($validated['is_active'] ?? false),
-        ]);
+        $oldBranchName = (string) $branch->name;
+
+        DB::transaction(function () use ($branch, $validated, $oldBranchName): void {
+            $branch->update([
+                'name' => $validated['name'],
+                'code' => $validated['code'] ?: null,
+                'location' => $validated['location'] ?: null,
+                'description' => $validated['description'] ?: null,
+                'is_active' => (bool) ($validated['is_active'] ?? false),
+            ]);
+
+            $this->syncEmployeeBranchAssignments($oldBranchName, $branch->name);
+        });
 
         ActivityLogger::log(
             $request->user(),
@@ -87,5 +97,67 @@ class BranchController extends Controller
         return redirect()
             ->route('modules.branches.index')
             ->with('status', 'Branch updated successfully.');
+    }
+
+    public function destroy(Request $request, Branch $branch): RedirectResponse
+    {
+        $assignedEmployeesCount = $this->assignedEmployeesCount((string) $branch->name);
+        if ($assignedEmployeesCount > 0) {
+            return redirect()
+                ->route('modules.branches.index')
+                ->with('error', "Cannot delete branch. It is assigned to {$assignedEmployeesCount} employee(s).");
+        }
+
+        $branchName = $branch->name;
+        $branchId = $branch->id;
+        $branch->delete();
+
+        ActivityLogger::log(
+            $request->user(),
+            'branch.deleted',
+            'Branch deleted',
+            $branchName,
+            '#ef4444',
+            $branchId
+        );
+
+        return redirect()
+            ->route('modules.branches.index')
+            ->with('status', 'Branch deleted successfully.');
+    }
+
+    private function syncEmployeeBranchAssignments(string $oldName, string $newName): void
+    {
+        $oldNameKey = Str::lower(trim($oldName));
+        $newNameKey = Str::lower(trim($newName));
+
+        if ($oldNameKey === '' || $oldNameKey === $newNameKey) {
+            return;
+        }
+
+        UserProfile::query()
+            ->whereHas('user', function ($query): void {
+                $query->where('role', UserRole::EMPLOYEE->value);
+            })
+            ->whereRaw('LOWER(TRIM(branch)) = ?', [$oldNameKey])
+            ->update([
+                'branch' => $newName,
+            ]);
+    }
+
+    private function assignedEmployeesCount(string $branchName): int
+    {
+        $branchNameKey = Str::lower(trim($branchName));
+
+        if ($branchNameKey === '') {
+            return 0;
+        }
+
+        return UserProfile::query()
+            ->whereHas('user', function ($query): void {
+                $query->where('role', UserRole::EMPLOYEE->value);
+            })
+            ->whereRaw('LOWER(TRIM(branch)) = ?', [$branchNameKey])
+            ->count();
     }
 }

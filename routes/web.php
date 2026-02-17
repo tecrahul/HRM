@@ -24,9 +24,24 @@ Route::get('/', function (): RedirectResponse {
         : redirect()->route('login');
 });
 
+Route::get('/branding/company-logo', [SettingsController::class, 'companyLogo'])
+    ->name('branding.company.logo');
+
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
+
+    Route::middleware('auth-feature:signup')->group(function (): void {
+        Route::get('/signup', [AuthController::class, 'showSignupForm'])->name('register');
+        Route::post('/signup', [AuthController::class, 'register'])->name('register.attempt');
+    });
+
+    Route::middleware('auth-feature:password-reset')->group(function (): void {
+        Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
+        Route::post('/forgot-password', [AuthController::class, 'sendResetLinkEmail'])->name('password.email');
+        Route::get('/reset-password/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
+        Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
+    });
 });
 
 Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): void {
@@ -36,6 +51,7 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
     })->name('dashboard');
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
     Route::get('/settings', [SettingsController::class, 'index'])
         ->middleware('role:admin,hr')
         ->name('settings.index');
@@ -57,6 +73,15 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
         Route::post('/departments', [DepartmentController::class, 'store'])
             ->middleware('role:admin,hr')
             ->name('departments.store');
+        Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])
+            ->middleware('role:admin,hr')
+            ->name('departments.edit');
+        Route::put('/departments/{department}', [DepartmentController::class, 'update'])
+            ->middleware('role:admin,hr')
+            ->name('departments.update');
+        Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])
+            ->middleware('role:admin,hr')
+            ->name('departments.destroy');
         Route::get('/branches', [BranchController::class, 'index'])
             ->middleware('role:admin')
             ->name('branches.index');
@@ -69,6 +94,9 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
         Route::put('/branches/{branch}', [BranchController::class, 'update'])
             ->middleware('role:admin')
             ->name('branches.update');
+        Route::delete('/branches/{branch}', [BranchController::class, 'destroy'])
+            ->middleware('role:admin')
+            ->name('branches.destroy');
         Route::get('/holidays', [HolidayController::class, 'index'])
             ->name('holidays.index');
         Route::post('/holidays', [HolidayController::class, 'store'])

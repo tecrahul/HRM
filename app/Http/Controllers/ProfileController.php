@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class ProfileController extends Controller
 {
@@ -89,6 +90,42 @@ class ProfileController extends Controller
             ->with('status', 'Profile updated successfully.');
     }
 
+    public function updatePassword(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            abort(403);
+        }
+
+        $validated = $request->validateWithBag('passwordUpdate', [
+            'current_password' => ['required', 'current_password'],
+            'password' => [
+                'required',
+                'confirmed',
+                'different:current_password',
+                PasswordRule::min(8)->mixedCase()->numbers()->symbols(),
+            ],
+        ]);
+
+        $user->update([
+            'password' => $validated['password'],
+        ]);
+
+        ActivityLogger::log(
+            $user,
+            'profile.password_updated',
+            'Password updated',
+            "{$user->name} updated account password",
+            '#7c3aed',
+            $user
+        );
+
+        return redirect()
+            ->route('profile.edit')
+            ->with('password_status', 'Password changed successfully.');
+    }
+
     private function sanitizeAndStoreAvatar(UploadedFile $avatar): string
     {
         if (! $avatar->isValid()) {
@@ -112,18 +149,37 @@ class ProfileController extends Controller
             ]);
         }
 
+        $requiredGdFunctions = [
+            'imagecreatefromstring',
+            'imagesx',
+            'imagesy',
+            'imagedestroy',
+            'imagecreatetruecolor',
+            'imagealphablending',
+            'imagesavealpha',
+            'imagecopyresampled',
+            'imagepng',
+        ];
+        foreach ($requiredGdFunctions as $gdFunction) {
+            if (! function_exists($gdFunction)) {
+                throw ValidationException::withMessages([
+                    'avatar' => 'Image processing is not available on this server. Please contact support.',
+                ]);
+            }
+        }
+
         $imageContent = @file_get_contents((string) $sourcePath);
-        $image = $imageContent !== false ? @imagecreatefromstring($imageContent) : false;
+        $image = $imageContent !== false ? @\imagecreatefromstring($imageContent) : false;
         if ($image === false) {
             throw ValidationException::withMessages([
                 'avatar' => 'Image could not be processed safely.',
             ]);
         }
 
-        $width = imagesx($image);
-        $height = imagesy($image);
+        $width = \imagesx($image);
+        $height = \imagesy($image);
         if ($width <= 0 || $height <= 0 || $width > 5000 || $height > 5000) {
-            imagedestroy($image);
+            \imagedestroy($image);
 
             throw ValidationException::withMessages([
                 'avatar' => 'Image dimensions are not supported.',
@@ -136,19 +192,19 @@ class ProfileController extends Controller
             $ratio = $maxDimension / max($width, $height);
             $targetWidth = max(1, (int) round($width * $ratio));
             $targetHeight = max(1, (int) round($height * $ratio));
-            $resized = imagecreatetruecolor($targetWidth, $targetHeight);
+            $resized = \imagecreatetruecolor($targetWidth, $targetHeight);
             if ($resized === false) {
-                imagedestroy($image);
+                \imagedestroy($image);
 
                 throw ValidationException::withMessages([
                     'avatar' => 'Image could not be resized safely.',
                 ]);
             }
 
-            imagealphablending($resized, false);
-            imagesavealpha($resized, true);
-            imagecopyresampled($resized, $image, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
-            imagedestroy($image);
+            \imagealphablending($resized, false);
+            \imagesavealpha($resized, true);
+            \imagecopyresampled($resized, $image, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+            \imagedestroy($image);
             $image = $resized;
         }
 
@@ -163,10 +219,10 @@ class ProfileController extends Controller
         }
 
         $saved = $supportsWebp
-            ? imagewebp($image, $absolutePath, 85)
-            : imagepng($image, $absolutePath, 6);
+            ? \imagewebp($image, $absolutePath, 85)
+            : \imagepng($image, $absolutePath, 6);
 
-        imagedestroy($image);
+        \imagedestroy($image);
 
         if (! $saved) {
             throw ValidationException::withMessages([

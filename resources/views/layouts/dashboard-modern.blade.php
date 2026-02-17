@@ -1089,6 +1089,42 @@
             reportsToggle.setAttribute("aria-expanded", open ? "true" : "false");
         };
 
+        const initPasswordToggles = () => {
+            document.querySelectorAll("[data-password-toggle]").forEach((toggleButton) => {
+                if (!(toggleButton instanceof HTMLButtonElement) || toggleButton.dataset.bound === "true") {
+                    return;
+                }
+
+                const targetId = toggleButton.getAttribute("data-target");
+                const input = targetId ? document.getElementById(targetId) : null;
+                if (!(input instanceof HTMLInputElement)) {
+                    return;
+                }
+
+                const shownIcon = toggleButton.querySelector(".icon-shown");
+                const hiddenIcon = toggleButton.querySelector(".icon-hidden");
+
+                const applyVisibility = (visible) => {
+                    toggleButton.setAttribute("data-visible", visible ? "true" : "false");
+                    toggleButton.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+                    if (shownIcon) {
+                        shownIcon.classList.toggle("hidden", visible);
+                    }
+                    if (hiddenIcon) {
+                        hiddenIcon.classList.toggle("hidden", !visible);
+                    }
+                };
+
+                applyVisibility(false);
+                toggleButton.dataset.bound = "true";
+                toggleButton.addEventListener("click", () => {
+                    const isVisible = input.type === "text";
+                    input.type = isVisible ? "password" : "text";
+                    applyVisibility(!isVisible);
+                });
+            });
+        };
+
         const syncSidebarToggleState = () => {
             if (!shell || !sidebarCollapse || !sidebarCollapseIcon || !sidebarExpandIcon) {
                 return;
@@ -1173,6 +1209,7 @@
 
         syncSidebarToggleState();
         applyTheme(getInitialTheme());
+        initPasswordToggles();
     })();
 </script>
 @stack('scripts')

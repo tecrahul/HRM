@@ -222,6 +222,94 @@
             background: linear-gradient(120deg, rgb(37 99 235 / 0.88), rgb(56 189 248 / 0.88));
         }
 
+        .emp-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+
+        @media (min-width: 768px) {
+            .emp-kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 1280px) {
+            .emp-kpi-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        .emp-kpi-card {
+            border: 1px solid var(--emp-card-border);
+            background: var(--emp-panel-bg);
+            border-radius: 1rem;
+            padding: 0.95rem;
+            box-shadow: 0 18px 36px -28px rgb(2 8 23 / 0.88);
+        }
+
+        .emp-kpi-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--emp-text-muted);
+        }
+
+        .emp-kpi-value {
+            margin-top: 0.45rem;
+            font-size: 1.7rem;
+            line-height: 1.1;
+            font-weight: 800;
+            color: var(--emp-text-main);
+        }
+
+        .emp-kpi-meta {
+            margin-top: 0.35rem;
+            font-size: 0.74rem;
+            color: var(--emp-text-muted);
+        }
+
+        .emp-kpi-trend {
+            margin-top: 0.45rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .emp-kpi-trend.is-up {
+            color: rgb(74 222 128);
+        }
+
+        .emp-kpi-trend.is-down {
+            color: rgb(248 113 113);
+        }
+
+        .emp-kpi-trend.is-neutral {
+            color: var(--emp-text-muted);
+        }
+
+        .emp-kpi-progress {
+            margin-top: 0.6rem;
+            height: 0.3rem;
+            width: 100%;
+            overflow: hidden;
+            border-radius: 999px;
+            background: var(--emp-panel-border);
+        }
+
+        .emp-kpi-progress > span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+        }
+
+        .emp-add-employee-btn {
+            border: 1px solid rgb(192 132 252 / 0.72);
+            color: #ecfeff;
+            box-shadow: 0 20px 38px -24px rgb(124 58 237 / 0.95);
+            background: linear-gradient(120deg, #7c3aed, #ec4899);
+        }
+
         .emp-list-table {
             width: 100%;
             min-width: 980px;
@@ -271,6 +359,35 @@
         $resolvedSelectedId = in_array($preferredSelectedId, $employeeIdsOnPage, true)
             ? $preferredSelectedId
             : ($employeeIdsOnPage[0] ?? null);
+        $totalEmployees = (int) ($stats['total'] ?? 0);
+        $activeEmployees = (int) ($stats['active'] ?? 0);
+        $newJoinersThisMonth = (int) ($stats['newJoiners'] ?? 0);
+        $onLeaveToday = (int) ($stats['onLeaveToday'] ?? count($onLeaveUserIds ?? []));
+        $inactiveEmployees = max(0, $totalEmployees - $activeEmployees);
+        $activeRate = (float) ($statTrends['activeRate'] ?? ($totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0.0));
+        $headcountAddedThisMonth = (int) ($statTrends['headcountAddedThisMonth'] ?? 0);
+        $headcountDeltaThisMonth = (int) ($statTrends['headcountDeltaThisMonth'] ?? 0);
+        $newJoinersLastMonth = (int) ($statTrends['newJoinersLastMonth'] ?? 0);
+        $newJoinersDelta = (int) ($statTrends['newJoinersDelta'] ?? 0);
+        $onLeaveYesterday = (int) ($statTrends['onLeaveYesterday'] ?? 0);
+        $onLeaveDelta = (int) ($statTrends['onLeaveDelta'] ?? 0);
+        $headcountProgress = $totalEmployees > 0 ? round(($headcountAddedThisMonth / $totalEmployees) * 100, 1) : 0.0;
+        $activeProgress = $totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0.0;
+        $newJoinersProgress = $totalEmployees > 0 ? round(($newJoinersThisMonth / $totalEmployees) * 100, 1) : 0.0;
+        $onLeaveProgress = $totalEmployees > 0 ? round(($onLeaveToday / $totalEmployees) * 100, 1) : 0.0;
+        $headcountTrendLabel = $headcountDeltaThisMonth === 0
+            ? 'No change vs last month'
+            : (($headcountDeltaThisMonth > 0 ? '+' : '').$headcountDeltaThisMonth.' vs last month');
+        $newJoinersTrendLabel = $newJoinersDelta === 0
+            ? 'No change vs last month'
+            : (($newJoinersDelta > 0 ? '+' : '').$newJoinersDelta.' vs last month');
+        $onLeaveTrendLabel = $onLeaveDelta === 0
+            ? 'No change vs yesterday'
+            : (($onLeaveDelta > 0 ? '+' : '').$onLeaveDelta.' vs yesterday');
+        $headcountTrendClass = $headcountDeltaThisMonth > 0 ? 'is-up' : ($headcountDeltaThisMonth < 0 ? 'is-down' : 'is-neutral');
+        $newJoinersTrendClass = $newJoinersDelta > 0 ? 'is-up' : ($newJoinersDelta < 0 ? 'is-down' : 'is-neutral');
+        $onLeaveTrendClass = $onLeaveDelta < 0 ? 'is-up' : ($onLeaveDelta > 0 ? 'is-down' : 'is-neutral');
+        $activeTrendClass = $inactiveEmployees === 0 ? 'is-up' : 'is-neutral';
     @endphp
 
     <div class="emp-admin-theme space-y-6">
@@ -286,21 +403,113 @@
             </section>
         @endif
 
-        @if ($canManageUsers)
-            <section class="flex justify-end">
-                <a
-                    href="{{ route('admin.users.create', ['role' => \App\Enums\UserRole::EMPLOYEE->value]) }}"
-                    class="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/35"
-                    style="background: linear-gradient(135deg, #1d4ed8, #38bdf8);"
-                >
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 5v14"></path>
-                        <path d="M5 12h14"></path>
-                    </svg>
-                    + Add Employee
-                </a>
-            </section>
-        @endif
+        <section class="emp-admin-hero rounded-3xl p-4 md:p-5">
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.1em] font-semibold emp-muted">Employee Summary</p>
+                    <h3 class="mt-1 text-xl md:text-2xl font-extrabold emp-main-text">People Insights At A Glance</h3>
+                    <p class="text-sm emp-muted mt-1">Track headcount, active workforce, monthly onboarding, and leave load.</p>
+                </div>
+
+                @if ($canManageUsers)
+                    <a
+                        href="{{ route('admin.users.create', ['role' => \App\Enums\UserRole::EMPLOYEE->value]) }}"
+                        class="emp-add-employee-btn inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold"
+                    >
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14"></path>
+                            <path d="M5 12h14"></path>
+                        </svg>
+                        Add Employee
+                    </a>
+                @endif
+            </div>
+
+            <div class="emp-kpi-grid mt-5">
+                <article class="emp-kpi-card">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="emp-kpi-label">Total Employees</p>
+                            <p class="emp-kpi-value">{{ number_format($totalEmployees) }}</p>
+                        </div>
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl" style="background: rgb(37 99 235 / 0.16); color: #2563eb;">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="8.5" cy="7" r="4"></circle>
+                                <path d="M20 8v6"></path>
+                                <path d="M23 11h-6"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <p class="emp-kpi-meta">{{ $headcountAddedThisMonth }} added this month</p>
+                    <p class="emp-kpi-trend {{ $headcountTrendClass }}">{{ $headcountTrendLabel }}</p>
+                    <div class="emp-kpi-progress" aria-hidden="true">
+                        <span style="width: {{ $headcountProgress > 0 ? max(8, $headcountProgress) : 0 }}%; background: linear-gradient(120deg, #2563eb, #38bdf8);"></span>
+                    </div>
+                </article>
+
+                <article class="emp-kpi-card">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="emp-kpi-label">Active Employees</p>
+                            <p class="emp-kpi-value">{{ number_format($activeEmployees) }}</p>
+                        </div>
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl" style="background: rgb(34 197 94 / 0.16); color: #16a34a;">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6L9 17l-5-5"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <p class="emp-kpi-meta">{{ number_format($activeRate, 1) }}% of workforce active</p>
+                    <p class="emp-kpi-trend {{ $activeTrendClass }}">{{ number_format($inactiveEmployees) }} marked as non-active</p>
+                    <div class="emp-kpi-progress" aria-hidden="true">
+                        <span style="width: {{ $activeProgress > 0 ? max(8, $activeProgress) : 0 }}%; background: linear-gradient(120deg, #22c55e, #4ade80);"></span>
+                    </div>
+                </article>
+
+                <article class="emp-kpi-card">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="emp-kpi-label">New Joiners (Month)</p>
+                            <p class="emp-kpi-value">{{ number_format($newJoinersThisMonth) }}</p>
+                        </div>
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl" style="background: rgb(14 165 233 / 0.16); color: #0284c7;">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14"></path>
+                                <path d="M5 12h14"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <p class="emp-kpi-meta">Last month: {{ number_format($newJoinersLastMonth) }}</p>
+                    <p class="emp-kpi-trend {{ $newJoinersTrendClass }}">{{ $newJoinersTrendLabel }}</p>
+                    <div class="emp-kpi-progress" aria-hidden="true">
+                        <span style="width: {{ $newJoinersProgress > 0 ? max(8, $newJoinersProgress) : 0 }}%; background: linear-gradient(120deg, #0ea5e9, #38bdf8);"></span>
+                    </div>
+                </article>
+
+                <article class="emp-kpi-card">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="emp-kpi-label">On Leave Today</p>
+                            <p class="emp-kpi-value">{{ number_format($onLeaveToday) }}</p>
+                        </div>
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl" style="background: rgb(245 158 11 / 0.16); color: #d97706;">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M8 2v4"></path>
+                                <path d="M16 2v4"></path>
+                                <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                                <path d="M3 10h18"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <p class="emp-kpi-meta">Yesterday: {{ number_format($onLeaveYesterday) }}</p>
+                    <p class="emp-kpi-trend {{ $onLeaveTrendClass }}">{{ $onLeaveTrendLabel }}</p>
+                    <div class="emp-kpi-progress" aria-hidden="true">
+                        <span style="width: {{ $onLeaveProgress > 0 ? max(8, $onLeaveProgress) : 0 }}%; background: linear-gradient(120deg, #f59e0b, #fbbf24);"></span>
+                    </div>
+                </article>
+            </div>
+        </section>
 
         <section class="emp-toolbar rounded-3xl p-4 md:p-5">
             <form id="employeeFiltersForm" method="GET" action="{{ route('modules.employees.index') }}" class="space-y-4">

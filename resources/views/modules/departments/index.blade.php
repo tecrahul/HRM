@@ -10,6 +10,12 @@
         </section>
     @endif
 
+    @if (session('error'))
+        <section class="hrm-modern-surface rounded-2xl p-4">
+            <p class="text-sm font-semibold text-red-600">{{ session('error') }}</p>
+        </section>
+    @endif
+
     @if ($errors->any())
         <section class="hrm-modern-surface rounded-2xl p-4">
             <p class="text-sm font-semibold text-red-600">Please fix the highlighted fields and submit again.</p>
@@ -89,6 +95,7 @@
                         <th class="py-2.5 px-2 font-semibold">Description</th>
                         <th class="py-2.5 px-2 font-semibold">Status</th>
                         <th class="py-2.5 px-2 font-semibold">Created</th>
+                        <th class="py-2.5 px-2 font-semibold">Action</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -103,10 +110,20 @@
                                 </span>
                             </td>
                             <td class="py-2.5 px-2">{{ $department->created_at?->format('M d, Y') }}</td>
+                            <td class="py-2.5 px-2">
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('modules.departments.edit', $department) }}" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border" style="border-color: var(--hr-line);">Edit</a>
+                                    <form method="POST" action="{{ route('modules.departments.destroy', $department) }}" onsubmit="return confirm('Delete this department? This cannot be undone.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border text-red-600" style="border-color: rgb(239 68 68 / 0.32);">Delete</button>
+                                    </form>
+                                </div>
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="py-6 text-center text-sm" style="color: var(--hr-text-muted);">No departments created yet.</td>
+                            <td colspan="6" class="py-6 text-center text-sm" style="color: var(--hr-text-muted);">No departments created yet.</td>
                         </tr>
                     @endforelse
                     </tbody>

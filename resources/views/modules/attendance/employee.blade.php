@@ -3,6 +3,46 @@
 @section('title', 'Attendance')
 @section('page_heading', 'My Attendance')
 
+@push('head')
+    <style>
+        .att-action-card {
+            border: 1px solid var(--hr-line);
+            border-radius: 1rem;
+            background: var(--hr-surface-strong);
+            box-shadow: 0 18px 32px -28px rgb(15 23 42 / 0.55);
+            padding: 0.9rem;
+        }
+
+        .att-action-title {
+            font-size: 0.88rem;
+            font-weight: 800;
+        }
+
+        .att-action-subtitle {
+            margin-top: 0.2rem;
+            font-size: 0.76rem;
+            color: var(--hr-text-muted);
+        }
+
+        .att-action-btn {
+            margin-top: 0.7rem;
+            width: 100%;
+            justify-content: center;
+            border: 1px solid rgb(192 132 252 / 0.72);
+            color: #ecfeff;
+            box-shadow: 0 20px 38px -24px rgb(124 58 237 / 0.9);
+            background: linear-gradient(120deg, #7c3aed, #ec4899);
+        }
+
+        .att-note-wrap {
+            margin-top: 0.75rem;
+            border-radius: 0.85rem;
+            padding: 0.7rem;
+            background: rgb(148 163 184 / 0.08);
+        }
+    </style>
+@endpush
+
 @section('content')
     @if (session('status'))
         <div class="ui-alert ui-alert-success">{{ session('status') }}</div>
@@ -34,49 +74,57 @@
                     </p>
                 </div>
             </div>
-            <div class="w-full sm:w-auto">
+            <div class="w-full sm:w-[360px]">
                 @if ($canCheckIn)
-                    <form method="POST" action="{{ route('modules.attendance.check-in') }}" class="space-y-2">
+                    <form method="POST" action="{{ route('modules.attendance.check-in') }}" class="att-action-card">
                         @csrf
-                        <div>
+                        <p class="att-action-title">Quick Check-In</p>
+                        <p class="att-action-subtitle">Record your start time first, then leave any optional context note.</p>
+                        <button type="submit" class="ui-btn att-action-btn">Check In</button>
+                        <div class="att-note-wrap">
                             <label for="check_in_notes" class="ui-kpi-label block mb-1">Note (Optional)</label>
-                            <input
+                            <textarea
                                 id="check_in_notes"
-                                type="text"
                                 name="notes"
-                                value="{{ old('notes') }}"
+                                rows="2"
                                 maxlength="1000"
                                 placeholder="Add a note for check-in"
-                                class="ui-input sm:min-w-[260px]"
-                            >
+                                class="ui-textarea resize-y"
+                            >{{ old('notes') }}</textarea>
                             @error('notes')
                                 <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                             @enderror
                         </div>
-                        <button type="submit" class="ui-btn ui-btn-primary">Check In</button>
                     </form>
                 @elseif ($canCheckOut)
-                    <form method="POST" action="{{ route('modules.attendance.check-out') }}" class="space-y-2">
+                    <form method="POST" action="{{ route('modules.attendance.check-out') }}" class="att-action-card">
                         @csrf
-                        <div>
+                        <p class="att-action-title">Quick Check-Out</p>
+                        <p class="att-action-subtitle">Record your end time first, then leave any optional context note.</p>
+                        <button type="submit" class="ui-btn att-action-btn">Check Out</button>
+                        <div class="att-note-wrap">
                             <label for="check_out_notes" class="ui-kpi-label block mb-1">Note (Optional)</label>
-                            <input
+                            <textarea
                                 id="check_out_notes"
-                                type="text"
                                 name="notes"
-                                value="{{ old('notes') }}"
+                                rows="2"
                                 maxlength="1000"
                                 placeholder="Add a note for check-out"
-                                class="ui-input sm:min-w-[260px]"
-                            >
+                                class="ui-textarea resize-y"
+                            >{{ old('notes') }}</textarea>
                             @error('notes')
                                 <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                             @enderror
                         </div>
-                        <button type="submit" class="ui-btn ui-btn-primary">Check Out</button>
                     </form>
                 @else
-                    <span class="ui-status-chip ui-status-green">Attendance completed for today</span>
+                    <div class="att-action-card">
+                        <p class="att-action-title">Status</p>
+                        <p class="att-action-subtitle">Your attendance workflow is complete for today.</p>
+                        <div class="mt-3">
+                            <span class="ui-status-chip ui-status-green">Attendance completed for today</span>
+                        </div>
+                    </div>
                 @endif
             </div>
         </div>

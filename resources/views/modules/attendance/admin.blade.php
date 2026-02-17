@@ -3,6 +3,109 @@
 @section('title', 'Attendance')
 @section('page_heading', 'Attendance Management')
 
+@push('head')
+    <style>
+        .att-hero {
+            border: 1px solid rgb(125 211 252 / 0.35);
+            background: linear-gradient(140deg, rgb(219 234 254 / 0.88), rgb(224 231 255 / 0.9), rgb(245 208 254 / 0.8));
+            box-shadow: 0 24px 44px -34px rgb(30 41 59 / 0.55);
+        }
+
+        html.dark .att-hero {
+            border-color: rgb(56 87 135 / 0.46);
+            background: linear-gradient(145deg, rgb(10 17 32 / 0.95), rgb(17 34 64 / 0.92), rgb(48 25 84 / 0.76));
+            box-shadow: 0 24px 44px -34px rgb(2 8 23 / 0.92);
+        }
+
+        .att-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+
+        @media (min-width: 768px) {
+            .att-kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 1280px) {
+            .att-kpi-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        .att-kpi-card {
+            border: 1px solid rgb(148 163 184 / 0.32);
+            background: var(--hr-surface);
+            border-radius: 1rem;
+            padding: 0.95rem;
+            box-shadow: 0 18px 36px -28px rgb(2 8 23 / 0.8);
+        }
+
+        .att-kpi-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--hr-text-muted);
+        }
+
+        .att-kpi-value {
+            margin-top: 0.45rem;
+            font-size: 1.7rem;
+            line-height: 1.1;
+            font-weight: 800;
+        }
+
+        .att-kpi-meta {
+            margin-top: 0.35rem;
+            font-size: 0.74rem;
+            color: var(--hr-text-muted);
+        }
+
+        .att-kpi-trend {
+            margin-top: 0.45rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .att-kpi-trend.is-up {
+            color: rgb(22 163 74);
+        }
+
+        .att-kpi-trend.is-down {
+            color: rgb(220 38 38);
+        }
+
+        .att-kpi-trend.is-neutral {
+            color: var(--hr-text-muted);
+        }
+
+        .att-kpi-progress {
+            margin-top: 0.6rem;
+            height: 0.3rem;
+            width: 100%;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgb(148 163 184 / 0.28);
+        }
+
+        .att-kpi-progress > span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+        }
+
+        .att-hero-btn {
+            border: 1px solid rgb(192 132 252 / 0.72);
+            color: #ecfeff;
+            box-shadow: 0 20px 38px -24px rgb(124 58 237 / 0.9);
+            background: linear-gradient(120deg, #7c3aed, #ec4899);
+        }
+    </style>
+@endpush
+
 @section('content')
     @if (session('status'))
         <div class="ui-alert ui-alert-success">{{ session('status') }}</div>
@@ -16,66 +119,130 @@
         <div class="ui-alert ui-alert-danger">Please review attendance form errors and try again.</div>
     @endif
 
-    <section class="ui-kpi-grid is-5">
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Total Employees</p>
-                    <p class="ui-kpi-value">{{ $stats['totalEmployees'] }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-blue">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle></svg>
-                </span>
+    @php
+        $totalEmployees = (int) ($stats['totalEmployees'] ?? 0);
+        $markedToday = (int) ($stats['markedToday'] ?? 0);
+        $presentToday = (int) ($stats['presentToday'] ?? 0);
+        $pendingToday = (int) ($stats['pendingToday'] ?? 0);
+        $recordsThisMonth = (int) ($stats['recordsThisMonth'] ?? 0);
+        $headcountDelta = (int) ($statTrends['headcountDelta'] ?? 0);
+        $markedDelta = (int) ($statTrends['markedDelta'] ?? 0);
+        $presentDelta = (int) ($statTrends['presentDelta'] ?? 0);
+        $pendingDelta = (int) ($statTrends['pendingDelta'] ?? 0);
+        $coverageToday = (float) ($statTrends['coverageToday'] ?? ($totalEmployees > 0 ? round(($markedToday / $totalEmployees) * 100, 1) : 0.0));
+        $presentShareToday = (float) ($statTrends['presentShareToday'] ?? ($markedToday > 0 ? round(($presentToday / $markedToday) * 100, 1) : 0.0));
+        $pendingShareToday = $totalEmployees > 0 ? round(($pendingToday / $totalEmployees) * 100, 1) : 0.0;
+        $markedYesterday = (int) ($statTrends['markedYesterday'] ?? 0);
+        $presentYesterday = (int) ($statTrends['presentYesterday'] ?? 0);
+        $pendingYesterday = (int) ($statTrends['pendingYesterday'] ?? 0);
+        $headcountTrendLabel = $headcountDelta === 0
+            ? 'No change vs last month'
+            : (($headcountDelta > 0 ? '+' : '').$headcountDelta.' vs last month');
+        $markedTrendLabel = $markedDelta === 0
+            ? 'No change vs yesterday'
+            : (($markedDelta > 0 ? '+' : '').$markedDelta.' vs yesterday');
+        $presentTrendLabel = $presentDelta === 0
+            ? 'No change vs yesterday'
+            : (($presentDelta > 0 ? '+' : '').$presentDelta.' vs yesterday');
+        $pendingTrendLabel = $pendingDelta === 0
+            ? 'No change vs yesterday'
+            : (($pendingDelta > 0 ? '+' : '').$pendingDelta.' vs yesterday');
+        $headcountTrendClass = $headcountDelta > 0 ? 'is-up' : ($headcountDelta < 0 ? 'is-down' : 'is-neutral');
+        $markedTrendClass = $markedDelta > 0 ? 'is-up' : ($markedDelta < 0 ? 'is-down' : 'is-neutral');
+        $presentTrendClass = $presentDelta > 0 ? 'is-up' : ($presentDelta < 0 ? 'is-down' : 'is-neutral');
+        $pendingTrendClass = $pendingDelta < 0 ? 'is-up' : ($pendingDelta > 0 ? 'is-down' : 'is-neutral');
+        $headcountProgress = $totalEmployees > 0 ? round((max(0, $headcountDelta) / $totalEmployees) * 100, 1) : 0.0;
+    @endphp
+
+    <section class="att-hero rounded-3xl p-4 md:p-5">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-[0.1em] font-semibold" style="color: var(--hr-text-muted);">Attendance Overview</p>
+                <h3 class="mt-1 text-xl md:text-2xl font-extrabold">Daily Attendance Pulse</h3>
+                <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Monitor coverage, active presence, and pending check-ins in real time.</p>
             </div>
-        </article>
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Marked Today</p>
-                    <p class="ui-kpi-value">{{ $stats['markedToday'] }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-sky">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
-                </span>
+
+            <div class="flex flex-col sm:flex-row gap-2.5">
+                <a href="#mark-attendance-form" class="att-hero-btn inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold">
+                    Mark Attendance
+                </a>
+                <a href="#attendance-directory" class="ui-btn ui-btn-ghost">View Directory</a>
             </div>
-        </article>
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Present Today</p>
-                    <p class="ui-kpi-value">{{ $stats['presentToday'] }}</p>
+        </div>
+
+        <div class="att-kpi-grid mt-5">
+            <article class="att-kpi-card">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="att-kpi-label">Total Employees</p>
+                        <p class="att-kpi-value">{{ number_format($totalEmployees) }}</p>
+                    </div>
+                    <span class="ui-icon-chip ui-icon-violet">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle></svg>
+                    </span>
                 </div>
-                <span class="ui-icon-chip ui-icon-green">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>
-                </span>
-            </div>
-        </article>
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Absent Today</p>
-                    <p class="ui-kpi-value">{{ $stats['absentToday'] }}</p>
+                <p class="att-kpi-meta">{{ number_format($recordsThisMonth) }} records this month</p>
+                <p class="att-kpi-trend {{ $headcountTrendClass }}">{{ $headcountTrendLabel }}</p>
+                <div class="att-kpi-progress" aria-hidden="true">
+                    <span style="width: {{ $headcountProgress > 0 ? max(8, $headcountProgress) : 0 }}%; background: linear-gradient(120deg, #7c3aed, #ec4899);"></span>
                 </div>
-                <span class="ui-icon-chip ui-icon-pink">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>
-                </span>
-            </div>
-        </article>
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Pending Today</p>
-                    <p class="ui-kpi-value">{{ $stats['pendingToday'] }}</p>
+            </article>
+
+            <article class="att-kpi-card">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="att-kpi-label">Marked Today</p>
+                        <p class="att-kpi-value">{{ number_format($markedToday) }}</p>
+                    </div>
+                    <span class="ui-icon-chip ui-icon-sky">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+                    </span>
                 </div>
-                <span class="ui-icon-chip ui-icon-amber">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2"></path><circle cx="12" cy="12" r="9"></circle></svg>
-                </span>
-            </div>
-        </article>
+                <p class="att-kpi-meta">Coverage: {{ number_format($coverageToday, 1) }}%</p>
+                <p class="att-kpi-trend {{ $markedTrendClass }}">{{ $markedTrendLabel }} (yesterday {{ $markedYesterday }})</p>
+                <div class="att-kpi-progress" aria-hidden="true">
+                    <span style="width: {{ $coverageToday > 0 ? max(8, $coverageToday) : 0 }}%; background: linear-gradient(120deg, #0284c7, #38bdf8);"></span>
+                </div>
+            </article>
+
+            <article class="att-kpi-card">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="att-kpi-label">Present Today</p>
+                        <p class="att-kpi-value">{{ number_format($presentToday) }}</p>
+                    </div>
+                    <span class="ui-icon-chip ui-icon-green">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>
+                    </span>
+                </div>
+                <p class="att-kpi-meta">Present ratio: {{ number_format($presentShareToday, 1) }}% of marked</p>
+                <p class="att-kpi-trend {{ $presentTrendClass }}">{{ $presentTrendLabel }} (yesterday {{ $presentYesterday }})</p>
+                <div class="att-kpi-progress" aria-hidden="true">
+                    <span style="width: {{ $presentShareToday > 0 ? max(8, $presentShareToday) : 0 }}%; background: linear-gradient(120deg, #16a34a, #4ade80);"></span>
+                </div>
+            </article>
+
+            <article class="att-kpi-card">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="att-kpi-label">Pending Today</p>
+                        <p class="att-kpi-value">{{ number_format($pendingToday) }}</p>
+                    </div>
+                    <span class="ui-icon-chip ui-icon-amber">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2"></path><circle cx="12" cy="12" r="9"></circle></svg>
+                    </span>
+                </div>
+                <p class="att-kpi-meta">Coverage gap: {{ number_format($pendingShareToday, 1) }}%</p>
+                <p class="att-kpi-trend {{ $pendingTrendClass }}">{{ $pendingTrendLabel }} (yesterday {{ $pendingYesterday }})</p>
+                <div class="att-kpi-progress" aria-hidden="true">
+                    <span style="width: {{ $pendingShareToday > 0 ? max(8, $pendingShareToday) : 0 }}%; background: linear-gradient(120deg, #d97706, #fbbf24);"></span>
+                </div>
+            </article>
+        </div>
     </section>
 
     <section class="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <article class="ui-section xl:col-span-2">
+        <article id="mark-attendance-form" class="ui-section xl:col-span-2">
             <div class="ui-section-head">
                 <div>
                     <h3 class="ui-section-title">Mark Attendance</h3>
@@ -176,7 +343,7 @@
         </article>
     </section>
 
-    <section class="ui-section">
+    <section id="attendance-directory" class="ui-section">
         <div class="ui-section-head">
             <div>
                 <h3 class="ui-section-title">Attendance Directory</h3>

@@ -296,6 +296,40 @@
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
+            <div class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                <h4 class="text-sm font-extrabold">Authentication Access</h4>
+                <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Control whether users can sign up and reset passwords from the login screen.</p>
+                <div class="mt-3 space-y-3">
+                    <label class="flex items-start gap-3 text-sm">
+                        <input
+                            type="checkbox"
+                            name="signup_enabled"
+                            value="1"
+                            class="mt-0.5 rounded border-gray-300"
+                            @checked((bool) old('signup_enabled', $companySettings['signup_enabled']))
+                            @disabled(! $canManageCompanyDetails)
+                        >
+                        <span>
+                            <span class="font-semibold block">Enable Sign Up</span>
+                            <span class="text-xs" style="color: var(--hr-text-muted);">Allow new users to create employee accounts from the public auth page.</span>
+                        </span>
+                    </label>
+                    <label class="flex items-start gap-3 text-sm">
+                        <input
+                            type="checkbox"
+                            name="password_reset_enabled"
+                            value="1"
+                            class="mt-0.5 rounded border-gray-300"
+                            @checked((bool) old('password_reset_enabled', $companySettings['password_reset_enabled']))
+                            @disabled(! $canManageCompanyDetails)
+                        >
+                        <span>
+                            <span class="font-semibold block">Enable Password Reset</span>
+                            <span class="text-xs" style="color: var(--hr-text-muted);">Allow users to request email reset links and set a new password.</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
 
             <div class="md:col-span-2 mt-1 flex flex-wrap items-center gap-2">
                 @if ($canManageCompanyDetails)
