@@ -345,29 +345,29 @@ class UserManagementController extends Controller
                 ->value('name');
         }
 
-        $managerName = $supervisorName ?: ($validated['manager_name'] ?: null);
+        $managerName = $supervisorName ?: (($validated['manager_name'] ?? null) ?: null);
 
         return [
-            'phone' => $validated['phone'] ?: null,
-            'alternate_phone' => $validated['alternate_phone'] ?: null,
-            'department' => $validated['department'] ?: null,
-            'branch' => $validated['branch'] ?: null,
-            'job_title' => $validated['job_title'] ?: null,
+            'phone' => ($validated['phone'] ?? null) ?: null,
+            'alternate_phone' => ($validated['alternate_phone'] ?? null) ?: null,
+            'department' => ($validated['department'] ?? null) ?: null,
+            'branch' => ($validated['branch'] ?? null) ?: null,
+            'job_title' => ($validated['job_title'] ?? null) ?: null,
             'employment_type' => $validated['employment_type'],
             'status' => $validated['status'],
-            'joined_on' => $validated['joined_on'] ?: null,
-            'date_of_birth' => $validated['date_of_birth'] ?: null,
-            'gender' => $validated['gender'] ?: null,
-            'marital_status' => $validated['marital_status'] ?: null,
-            'nationality' => $validated['nationality'] ?: null,
-            'national_id' => $validated['national_id'] ?: null,
-            'work_location' => $validated['work_location'] ?: null,
+            'joined_on' => ($validated['joined_on'] ?? null) ?: null,
+            'date_of_birth' => ($validated['date_of_birth'] ?? null) ?: null,
+            'gender' => ($validated['gender'] ?? null) ?: null,
+            'marital_status' => ($validated['marital_status'] ?? null) ?: null,
+            'nationality' => ($validated['nationality'] ?? null) ?: null,
+            'national_id' => ($validated['national_id'] ?? null) ?: null,
+            'work_location' => ($validated['work_location'] ?? null) ?: null,
             'manager_name' => $managerName,
             'supervisor_user_id' => $supervisorUserId > 0 ? $supervisorUserId : null,
-            'linkedin_url' => $validated['linkedin_url'] ?: null,
-            'address' => $validated['address'] ?: null,
-            'emergency_contact_name' => $validated['emergency_contact_name'] ?: null,
-            'emergency_contact_phone' => $validated['emergency_contact_phone'] ?: null,
+            'linkedin_url' => ($validated['linkedin_url'] ?? null) ?: null,
+            'address' => ($validated['address'] ?? null) ?: null,
+            'emergency_contact_name' => ($validated['emergency_contact_name'] ?? null) ?: null,
+            'emergency_contact_phone' => ($validated['emergency_contact_phone'] ?? null) ?: null,
         ];
     }
 }

@@ -300,6 +300,7 @@ class LeaveController extends Controller
         $employeeId = (int) $request->integer('employee_id');
         $dateFrom = (string) $request->string('date_from');
         $dateTo = (string) $request->string('date_to');
+        $onDate = (string) $request->string('on_date');
 
         $employeeRole = UserRole::EMPLOYEE->value;
         $statusOptions = LeaveRequest::statuses();
@@ -352,6 +353,11 @@ class LeaveController extends Controller
             ->when($dateTo !== '', function (Builder $query) use ($dateTo): void {
                 $query->whereDate('end_date', '<=', $dateTo);
             })
+            ->when($onDate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $onDate) === 1, function (Builder $query) use ($onDate): void {
+                $query
+                    ->whereDate('start_date', '<=', $onDate)
+                    ->whereDate('end_date', '>=', $onDate);
+            })
             ->orderByDesc('created_at')
             ->paginate(12)
             ->withQueryString();
@@ -400,6 +406,7 @@ class LeaveController extends Controller
                 'employee_id' => $employeeId > 0 ? (string) $employeeId : '',
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
+                'on_date' => $onDate,
             ],
         ]);
     }

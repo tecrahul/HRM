@@ -17,3 +17,7 @@
         'managedUser' => $managedUser,
     ])
 @endsection
+
+@push('scripts')
+    @includeIf('auth.partials.inline-validation-script')
+@endpush

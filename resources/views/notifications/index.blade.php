@@ -73,7 +73,7 @@
 
                     <div class="mt-3 flex flex-wrap items-center gap-2">
                         @if ($url !== '')
-                            <a href="{{ $url }}" class="ui-btn ui-btn-ghost">Open</a>
+                            <a href="{{ route('notifications.open', $notification->id) }}" class="ui-btn ui-btn-ghost">Open</a>
                         @endif
 
                         @if ($isUnread)

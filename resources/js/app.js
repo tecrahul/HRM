@@ -1,4 +1,7 @@
 import './bootstrap';
+import { mountAdminDashboardSummaryCards } from './components/AdminDashboardSummaryCards';
+import { mountAdminAttendanceOverview } from './components/AdminAttendanceOverview';
+import { mountAdminLeaveOverview } from './components/AdminLeaveOverview';
 
 const toggleModal = (modalName, open) => {
     const modal = document.querySelector(`[data-modal="${modalName}"]`);
@@ -65,3 +68,7 @@ document.addEventListener('keydown', (event) => {
         modal.classList.remove('is-open');
     });
 });
+
+mountAdminDashboardSummaryCards();
+mountAdminAttendanceOverview();
+mountAdminLeaveOverview();

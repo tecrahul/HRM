@@ -58,6 +58,27 @@ class NotificationController extends Controller
         return redirect()->back();
     }
 
+    public function open(Request $request, string $notification): RedirectResponse
+    {
+        $viewer = $request->user();
+        abort_unless($viewer !== null, 403);
+
+        $record = $viewer->notifications()->whereKey($notification)->first();
+        if (! $record instanceof DatabaseNotification) {
+            abort(404);
+        }
+
+        if ($record->read_at === null) {
+            $record->markAsRead();
+        }
+
+        $targetUrl = (string) data_get($record->data, 'url', '');
+
+        return $targetUrl !== ''
+            ? redirect()->to($targetUrl)
+            : redirect()->route('notifications.index');
+    }
+
     public function markUnread(Request $request, string $notification): RedirectResponse
     {
         $viewer = $request->user();

@@ -439,7 +439,7 @@
             <p>Enter your details to get started.</p>
         </header>
 
-        <form method="POST" action="{{ route('register.attempt') }}" class="auth-form">
+        <form method="POST" action="{{ route('register.attempt') }}" class="auth-form" data-inline-validation>
             @csrf
 
             @if ($errors->any())
@@ -576,5 +576,6 @@
         });
     })();
 </script>
+@include('auth.partials.inline-validation-script')
 </body>
 </html>

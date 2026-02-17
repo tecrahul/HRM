@@ -7,7 +7,7 @@
     $supervisorOptions = $supervisorOptions ?? collect();
 @endphp
 
-<form method="POST" action="{{ $action }}" class="space-y-5">
+<form method="POST" action="{{ $action }}" class="space-y-5" data-inline-validation>
     @csrf
     @if($method !== 'POST')
         @method($method)
@@ -27,21 +27,21 @@
         <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label for="name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Full Name</label>
-                <input id="name" name="name" type="text" value="{{ old('name', $managedUser->name ?? '') }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="name" name="name" type="text" value="{{ old('name', $managedUser->name ?? '') }}" maxlength="255" required class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('name')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div>
                 <label for="email" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Email</label>
-                <input id="email" name="email" type="email" value="{{ old('email', $managedUser->email ?? '') }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="email" name="email" type="email" value="{{ old('email', $managedUser->email ?? '') }}" maxlength="255" required class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('email')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div>
                 <label for="role" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Role</label>
-                <select id="role" name="role" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <select id="role" name="role" required class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                     @php
                         $managedRole = $managedUser->role ?? null;
                         $currentRole = old('role', $managedRole instanceof \App\Enums\UserRole ? $managedRole->value : ((string) $managedRole ?: \App\Enums\UserRole::EMPLOYEE->value));
@@ -56,7 +56,7 @@
             </div>
             <div>
                 <label for="status" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Status</label>
-                <select id="status" name="status" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <select id="status" name="status" required class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                     @php
                         $currentStatus = old('status', $profile?->status ?? 'active');
                     @endphp
@@ -73,7 +73,7 @@
                     Password {{ $isEdit ? '(Leave blank to keep current)' : '' }}
                 </label>
                 <div class="relative">
-                    <input id="password" name="password" type="password" class="w-full rounded-xl border px-3 py-2.5 pr-10 bg-transparent" style="border-color: var(--hr-line);">
+                    <input id="password" name="password" type="password" minlength="8" @if(! $isEdit) required @endif class="w-full rounded-xl border px-3 py-2.5 pr-10 bg-transparent" style="border-color: var(--hr-line);">
                     <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100/60 hover:text-slate-700" data-password-toggle data-target="password" data-visible="false" aria-label="Show password">
                         <svg class="icon-shown h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
@@ -94,7 +94,7 @@
             <div>
                 <label for="password_confirmation" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Confirm Password</label>
                 <div class="relative">
-                    <input id="password_confirmation" name="password_confirmation" type="password" class="w-full rounded-xl border px-3 py-2.5 pr-10 bg-transparent" style="border-color: var(--hr-line);">
+                    <input id="password_confirmation" name="password_confirmation" type="password" minlength="8" @if(! $isEdit) required @endif class="w-full rounded-xl border px-3 py-2.5 pr-10 bg-transparent" style="border-color: var(--hr-line);">
                     <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100/60 hover:text-slate-700" data-password-toggle data-target="password_confirmation" data-visible="false" aria-label="Show password">
                         <svg class="icon-shown h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"></path>
@@ -126,14 +126,14 @@
         <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label for="phone" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Phone</label>
-                <input id="phone" name="phone" type="text" value="{{ old('phone', $profile?->phone) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="phone" name="phone" type="text" value="{{ old('phone', $profile?->phone) }}" maxlength="40" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('phone')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div>
                 <label for="alternate_phone" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Alternate Phone</label>
-                <input id="alternate_phone" name="alternate_phone" type="text" value="{{ old('alternate_phone', $profile?->alternate_phone) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="alternate_phone" name="alternate_phone" type="text" value="{{ old('alternate_phone', $profile?->alternate_phone) }}" maxlength="40" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('alternate_phone')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
@@ -176,7 +176,7 @@
             </div>
             <div>
                 <label for="job_title" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Job Title</label>
-                <input id="job_title" name="job_title" type="text" value="{{ old('job_title', $profile?->job_title) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="job_title" name="job_title" type="text" value="{{ old('job_title', $profile?->job_title) }}" maxlength="100" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('job_title')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
@@ -202,13 +202,18 @@
                 @error('supervisor_user_id')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
+            </div>
+            <div>
+                <label for="manager_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Manager Name (Optional)</label>
+                <input id="manager_name" name="manager_name" type="text" value="{{ old('manager_name', $profile?->manager_name) }}" maxlength="120" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Leave blank to auto-fill from selected supervisor.</p>
                 @error('manager_name')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div>
                 <label for="employment_type" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Employment Type</label>
-                <select id="employment_type" name="employment_type" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <select id="employment_type" name="employment_type" required class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                     @php
                         $currentType = old('employment_type', $profile?->employment_type ?? 'full_time');
                     @endphp
@@ -271,49 +276,49 @@
             </div>
             <div>
                 <label for="nationality" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Nationality</label>
-                <input id="nationality" name="nationality" type="text" value="{{ old('nationality', $profile?->nationality) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="nationality" name="nationality" type="text" value="{{ old('nationality', $profile?->nationality) }}" maxlength="80" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('nationality')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div>
                 <label for="national_id" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">National ID / Passport</label>
-                <input id="national_id" name="national_id" type="text" value="{{ old('national_id', $profile?->national_id) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="national_id" name="national_id" type="text" value="{{ old('national_id', $profile?->national_id) }}" maxlength="80" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('national_id')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div>
                 <label for="work_location" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Work Location</label>
-                <input id="work_location" name="work_location" type="text" value="{{ old('work_location', $profile?->work_location) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="work_location" name="work_location" type="text" value="{{ old('work_location', $profile?->work_location) }}" maxlength="120" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('work_location')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div>
                 <label for="emergency_contact_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Emergency Contact Name</label>
-                <input id="emergency_contact_name" name="emergency_contact_name" type="text" value="{{ old('emergency_contact_name', $profile?->emergency_contact_name) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="emergency_contact_name" name="emergency_contact_name" type="text" value="{{ old('emergency_contact_name', $profile?->emergency_contact_name) }}" maxlength="120" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('emergency_contact_name')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div>
                 <label for="emergency_contact_phone" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Emergency Contact Phone</label>
-                <input id="emergency_contact_phone" name="emergency_contact_phone" type="text" value="{{ old('emergency_contact_phone', $profile?->emergency_contact_phone) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="emergency_contact_phone" name="emergency_contact_phone" type="text" value="{{ old('emergency_contact_phone', $profile?->emergency_contact_phone) }}" maxlength="40" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('emergency_contact_phone')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div class="md:col-span-2">
                 <label for="linkedin_url" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">LinkedIn URL</label>
-                <input id="linkedin_url" name="linkedin_url" type="url" value="{{ old('linkedin_url', $profile?->linkedin_url) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                <input id="linkedin_url" name="linkedin_url" type="url" value="{{ old('linkedin_url', $profile?->linkedin_url) }}" maxlength="255" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('linkedin_url')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
             <div class="md:col-span-2">
                 <label for="address" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Address</label>
-                <textarea id="address" name="address" rows="3" class="w-full rounded-xl border px-3 py-2.5 bg-transparent resize-y" style="border-color: var(--hr-line);">{{ old('address', $profile?->address) }}</textarea>
+                <textarea id="address" name="address" rows="3" maxlength="1000" class="w-full rounded-xl border px-3 py-2.5 bg-transparent resize-y" style="border-color: var(--hr-line);">{{ old('address', $profile?->address) }}</textarea>
                 @error('address')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror

@@ -169,7 +169,7 @@
     <h1>Set a new password</h1>
     <p class="muted">Choose a new password for your account to finish verification.</p>
 
-    <form method="POST" action="{{ route('password.update') }}">
+    <form method="POST" action="{{ route('password.update') }}" data-inline-validation>
         @csrf
         <input type="hidden" name="token" value="{{ $token }}">
 
@@ -243,5 +243,6 @@
         });
     })();
 </script>
+@include('auth.partials.inline-validation-script')
 </body>
 </html>

@@ -19,50 +19,15 @@
         </div>
     </section>
 
-    <section class="ui-kpi-grid is-4">
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Total Users</p>
-                    <p class="ui-kpi-value">{{ $moduleStats['usersTotal'] }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-blue"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-3-3.87"></path><path d="M7 21v-2a4 4 0 0 1 3-3.87"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+    <section class="ui-section">
+        <div
+            id="admin-dashboard-summary-cards-root"
+            data-summary-endpoint="{{ route('api.dashboard.admin.summary') }}"
+        >
+            <div class="rounded-2xl border p-4 text-sm font-semibold" style="background: var(--hr-surface-strong); border-color: var(--hr-line); color: var(--hr-text-muted);">
+                Loading dashboard summary...
             </div>
-            <p class="ui-kpi-meta">Admin {{ $moduleStats['adminsTotal'] }} • HR {{ $moduleStats['hrTotal'] }} • Employees {{ $moduleStats['employeesTotal'] }}</p>
-        </article>
-
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Attendance Today</p>
-                    <p class="ui-kpi-value">{{ $moduleStats['attendanceMarkedToday'] }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-sky"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
-            </div>
-            <p class="ui-kpi-meta">Present/remote/half-day: {{ $moduleStats['attendancePresentToday'] }}</p>
-        </article>
-
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Pending Leaves</p>
-                    <p class="ui-kpi-value">{{ $moduleStats['leavePending'] }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-amber"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path></svg></span>
-            </div>
-            <p class="ui-kpi-meta">Approved this month: {{ $moduleStats['leaveApprovedMonth'] }}</p>
-        </article>
-
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Payroll Month</p>
-                    <p class="ui-kpi-value">{{ $moduleStats['payrollGeneratedMonth'] }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-violet"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg></span>
-            </div>
-            <p class="ui-kpi-meta">Paid {{ $moduleStats['payrollPaidMonth'] }} • Pending {{ $moduleStats['payrollPendingMonth'] }}</p>
-        </article>
+        </div>
     </section>
 
     @php
@@ -178,160 +143,27 @@
         </article>
     </section>
 
-    <section class="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <article class="ui-section xl:col-span-2">
-            @php
-                $trendDays = collect($adminCharts['days'] ?? []);
-                $trendCount = max(1, $trendDays->count());
-                $attendancePoints = $trendDays->values()->map(function (array $day, int $index) use ($trendCount): string {
-                    $x = $trendCount > 1 ? ($index / ($trendCount - 1)) * 100 : 0;
-                    $coverage = max(0, min(100, (float) ($day['attendance_coverage'] ?? 0)));
-                    $y = 100 - $coverage;
-
-                    return number_format($x, 2, '.', '').','.number_format($y, 2, '.', '');
-                })->implode(' ');
-                $attendanceAreaPath = $attendancePoints === ''
-                    ? 'M 0 100 L 100 100 Z'
-                    : "M 0 100 L {$attendancePoints} L 100 100 Z";
-                $leaveScaleMax = max(1, (int) ($adminCharts['leave']['peakRequests'] ?? 1));
-                $leaveRequestedPoints = $trendDays->values()->map(function (array $day, int $index) use ($trendCount, $leaveScaleMax): string {
-                    $x = $trendCount > 1 ? ($index / ($trendCount - 1)) * 100 : 0;
-                    $y = 100 - (min($leaveScaleMax, max(0, (int) ($day['leave_created'] ?? 0))) / $leaveScaleMax) * 100;
-
-                    return number_format($x, 2, '.', '').','.number_format($y, 2, '.', '');
-                })->implode(' ');
-                $leaveApprovedPoints = $trendDays->values()->map(function (array $day, int $index) use ($trendCount, $leaveScaleMax): string {
-                    $x = $trendCount > 1 ? ($index / ($trendCount - 1)) * 100 : 0;
-                    $y = 100 - (min($leaveScaleMax, max(0, (int) ($day['leave_approved'] ?? 0))) / $leaveScaleMax) * 100;
-
-                    return number_format($x, 2, '.', '').','.number_format($y, 2, '.', '');
-                })->implode(' ');
-            @endphp
-
-            <div class="space-y-5">
-                <div class="rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="ui-section-head">
-                        <div>
-                            <h3 class="ui-section-title">Attendance Trend</h3>
-                            <p class="ui-section-subtitle">Default view for last 14 days ({{ $adminCharts['periodLabel'] }}).</p>
-                        </div>
-                        <a href="{{ route('modules.attendance.index') }}" class="ui-btn ui-btn-ghost">Open Attendance</a>
-                    </div>
-
-                    <div class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-                        <div class="rounded-lg border p-3" style="border-color: var(--hr-line);">
-                            <p class="ui-kpi-label">Avg Coverage</p>
-                            <p class="mt-1 text-lg font-extrabold">{{ number_format((float) ($adminCharts['attendance']['averageCoverage'] ?? 0), 1) }}%</p>
-                        </div>
-                        <div class="rounded-lg border p-3" style="border-color: var(--hr-line);">
-                            <p class="ui-kpi-label">Today Coverage</p>
-                            <p class="mt-1 text-lg font-extrabold">{{ number_format((float) ($adminCharts['attendance']['latestCoverage'] ?? 0), 1) }}%</p>
-                        </div>
-                        <div class="rounded-lg border p-3" style="border-color: var(--hr-line);">
-                            <p class="ui-kpi-label">Best Day</p>
-                            <p class="mt-1 text-lg font-extrabold">{{ number_format((float) ($adminCharts['attendance']['bestCoverage'] ?? 0), 1) }}%</p>
-                        </div>
-                        <div class="rounded-lg border p-3" style="border-color: var(--hr-line);">
-                            <p class="ui-kpi-label">Employees</p>
-                            <p class="mt-1 text-lg font-extrabold">{{ (int) ($adminCharts['employeeCount'] ?? 0) }}</p>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 rounded-xl border p-3" style="border-color: var(--hr-line);">
-                        <svg viewBox="0 0 100 100" class="w-full h-48" role="img" aria-label="Attendance coverage chart for last 14 days">
-                            <defs>
-                                <linearGradient id="attendanceFill" x1="0" x2="0" y1="0" y2="1">
-                                    <stop offset="0%" stop-color="#0284c7" stop-opacity="0.35"></stop>
-                                    <stop offset="100%" stop-color="#0284c7" stop-opacity="0.02"></stop>
-                                </linearGradient>
-                            </defs>
-                            <line x1="0" y1="75" x2="100" y2="75" stroke="rgb(148 163 184 / 0.28)" stroke-width="0.4"></line>
-                            <line x1="0" y1="50" x2="100" y2="50" stroke="rgb(148 163 184 / 0.28)" stroke-width="0.4"></line>
-                            <line x1="0" y1="25" x2="100" y2="25" stroke="rgb(148 163 184 / 0.28)" stroke-width="0.4"></line>
-                            <path d="{{ $attendanceAreaPath }}" fill="url(#attendanceFill)"></path>
-                            @if ($attendancePoints !== '')
-                                <polyline points="{{ $attendancePoints }}" fill="none" stroke="#0284c7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                            @endif
-                            @foreach($trendDays as $index => $day)
-                                @php
-                                    $x = $trendCount > 1 ? ($index / ($trendCount - 1)) * 100 : 0;
-                                    $coverage = max(0, min(100, (float) ($day['attendance_coverage'] ?? 0)));
-                                    $y = 100 - $coverage;
-                                @endphp
-                                <circle cx="{{ number_format($x, 2, '.', '') }}" cy="{{ number_format($y, 2, '.', '') }}" r="1.1" fill="#0284c7"></circle>
-                            @endforeach
-                        </svg>
-                        <div class="mt-2 grid grid-cols-7 md:grid-cols-14 gap-1 text-[10px] font-semibold" style="color: var(--hr-text-muted);">
-                            @foreach($trendDays as $day)
-                                <span class="text-center">{{ $day['label'] }}</span>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-
-                <div class="rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="ui-section-head">
-                        <div>
-                            <h3 class="ui-section-title">Leave Request Trend</h3>
-                            <p class="ui-section-subtitle">Useful view of created vs approved requests for the same 14-day window.</p>
-                        </div>
-                        <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">Open Leave</a>
-                    </div>
-
-                    <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div class="rounded-lg border p-3" style="border-color: var(--hr-line);">
-                            <p class="ui-kpi-label">Total Requests</p>
-                            <p class="mt-1 text-lg font-extrabold">{{ (int) ($adminCharts['leave']['totalRequests'] ?? 0) }}</p>
-                        </div>
-                        <div class="rounded-lg border p-3" style="border-color: var(--hr-line);">
-                            <p class="ui-kpi-label">Approved</p>
-                            <p class="mt-1 text-lg font-extrabold">{{ (int) ($adminCharts['leave']['approvedRequests'] ?? 0) }}</p>
-                        </div>
-                        <div class="rounded-lg border p-3" style="border-color: var(--hr-line);">
-                            <p class="ui-kpi-label">Approval Rate</p>
-                            <p class="mt-1 text-lg font-extrabold">{{ number_format((float) ($adminCharts['leave']['approvalRate'] ?? 0), 1) }}%</p>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 rounded-xl border p-3" style="border-color: var(--hr-line);">
-                        <svg viewBox="0 0 100 100" class="w-full h-48" role="img" aria-label="Leave request trend chart for last 14 days">
-                            <line x1="0" y1="75" x2="100" y2="75" stroke="rgb(148 163 184 / 0.28)" stroke-width="0.4"></line>
-                            <line x1="0" y1="50" x2="100" y2="50" stroke="rgb(148 163 184 / 0.28)" stroke-width="0.4"></line>
-                            <line x1="0" y1="25" x2="100" y2="25" stroke="rgb(148 163 184 / 0.28)" stroke-width="0.4"></line>
-                            @if ($leaveRequestedPoints !== '')
-                                <polyline points="{{ $leaveRequestedPoints }}" fill="none" stroke="#f59e0b" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                            @endif
-                            @if ($leaveApprovedPoints !== '')
-                                <polyline points="{{ $leaveApprovedPoints }}" fill="none" stroke="#22c55e" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                            @endif
-                            @foreach($trendDays as $index => $day)
-                                @php
-                                    $x = $trendCount > 1 ? ($index / ($trendCount - 1)) * 100 : 0;
-                                    $requestedY = 100 - (min($leaveScaleMax, max(0, (int) ($day['leave_created'] ?? 0))) / $leaveScaleMax) * 100;
-                                    $approvedY = 100 - (min($leaveScaleMax, max(0, (int) ($day['leave_approved'] ?? 0))) / $leaveScaleMax) * 100;
-                                @endphp
-                                <circle cx="{{ number_format($x, 2, '.', '') }}" cy="{{ number_format($requestedY, 2, '.', '') }}" r="1.05" fill="#f59e0b"></circle>
-                                <circle cx="{{ number_format($x, 2, '.', '') }}" cy="{{ number_format($approvedY, 2, '.', '') }}" r="1.05" fill="#22c55e"></circle>
-                            @endforeach
-                        </svg>
-                        <div class="mt-2 grid grid-cols-7 md:grid-cols-14 gap-1 text-[10px] font-semibold" style="color: var(--hr-text-muted);">
-                            @foreach($trendDays as $day)
-                                <span class="text-center">{{ $day['label'] }}</span>
-                            @endforeach
-                        </div>
-                        <div class="mt-2 flex items-center gap-4 text-xs" style="color: var(--hr-text-muted);">
-                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm" style="background: rgb(245 158 11 / 0.75);"></span>Requested</span>
-                            <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm" style="background: rgb(34 197 94 / 0.85);"></span>Approved</span>
-                        </div>
-                    </div>
-                </div>
+    <section>
+        <div
+            id="admin-dashboard-attendance-overview-root"
+            data-endpoint="{{ route('api.dashboard.admin.attendance-overview') }}"
+            data-absent-url="{{ route('modules.attendance.index', ['status' => 'absent', 'attendance_date' => now()->toDateString()]) }}"
+        >
+            <div class="rounded-xl border p-4 text-sm font-semibold" style="border-color: var(--hr-line); background: var(--hr-surface-strong); color: var(--hr-text-muted);">
+                Loading attendance overview...
             </div>
-        </article>
+        </div>
+    </section>
 
-        @include('dashboard.partials.user-activity', [
-            'recentActivities' => $recentActivities,
-            'activityTitle' => 'System Activity',
-        ])
+    <section class="mt-5">
+        <div
+            id="admin-dashboard-leave-overview-root"
+            data-endpoint="{{ route('api.dashboard.admin.leave-overview') }}"
+        >
+            <div class="rounded-xl border p-4 text-sm font-semibold" style="border-color: var(--hr-line); background: var(--hr-surface-strong); color: var(--hr-text-muted);">
+                Loading leave overview...
+            </div>
+        </div>
     </section>
 
     <section class="ui-section">
@@ -393,5 +225,12 @@
                 </tbody>
             </table>
         </div>
+    </section>
+
+    <section class="mt-5">
+        @include('dashboard.partials.user-activity', [
+            'recentActivities' => $recentActivities,
+            'activityTitle' => 'System Activity',
+        ])
     </section>
 @endsection

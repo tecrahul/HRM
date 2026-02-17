@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CompanySetting;
 use App\Models\User;
 use App\Support\ActivityLogger;
+use App\Support\NotificationCenter;
 use App\Support\TwoFactorAuthenticator;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Contracts\View\View;
@@ -83,6 +84,13 @@ class AuthController extends Controller
             ]);
         }
 
+        $loginBlockedMessage = $this->loginBlockedMessage($user);
+        if ($loginBlockedMessage !== null) {
+            throw ValidationException::withMessages([
+                'email' => $loginBlockedMessage,
+            ]);
+        }
+
         if (CompanySetting::twoFactorEnabled() && $user->hasTwoFactorEnabled()) {
             $this->clearPendingTwoFactorSession($request);
             $request->session()->put(self::TWO_FACTOR_SESSION_USER_ID, $user->id);
@@ -139,6 +147,15 @@ class AuthController extends Controller
             return redirect()->route('login');
         }
 
+        $loginBlockedMessage = $this->loginBlockedMessage($user);
+        if ($loginBlockedMessage !== null) {
+            $this->clearPendingTwoFactorSession($request);
+
+            return redirect()
+                ->route('login')
+                ->withErrors(['email' => $loginBlockedMessage]);
+        }
+
         return view('auth.two-factor-challenge', array_merge([
             'email' => $user->email,
         ], $this->brandingPayload()));
@@ -167,6 +184,15 @@ class AuthController extends Controller
             $this->clearPendingTwoFactorSession($request);
 
             return redirect()->route('login');
+        }
+
+        $loginBlockedMessage = $this->loginBlockedMessage($user);
+        if ($loginBlockedMessage !== null) {
+            $this->clearPendingTwoFactorSession($request);
+
+            return redirect()
+                ->route('login')
+                ->withErrors(['email' => $loginBlockedMessage]);
         }
 
         $authenticatedWithRecoveryCode = false;
@@ -235,25 +261,34 @@ class AuthController extends Controller
 
             $newUser->profile()->create([
                 'employment_type' => 'full_time',
-                'status' => 'active',
+                'status' => 'inactive',
             ]);
 
             return $newUser;
         });
 
-        Auth::login($user);
-        $request->session()->regenerate();
+        NotificationCenter::notifyRoles(
+            [UserRole::ADMIN->value, UserRole::HR->value],
+            "auth.signup.pending.{$user->id}",
+            'New account awaiting approval',
+            "{$user->name} ({$user->email}) signed up and is waiting for activation.",
+            route('admin.users.edit', $user),
+            'warning',
+            0
+        );
 
         ActivityLogger::log(
-            $user,
-            'auth.signup',
-            'User signed up',
+            null,
+            'auth.signup.pending_approval',
+            'New user signed up and is pending approval',
             $user->email,
-            '#10b981',
+            '#f59e0b',
             $user
         );
 
-        return redirect()->route($user->dashboardRouteName());
+        return redirect()
+            ->route('login')
+            ->with('status', 'Signup successful. Your account is pending Admin/HR approval. You can sign in after activation.');
     }
 
     public function showForgotPasswordForm(): View|RedirectResponse
@@ -395,5 +430,21 @@ class AuthController extends Controller
             self::TWO_FACTOR_SESSION_USER_ID,
             self::TWO_FACTOR_SESSION_REMEMBER,
         ]);
+    }
+
+    private function loginBlockedMessage(User $user): ?string
+    {
+        $user->loadMissing('profile');
+        $profileStatus = strtolower((string) ($user->profile?->status ?? 'active'));
+
+        if ($profileStatus === 'inactive') {
+            return 'Your account is pending approval from Admin/HR.';
+        }
+
+        if ($profileStatus === 'suspended') {
+            return 'Your account is suspended. Please contact Admin/HR.';
+        }
+
+        return null;
     }
 }

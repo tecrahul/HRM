@@ -202,7 +202,7 @@
             You can also enter a recovery code.
         </p>
 
-        <form method="POST" action="{{ route('two-factor.challenge.attempt') }}">
+        <form method="POST" action="{{ route('two-factor.challenge.attempt') }}" data-inline-validation>
             @csrf
 
             @if ($errors->any())
@@ -234,5 +234,6 @@
             </p>
         </form>
     </main>
+    @include('auth.partials.inline-validation-script')
 </body>
 </html>

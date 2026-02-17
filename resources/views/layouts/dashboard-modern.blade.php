@@ -1004,7 +1004,7 @@
                                             </p>
                                             <div class="flex items-center gap-2">
                                                 @if ($url !== '')
-                                                    <a href="{{ $url }}" class="text-xs font-semibold" style="color: var(--hr-accent);">Open</a>
+                                                    <a href="{{ route('notifications.open', $headerNotification->id) }}" class="text-xs font-semibold" style="color: var(--hr-accent);">Open</a>
                                                 @endif
                                                 @if ($isUnread)
                                                     <form method="POST" action="{{ route('notifications.read', $headerNotification->id) }}">

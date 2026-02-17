@@ -146,7 +146,7 @@
         <div class="status">{{ session('status') }}</div>
     @endif
 
-    <form method="POST" action="{{ route('password.email') }}">
+    <form method="POST" action="{{ route('password.email') }}" data-inline-validation>
         @csrf
         <label for="email">Email</label>
         <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus>
@@ -159,5 +159,6 @@
         <p class="links"><a href="{{ route('login') }}">Back to login</a></p>
     </form>
 </main>
+@include('auth.partials.inline-validation-script')
 </body>
 </html>

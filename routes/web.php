@@ -74,9 +74,19 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
     Route::get('/settings/company-logo', [SettingsController::class, 'companyLogo'])
         ->name('settings.company.logo');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::put('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::put('/notifications/{notification}/unread', [NotificationController::class, 'markUnread'])->name('notifications.unread');
+    Route::get('/api/dashboard/admin/summary', [DashboardController::class, 'adminSummary'])
+        ->middleware('role:admin,hr')
+        ->name('api.dashboard.admin.summary');
+    Route::get('/api/dashboard/admin/attendance-overview', [DashboardController::class, 'adminAttendanceOverview'])
+        ->middleware('role:admin,hr')
+        ->name('api.dashboard.admin.attendance-overview');
+    Route::get('/api/dashboard/admin/leave-overview', [DashboardController::class, 'adminLeaveOverview'])
+        ->middleware('role:admin,hr')
+        ->name('api.dashboard.admin.leave-overview');
 
     Route::prefix('modules')->name('modules.')->middleware('role:admin,hr,employee')->group(function (): void {
         Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');

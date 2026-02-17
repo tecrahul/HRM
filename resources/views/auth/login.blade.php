@@ -494,7 +494,7 @@
             <p>Enter your email and password to continue.</p>
         </header>
 
-        <form method="POST" action="{{ route('login.attempt') }}" class="auth-form">
+        <form method="POST" action="{{ route('login.attempt') }}" class="auth-form" data-inline-validation>
             @csrf
 
             @if ($errors->any())
@@ -602,5 +602,6 @@
         });
     })();
 </script>
+@include('auth.partials.inline-validation-script')
 </body>
 </html>

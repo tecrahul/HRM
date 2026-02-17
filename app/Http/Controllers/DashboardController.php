@@ -12,8 +12,11 @@ use App\Models\Payroll;
 use App\Models\PayrollStructure;
 use App\Models\User;
 use App\Models\UserProfile;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends BaseController
@@ -25,6 +28,27 @@ class DashboardController extends BaseController
             'latestUsers' => $this->latestUsers(),
             'adminCharts' => $this->adminCharts(),
         ]);
+    }
+
+    public function adminSummary(Request $request): JsonResponse
+    {
+        abort_unless($request->user() !== null, 403);
+
+        return response()->json($this->adminSummaryPayload());
+    }
+
+    public function adminAttendanceOverview(Request $request): JsonResponse
+    {
+        abort_unless($request->user() !== null, 403);
+
+        return response()->json($this->adminAttendanceOverviewPayload());
+    }
+
+    public function adminLeaveOverview(Request $request): JsonResponse
+    {
+        abort_unless($request->user() !== null, 403);
+
+        return response()->json($this->adminLeaveOverviewPayload());
     }
 
     public function hr(): View
@@ -255,6 +279,368 @@ class DashboardController extends BaseController
             'payrollPaidMonth' => $payrollPaid,
             'payrollPendingMonth' => max(0, $payrollGenerated - $payrollPaid),
             'payrollNetMonth' => $payrollNetMonth,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function adminSummaryPayload(): array
+    {
+        $employeeIds = User::query()
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->pluck('id');
+
+        $today = now()->toDateString();
+        $monthStart = now()->startOfMonth();
+        $monthEnd = now()->endOfMonth();
+
+        $activeEmployees = UserProfile::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', 'active')
+            ->count();
+
+        $presentToday = Attendance::query()
+            ->whereIn('user_id', $employeeIds)
+            ->whereDate('attendance_date', $today)
+            ->whereIn('status', [
+                Attendance::STATUS_PRESENT,
+                Attendance::STATUS_HALF_DAY,
+                Attendance::STATUS_REMOTE,
+            ])
+            ->count();
+
+        $presentPercentage = $activeEmployees > 0
+            ? round(($presentToday / $activeEmployees) * 100, 1)
+            : 0.0;
+
+        $employeesOnLeave = LeaveRequest::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->count();
+
+        $pendingLeaveApprovals = LeaveRequest::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', LeaveRequest::STATUS_PENDING)
+            ->count();
+
+        $payrollCompleted = 0;
+        $payrollPending = 0;
+        if (Schema::hasTable('payrolls')) {
+            $payrollMonthQuery = Payroll::query()
+                ->whereIn('user_id', $employeeIds)
+                ->whereBetween('payroll_month', [$monthStart->toDateString(), $monthEnd->toDateString()]);
+
+            $payrollCompleted = (clone $payrollMonthQuery)
+                ->where('status', Payroll::STATUS_PAID)
+                ->count();
+
+            $payrollPending = (clone $payrollMonthQuery)
+                ->whereIn('status', [Payroll::STATUS_DRAFT, Payroll::STATUS_PROCESSED])
+                ->count();
+        }
+
+        $pendingOtherApprovals = $payrollPending;
+
+        $newJoinersThisMonth = UserProfile::query()
+            ->whereIn('user_id', $employeeIds)
+            ->whereBetween('joined_on', [$monthStart->toDateString(), $monthEnd->toDateString()])
+            ->count();
+
+        $exitsByStatus = UserProfile::query()
+            ->whereIn('user_id', $employeeIds)
+            ->whereIn('status', ['inactive', 'suspended'])
+            ->whereNotNull('joined_on')
+            ->whereBetween('updated_at', [$monthStart->copy()->startOfDay(), $monthEnd->copy()->endOfDay()])
+            ->count();
+
+        return [
+            'summary' => [
+                'totalActiveEmployees' => $activeEmployees,
+                'presentToday' => [
+                    'count' => $presentToday,
+                    'percentage' => $presentPercentage,
+                ],
+                'employeesOnLeave' => $employeesOnLeave,
+                'pendingApprovals' => [
+                    'total' => $pendingLeaveApprovals + $pendingOtherApprovals,
+                    'leave' => $pendingLeaveApprovals,
+                    'other' => $pendingOtherApprovals,
+                ],
+                'payrollStatus' => [
+                    'completed' => $payrollCompleted,
+                    'pending' => $payrollPending,
+                    'state' => $payrollPending === 0 ? 'Completed' : 'Pending',
+                ],
+                'newJoinersThisMonth' => $newJoinersThisMonth,
+                'exitsThisMonth' => $exitsByStatus,
+            ],
+            'generatedAt' => now()->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function adminAttendanceOverviewPayload(): array
+    {
+        $today = now()->toDateString();
+        $employeeIds = User::query()
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->pluck('id');
+
+        $totalEmployees = $employeeIds->count();
+        if ($totalEmployees === 0) {
+            return [
+                'generatedAt' => now()->toIso8601String(),
+                'totals' => [
+                    'present' => 0,
+                    'absent' => 0,
+                    'late' => 0,
+                    'onLeave' => 0,
+                    'workFromHome' => 0,
+                    'notMarked' => 0,
+                    'totalEmployees' => 0,
+                ],
+                'departments' => [],
+            ];
+        }
+
+        $todayAttendance = Attendance::query()
+            ->whereIn('user_id', $employeeIds)
+            ->whereDate('attendance_date', $today)
+            ->get(['user_id', 'status', 'check_in_at']);
+
+        $attendanceByUserId = $todayAttendance->keyBy('user_id');
+        $markedToday = $attendanceByUserId->count();
+
+        $presentStatuses = [
+            Attendance::STATUS_PRESENT,
+            Attendance::STATUS_HALF_DAY,
+        ];
+
+        $presentForDepartmentStatuses = [
+            Attendance::STATUS_PRESENT,
+            Attendance::STATUS_HALF_DAY,
+            Attendance::STATUS_REMOTE,
+        ];
+
+        $present = $todayAttendance
+            ->whereIn('status', $presentStatuses)
+            ->count();
+
+        $absent = $todayAttendance
+            ->where('status', Attendance::STATUS_ABSENT)
+            ->count();
+
+        $workFromHome = $todayAttendance
+            ->where('status', Attendance::STATUS_REMOTE)
+            ->count();
+
+        $late = $todayAttendance
+            ->filter(function (Attendance $attendance): bool {
+                if (! in_array($attendance->status, [
+                    Attendance::STATUS_PRESENT,
+                    Attendance::STATUS_HALF_DAY,
+                    Attendance::STATUS_REMOTE,
+                ], true)) {
+                    return false;
+                }
+
+                return $attendance->check_in_at?->format('H:i:s') > '09:30:00';
+            })
+            ->count();
+
+        $onLeaveMarked = $todayAttendance
+            ->where('status', Attendance::STATUS_ON_LEAVE)
+            ->count();
+
+        $approvedOnLeaveUserIds = LeaveRequest::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->pluck('user_id')
+            ->unique();
+
+        $onLeaveWithoutAttendance = $approvedOnLeaveUserIds
+            ->filter(fn ($userId): bool => ! $attendanceByUserId->has((int) $userId))
+            ->count();
+
+        $onLeave = $onLeaveMarked + $onLeaveWithoutAttendance;
+        $notMarked = max(0, ($totalEmployees - $markedToday) - $onLeaveWithoutAttendance);
+
+        $employees = User::query()
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->with('profile:user_id,department')
+            ->get(['id']);
+
+        $departments = $employees
+            ->groupBy(function (User $user): string {
+                $department = trim((string) ($user->profile?->department ?? ''));
+
+                return $department !== '' ? $department : 'Unassigned';
+            })
+            ->map(function ($departmentUsers, string $departmentName) use ($attendanceByUserId, $presentForDepartmentStatuses): array {
+                $departmentTotal = $departmentUsers->count();
+                $departmentPresent = $departmentUsers
+                    ->filter(function (User $user) use ($attendanceByUserId, $presentForDepartmentStatuses): bool {
+                        $attendance = $attendanceByUserId->get($user->id);
+                        if (! $attendance instanceof Attendance) {
+                            return false;
+                        }
+
+                        return in_array((string) $attendance->status, $presentForDepartmentStatuses, true);
+                    })
+                    ->count();
+
+                $percentage = $departmentTotal > 0
+                    ? round(($departmentPresent / $departmentTotal) * 100, 1)
+                    : 0.0;
+
+                return [
+                    'name' => $departmentName,
+                    'present' => $departmentPresent,
+                    'total' => $departmentTotal,
+                    'percentage' => $percentage,
+                ];
+            })
+            ->sortByDesc('percentage')
+            ->values()
+            ->all();
+
+        return [
+            'generatedAt' => now()->toIso8601String(),
+            'totals' => [
+                'present' => $present,
+                'absent' => $absent,
+                'late' => $late,
+                'onLeave' => $onLeave,
+                'workFromHome' => $workFromHome,
+                'notMarked' => $notMarked,
+                'totalEmployees' => $totalEmployees,
+            ],
+            'departments' => $departments,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function adminLeaveOverviewPayload(): array
+    {
+        $employeeRole = UserRole::EMPLOYEE->value;
+        $today = now()->toDateString();
+        $monthStart = now()->startOfMonth()->toDateString();
+        $monthEnd = now()->endOfMonth()->toDateString();
+
+        $pendingApprovalsRow = DB::selectOne(
+            <<<'SQL'
+            SELECT COUNT(*) AS total
+            FROM leave_requests lr
+            INNER JOIN users u ON u.id = lr.user_id
+            WHERE u.role = ?
+              AND lr.status = 'pending'
+            SQL,
+            [$employeeRole]
+        );
+
+        $approvedLeavesRow = DB::selectOne(
+            <<<'SQL'
+            SELECT COUNT(*) AS total
+            FROM leave_requests lr
+            INNER JOIN users u ON u.id = lr.user_id
+            WHERE u.role = ?
+              AND lr.status = 'approved'
+              AND lr.start_date BETWEEN ? AND ?
+            SQL,
+            [$employeeRole, $monthStart, $monthEnd]
+        );
+
+        $leaveTypeBreakdownRow = DB::selectOne(
+            <<<'SQL'
+            SELECT
+                COALESCE(SUM(CASE WHEN lr.leave_type = 'sick' THEN 1 ELSE 0 END), 0) AS sick,
+                COALESCE(SUM(CASE WHEN lr.leave_type = 'casual' THEN 1 ELSE 0 END), 0) AS casual,
+                COALESCE(SUM(CASE WHEN lr.leave_type IN ('earned', 'paid') THEN 1 ELSE 0 END), 0) AS paid
+            FROM leave_requests lr
+            INNER JOIN users u ON u.id = lr.user_id
+            WHERE u.role = ?
+              AND lr.status = 'approved'
+              AND lr.start_date BETWEEN ? AND ?
+            SQL,
+            [$employeeRole, $monthStart, $monthEnd]
+        );
+
+        $employeesOnLeaveTodayRow = DB::selectOne(
+            <<<'SQL'
+            SELECT COUNT(DISTINCT lr.user_id) AS total
+            FROM leave_requests lr
+            INNER JOIN users u ON u.id = lr.user_id
+            WHERE u.role = ?
+              AND lr.status = 'approved'
+              AND lr.start_date <= ?
+              AND lr.end_date >= ?
+            SQL,
+            [$employeeRole, $today, $today]
+        );
+
+        $pendingApprovals = (int) ($pendingApprovalsRow->total ?? 0);
+        $approvedLeaves = (int) ($approvedLeavesRow->total ?? 0);
+        $sickLeaves = (int) ($leaveTypeBreakdownRow->sick ?? 0);
+        $casualLeaves = (int) ($leaveTypeBreakdownRow->casual ?? 0);
+        $paidLeaves = (int) ($leaveTypeBreakdownRow->paid ?? 0);
+        $employeesOnLeaveToday = (int) ($employeesOnLeaveTodayRow->total ?? 0);
+
+        return [
+            'generatedAt' => now()->toIso8601String(),
+            'period' => [
+                'monthStart' => $monthStart,
+                'monthEnd' => $monthEnd,
+                'today' => $today,
+            ],
+            'metrics' => [
+                'pendingApprovals' => $pendingApprovals,
+                'approvedLeaves' => $approvedLeaves,
+                'employeesOnLeaveToday' => $employeesOnLeaveToday,
+            ],
+            'leaveTypeBreakdown' => [
+                'sick' => $sickLeaves,
+                'casual' => $casualLeaves,
+                'paid' => $paidLeaves,
+            ],
+            'actions' => [
+                'pendingApprovalsUrl' => route('modules.leave.index', ['status' => LeaveRequest::STATUS_PENDING]),
+                'approvedLeavesUrl' => route('modules.leave.index', [
+                    'status' => LeaveRequest::STATUS_APPROVED,
+                    'date_from' => $monthStart,
+                    'date_to' => $monthEnd,
+                ]),
+                'sickLeavesUrl' => route('modules.leave.index', [
+                    'status' => LeaveRequest::STATUS_APPROVED,
+                    'leave_type' => LeaveRequest::TYPE_SICK,
+                    'date_from' => $monthStart,
+                    'date_to' => $monthEnd,
+                ]),
+                'casualLeavesUrl' => route('modules.leave.index', [
+                    'status' => LeaveRequest::STATUS_APPROVED,
+                    'leave_type' => LeaveRequest::TYPE_CASUAL,
+                    'date_from' => $monthStart,
+                    'date_to' => $monthEnd,
+                ]),
+                'paidLeavesUrl' => route('modules.leave.index', [
+                    'status' => LeaveRequest::STATUS_APPROVED,
+                    'leave_type' => LeaveRequest::TYPE_EARNED,
+                    'date_from' => $monthStart,
+                    'date_to' => $monthEnd,
+                ]),
+                'employeesOnLeaveTodayUrl' => route('modules.leave.index', [
+                    'status' => LeaveRequest::STATUS_APPROVED,
+                    'on_date' => $today,
+                ]),
+            ],
         ];
     }
 
