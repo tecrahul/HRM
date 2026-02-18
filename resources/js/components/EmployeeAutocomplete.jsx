@@ -14,7 +14,14 @@ const employeeLabel = (employee) => {
     }
 
     const name = toString(employee.name).trim();
+    const employeeCode = toString(employee.employee_code).trim();
     const email = toString(employee.email).trim();
+    if (employeeCode && name && email) {
+        return `${employeeCode} • ${name} (${email})`;
+    }
+    if (employeeCode && name) {
+        return `${employeeCode} • ${name}`;
+    }
     if (name && email) {
         return `${name} (${email})`;
     }
@@ -344,6 +351,14 @@ export function EmployeeAutocomplete({
                             }}
                         >
                             <p className="text-sm font-semibold" style={{ color: 'var(--hr-text-main)' }}>
+                                {employee.employee_code ? (
+                                    <>
+                                        <span className="mr-1" style={{ color: 'var(--hr-text-muted)' }}>
+                                            {renderHighlighted(employee.employee_code, query)}
+                                        </span>
+                                        <span aria-hidden="true">•</span>{' '}
+                                    </>
+                                ) : null}
                                 {renderHighlighted(employee.name, query)}
                             </p>
                             <p className="text-xs" style={{ color: 'var(--hr-text-muted)' }}>
@@ -385,6 +400,7 @@ export function mountEmployeeAutocompletes() {
                         name: toString(parsed.name),
                         email: toString(parsed.email),
                         department: toString(parsed.department),
+                        employee_code: toString(parsed.employee_code),
                     };
                 }
             } catch (_error) {

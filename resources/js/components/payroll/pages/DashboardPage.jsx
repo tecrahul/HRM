@@ -76,30 +76,36 @@ export function DashboardPage({ urls, routes, filters }) {
                     <InfoCard
                         label="Total Employees"
                         value={loading ? '...' : formatCount(summary?.totalEmployees ?? 0)}
+                        icon="users"
                     />
                     <InfoCard
                         label="Missing Salary Structure"
                         value={loading ? '...' : formatCount(summary?.missingSalaryStructure ?? 0)}
                         tone="warning"
+                        icon="warning"
                     />
                     <InfoCard
                         label="Current Month Status"
                         value={loading ? '...' : String(summary?.currentMonthPayrollStatus ?? 'Draft')}
                         tone="info"
+                        icon="status"
                     />
                     <InfoCard
                         label="Pending Approvals"
                         value={loading ? '...' : formatCount(summary?.pendingApprovals ?? 0)}
                         tone="warning"
+                        icon="clock"
                     />
                     <InfoCard
                         label="Total Net Payroll"
                         value={loading ? '...' : formatMoney(summary?.totalNetPayroll ?? 0)}
                         tone="success"
+                        icon="money"
                     />
                     <InfoCard
                         label="Last Processed Month"
                         value={loading ? '...' : String(summary?.lastProcessedMonth ?? 'N/A')}
+                        icon="calendar"
                     />
                 </div>
             </section>

@@ -139,7 +139,7 @@ class EmployeeOnboardingController extends Controller
     {
         $user->loadMissing('profile');
 
-        if (! $user->hasRole(UserRole::EMPLOYEE->value)) {
+        if (! $user->isEmployeeRecord()) {
             abort(404);
         }
 
@@ -209,7 +209,7 @@ class EmployeeOnboardingController extends Controller
 
         return [
             'id' => $employee->id,
-            'employeeCode' => sprintf('EMP-%05d', $employee->id),
+            'employeeCode' => $profile?->employee_code ?: User::makeEmployeeCode($employee->id),
             'name' => $employee->name,
             'email' => $employee->email,
             'avatarUrl' => $this->resolveAvatarUrl($profile?->avatar_url),

@@ -137,7 +137,7 @@ class BranchController extends Controller
 
         UserProfile::query()
             ->whereHas('user', function ($query): void {
-                $query->where('role', UserRole::EMPLOYEE->value);
+                $query->workforce();
             })
             ->whereRaw('LOWER(TRIM(branch)) = ?', [$oldNameKey])
             ->update([
@@ -155,7 +155,7 @@ class BranchController extends Controller
 
         return UserProfile::query()
             ->whereHas('user', function ($query): void {
-                $query->where('role', UserRole::EMPLOYEE->value);
+                $query->workforce();
             })
             ->whereRaw('LOWER(TRIM(branch)) = ?', [$branchNameKey])
             ->count();

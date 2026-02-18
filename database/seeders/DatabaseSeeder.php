@@ -123,6 +123,8 @@ class DatabaseSeeder extends Seeder
         UserProfile::query()->updateOrCreate(
             ['user_id' => $superAdmin->id],
             [
+                'is_employee' => false,
+                'employee_code' => null,
                 'department' => 'Administration',
                 'branch' => 'Headquarters',
                 'job_title' => 'Platform Owner',
@@ -136,6 +138,8 @@ class DatabaseSeeder extends Seeder
         UserProfile::query()->updateOrCreate(
             ['user_id' => $admin->id],
             [
+                'is_employee' => false,
+                'employee_code' => null,
                 'department' => 'Administration',
                 'branch' => 'Headquarters',
                 'job_title' => 'System Administrator',
@@ -149,6 +153,8 @@ class DatabaseSeeder extends Seeder
         UserProfile::query()->updateOrCreate(
             ['user_id' => $hr->id],
             [
+                'is_employee' => true,
+                'employee_code' => User::makeEmployeeCode($hr->id),
                 'department' => 'Human Resources',
                 'branch' => 'Headquarters',
                 'job_title' => 'HR Manager',
@@ -162,6 +168,8 @@ class DatabaseSeeder extends Seeder
         UserProfile::query()->updateOrCreate(
             ['user_id' => $finance->id],
             [
+                'is_employee' => true,
+                'employee_code' => User::makeEmployeeCode($finance->id),
                 'department' => 'Finance',
                 'branch' => 'Headquarters',
                 'job_title' => 'Finance Controller',
@@ -272,6 +280,8 @@ class DatabaseSeeder extends Seeder
             UserProfile::query()->updateOrCreate(
                 ['user_id' => $user->id],
                 array_merge([
+                    'is_employee' => true,
+                    'employee_code' => User::makeEmployeeCode($user->id),
                     'department' => $item['department'],
                     'branch' => $item['branch'],
                     'job_title' => $item['title'],

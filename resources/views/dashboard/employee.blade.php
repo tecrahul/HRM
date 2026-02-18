@@ -30,7 +30,7 @@
         <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
             <div>
                 <p class="ui-kpi-label">Daily Command</p>
-                <h2 class="mt-2 text-2xl md:text-3xl font-extrabold">Everything You Need In One Place</h2>
+                @include('dashboard.partials.greeting-header', ['functionalTitle' => 'My Workspace'])
                 <p class="ui-section-subtitle">Track attendance, leave, payroll, and profile updates from your workspace.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto">

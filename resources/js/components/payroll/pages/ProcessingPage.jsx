@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { payrollApi } from '../api';
 import {
     ConfirmModal,
+    GlobalFilterBar,
+    HorizontalStepper,
     InfoCard,
     SectionHeader,
     StatusBadge,
@@ -54,10 +56,19 @@ const toWorkflowPayload = (filters, payrollMonth) => ({
 
 const canApproveStatus = (status) => ['draft', 'failed'].includes(String(status));
 
-export function ProcessingPage({ urls, csrfToken, filters, permissions, initialAlert = '' }) {
+export function ProcessingPage({
+    urls,
+    csrfToken,
+    filters,
+    onFilterChange = () => {},
+    onClearFilters = () => {},
+    permissions,
+    initialAlert = '',
+}) {
     const [activeStep, setActiveStep] = useState(1);
     const [completedStep, setCompletedStep] = useState(0);
     const [payrollMonth, setPayrollMonth] = useState(normalizeMonth(filters.payrollMonth || '') || currentMonthValue());
+    const [monthConfirmed, setMonthConfirmed] = useState(false);
 
     const [overview, setOverview] = useState(null);
     const [preview, setPreview] = useState(null);
@@ -109,9 +120,32 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
         return years;
     }, [currentYear, selectedYear]);
 
-    const workflowFilters = useMemo(() => toWorkflowPayload(filters, payrollMonth), [filters, payrollMonth]);
+    const payrollMonthLabel = useMemo(() => {
+        const normalized = normalizeMonth(payrollMonth || '');
+        if (!normalized) {
+            return 'Payroll Month';
+        }
 
-    const loadOverview = () => {
+        const [year, month] = normalized.split('-');
+        const monthLabel = MONTH_OPTIONS.find((item) => item.value === month)?.label;
+
+        return monthLabel ? `${monthLabel} ${year}` : normalized;
+    }, [payrollMonth]);
+
+    const workflowFilters = useMemo(() => toWorkflowPayload(filters, payrollMonth), [filters, payrollMonth]);
+    const workflowStatus = String(overview?.header?.status || 'draft').toLowerCase();
+    const stepInstructions = {
+        1: 'Select payroll month to start the workflow.',
+        2: 'Preview calculation and generate payroll records.',
+        3: 'Review generated records and approve payroll.',
+        4: 'Finalize payout and lock payroll for the month.',
+    };
+    const hasGeneratedRecords = Array.isArray(overview?.records) && overview.records.length > 0;
+    const hasGeneratedStatus = ['generated', 'approved', 'processed', 'paid', 'failed'].includes(workflowStatus);
+    const showPayrollHeader = monthConfirmed && (hasGeneratedRecords || hasGeneratedStatus);
+    const maxAccessibleStep = Math.min(4, Math.max(1, completedStep + 1));
+
+    const loadOverview = ({ syncWorkflow = false } = {}) => {
         if (!payrollMonth) {
             return Promise.resolve();
         }
@@ -123,8 +157,12 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
             .then((data) => {
                 setOverview(data ?? null);
 
+                if (!syncWorkflow) {
+                    return data;
+                }
+
                 const records = Array.isArray(data?.records) ? data.records : [];
-                const allApproved = records.length > 0 && records.every((item) => APPROVED_STATUSES.includes(String(item.status)));
+                const allApprovedRecords = records.length > 0 && records.every((item) => APPROVED_STATUSES.includes(String(item.status)));
                 const anyGenerated = records.length > 0;
 
                 if (data?.header?.locked) {
@@ -133,21 +171,20 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
                     return data;
                 }
 
-                if (allApproved) {
+                if (allApprovedRecords) {
                     setCompletedStep(3);
-                    setActiveStep((prev) => (prev < 4 ? 4 : prev));
+                    setActiveStep(3);
                     return data;
                 }
 
                 if (anyGenerated) {
                     setCompletedStep(2);
-                    if (activeStep < 3) {
-                        setActiveStep(3);
-                    }
+                    setActiveStep(3);
                     return data;
                 }
 
                 setCompletedStep(1);
+                setActiveStep(2);
                 return data;
             })
             .catch((apiError) => {
@@ -162,16 +199,30 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
     };
 
     useEffect(() => {
-        loadOverview();
+        loadOverview({ syncWorkflow: false });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workflowFilters.branch_id, workflowFilters.department_id, workflowFilters.employee_id, workflowFilters.payroll_month]);
 
     useEffect(() => {
-        if (String(initialAlert) === 'not_generated') {
+        setPreview(null);
+    }, [workflowFilters.branch_id, workflowFilters.department_id, workflowFilters.employee_id]);
+
+    useEffect(() => {
+        if (monthConfirmed && String(initialAlert) === 'not_generated') {
             setCompletedStep((prev) => Math.max(prev, 1));
             setActiveStep(2);
         }
-    }, [initialAlert]);
+    }, [initialAlert, monthConfirmed]);
+
+    useEffect(() => {
+        setActiveStep(1);
+        setCompletedStep(0);
+        setMonthConfirmed(false);
+        setPreview(null);
+        setSelectedIds([]);
+        setConfirmLock(false);
+        setSearch('');
+    }, [payrollMonth]);
 
     const onContinueStep1 = async () => {
         if (!payrollMonth) {
@@ -180,15 +231,22 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
         }
 
         setError('');
-        const nextOverview = await loadOverview();
+        setSuccess('');
+        const nextOverview = await loadOverview({ syncWorkflow: true });
 
         if (nextOverview?.header?.locked) {
             setError('Selected payroll month is already closed and locked.');
+            setMonthConfirmed(false);
+            setActiveStep(1);
+            setCompletedStep(0);
             return;
         }
 
-        setCompletedStep((prev) => Math.max(prev, 1));
-        setActiveStep(2);
+        setMonthConfirmed(true);
+
+        if ((Array.isArray(nextOverview?.records) ? nextOverview.records : []).length > 0) {
+            setSuccess('Payroll already generated for this month. Continue from approval.');
+        }
     };
 
     const onPreview = () => {
@@ -225,7 +283,7 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
                 setSuccess(String(data?.message || 'Payroll generated successfully.'));
                 setCompletedStep((prev) => Math.max(prev, 2));
                 setActiveStep(3);
-                return loadOverview();
+                return loadOverview({ syncWorkflow: true });
             })
             .catch((apiError) => {
                 const message = apiError?.response?.data?.message || 'Unable to generate payroll.';
@@ -275,13 +333,10 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
     const isLocked = Boolean(overview?.header?.locked);
 
     useEffect(() => {
-        if (allApproved && !isLocked) {
+        if (monthConfirmed && allApproved && !isLocked) {
             setCompletedStep((prev) => Math.max(prev, 3));
-            if (activeStep < 4) {
-                setActiveStep(4);
-            }
         }
-    }, [allApproved, isLocked, activeStep]);
+    }, [allApproved, isLocked, monthConfirmed]);
 
     const toggleSelect = (id) => {
         setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
@@ -316,8 +371,7 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
             .then((data) => {
                 setSuccess(String(data?.message || 'Selected payroll records approved.'));
                 setSelectedIds([]);
-                setCompletedStep((prev) => Math.max(prev, 3));
-                return loadOverview();
+                return loadOverview({ syncWorkflow: true });
             })
             .catch((apiError) => {
                 const message = apiError?.response?.data?.message || 'Unable to approve selected payroll records.';
@@ -360,7 +414,7 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
                 setSuccess(String(data?.message || 'Payroll marked as paid and locked.'));
                 setCompletedStep(4);
                 setActiveStep(4);
-                return loadOverview();
+                return loadOverview({ syncWorkflow: true });
             })
             .catch((apiError) => {
                 const message = apiError?.response?.data?.message || 'Unable to mark payroll as paid.';
@@ -388,7 +442,10 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
         }, csrfToken)
             .then((data) => {
                 setSuccess(String(data?.message || 'Payroll month unlocked successfully.'));
-                return loadOverview();
+                setMonthConfirmed(false);
+                setActiveStep(1);
+                setCompletedStep(0);
+                return loadOverview({ syncWorkflow: false });
             })
             .catch((apiError) => {
                 const message = apiError?.response?.data?.message || 'Unable to unlock payroll month.';
@@ -416,70 +473,50 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
     }, [urls.directoryExportCsv, payrollMonth, filters.employeeId, statusFilter, debouncedSearch]);
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-6">
             <section className="ui-section">
-                <SectionHeader title="Payroll Processing Workflow" subtitle="Strict enterprise stepper. Future steps stay locked until completion." />
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--hr-text-muted)' }}>Payroll Processing</p>
+                        <h3 className="mt-1 text-xl font-extrabold">{payrollMonthLabel}</h3>
+                        <p className="mt-1 text-sm" style={{ color: 'var(--hr-text-muted)' }}>{stepInstructions[activeStep]}</p>
+                    </div>
+                    <StatusBadge status={overview?.header?.status || 'draft'} />
+                </div>
 
                 {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
                 {success ? <p className="mt-3 text-sm text-green-700">{success}</p> : null}
 
-                <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
-                    {STEPS.map((step) => {
-                        const isActive = step.id === activeStep;
-                        const isComplete = completedStep >= step.id;
-                        const isFuture = step.id > activeStep;
-
-                        return (
-                            <button
-                                key={step.id}
-                                type="button"
-                                onClick={() => {
-                                    if (isFuture) {
-                                        return;
-                                    }
-                                    setActiveStep(step.id);
-                                }}
-                                className="rounded-xl border px-3 py-3 text-left"
-                                style={{
-                                    borderColor: isActive ? 'var(--hr-accent-border)' : 'var(--hr-line)',
-                                    background: isActive ? 'var(--hr-accent-soft)' : 'var(--hr-surface-strong)',
-                                    opacity: isFuture ? 0.65 : 1,
-                                    cursor: isFuture ? 'not-allowed' : 'pointer',
-                                }}
-                                disabled={isFuture}
-                            >
-                                <p className="text-xs font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
-                                    Step {step.id}
-                                </p>
-                                <p className="mt-1 text-sm font-extrabold">{step.title}</p>
-                                <p className="mt-1 text-xs" style={{ color: isComplete ? '#15803d' : 'var(--hr-text-muted)' }}>
-                                    {isComplete ? 'Completed ✓' : isActive ? 'In Progress' : 'Locked'}
-                                </p>
-                            </button>
-                        );
-                    })}
-                </div>
+                <HorizontalStepper
+                    steps={STEPS}
+                    activeStep={activeStep}
+                    completedStep={completedStep}
+                    maxAccessibleStep={maxAccessibleStep}
+                    onStepChange={setActiveStep}
+                />
             </section>
 
-            <section className="ui-section">
-                <SectionHeader title="Payroll Header" subtitle="Current workflow status and control metadata." />
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                    <InfoCard label="Payroll Month" value={overview?.header?.payrollMonth || 'N/A'} />
-                    <InfoCard label="Status" value={<StatusBadge status={overview?.header?.status || 'draft'} />} />
-                    <InfoCard label="Total Employees" value={formatCount(overview?.header?.totalEmployees || 0)} />
-                    <InfoCard label="Total Net Pay" value={formatMoney(overview?.header?.totalNetPay || 0)} tone="success" />
-                    <InfoCard label="Last Updated" value={formatDateTime(overview?.header?.lastUpdatedAt)} />
-                    <InfoCard label="Locked" value={isLocked ? 'Yes' : 'No'} tone={isLocked ? 'danger' : 'default'} />
-                </div>
-            </section>
+            {showPayrollHeader ? (
+                <section className="ui-section">
+                    <SectionHeader title="Payroll Header" subtitle="Workflow summary after payroll generation." />
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                        <InfoCard label="Payroll Month" value={overview?.header?.payrollMonth || payrollMonth} icon="calendar" />
+                        <InfoCard label="Status" value={<StatusBadge status={overview?.header?.status || 'generated'} />} icon="status" />
+                        <InfoCard label="Total Employees" value={formatCount(overview?.header?.totalEmployees || 0)} icon="users" />
+                        <InfoCard label="Total Net Pay" value={formatMoney(overview?.header?.totalNetPay || 0)} tone="success" icon="money" />
+                        <InfoCard label="Last Updated" value={formatDateTime(overview?.header?.lastUpdatedAt)} icon="clock" />
+                        <InfoCard label="Locked" value={isLocked ? 'Yes' : 'No'} tone={isLocked ? 'danger' : 'default'} icon="shield" />
+                    </div>
+                </section>
+            ) : null}
 
             {activeStep === 1 ? (
-                <section className="ui-section">
-                    <SectionHeader title="Step 1: Select Month" subtitle="Select month and scope before calculation." />
-                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <section className="ui-section hrm-step-content">
+                    <SectionHeader title="Step 1: Select Month" subtitle="Choose payroll month to continue workflow." />
+                    <div className="mt-6 grid gap-4 md:grid-cols-2">
                         <label className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
                             Payroll Month
-                            <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 <select
                                     className="ui-select"
                                     value={String(selectedYear)}
@@ -488,7 +525,7 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
                                         const month = selectedMonthNumber || fallbackMonth.slice(5, 7);
                                         setPayrollMonth(normalizeMonth(`${year}-${month}`));
                                     }}
-                                    disabled={isLocked}
+                                    disabled={loadingOverview}
                                 >
                                     {yearOptions.map((year) => (
                                         <option key={`payroll-year-${year}`} value={year}>{year}</option>
@@ -504,7 +541,7 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
                                             : String(selectedYear);
                                         setPayrollMonth(normalizeMonth(`${year}-${month}`));
                                     }}
-                                    disabled={isLocked}
+                                    disabled={loadingOverview}
                                 >
                                     {MONTH_OPTIONS.map((month) => (
                                         <option key={`payroll-month-${month.value}`} value={month.value}>{month.label}</option>
@@ -512,92 +549,112 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
                                 </select>
                             </div>
                         </label>
-                        <label className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
-                            Current Status
+
+                        <div className="rounded-xl border px-4 py-3" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface)' }}>
+                            <p className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>Current Status</p>
                             <div className="mt-2"><StatusBadge status={overview?.header?.status || 'draft'} /></div>
-                        </label>
-                        <label className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
-                            Lock State
-                            <p className="mt-2 text-sm font-semibold" style={{ color: isLocked ? '#b91c1c' : '#15803d' }}>{isLocked ? 'Closed / Locked' : 'Open'}</p>
-                        </label>
+                        </div>
                     </div>
-                    <div className="mt-4 flex gap-2">
+
+                    <div className="mt-6 flex flex-wrap items-center gap-2">
                         <button type="button" className="ui-btn ui-btn-primary" onClick={onContinueStep1} disabled={isLocked || loadingOverview}>
                             {loadingOverview ? 'Checking...' : 'Continue'}
                         </button>
-                        {isLocked && permissions.canUnlock ? (
-                            <>
-                                <input
-                                    type="text"
-                                    className="ui-input"
-                                    placeholder="Unlock reason"
-                                    value={unlockReason}
-                                    onChange={(event) => setUnlockReason(event.target.value)}
-                                />
-                                <button type="button" className="ui-btn ui-btn-ghost" onClick={onUnlock} disabled={submitting}>
-                                    Unlock Month
-                                </button>
-                            </>
+                        {isLocked ? (
+                            <p className="text-sm font-semibold text-red-700">Payroll month is closed. Continue is disabled.</p>
                         ) : null}
                     </div>
+
+                    {isLocked && permissions.canUnlock ? (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            <input
+                                type="text"
+                                className="ui-input"
+                                placeholder="Unlock reason"
+                                value={unlockReason}
+                                onChange={(event) => setUnlockReason(event.target.value)}
+                            />
+                            <button type="button" className="ui-btn ui-btn-ghost" onClick={onUnlock} disabled={submitting}>
+                                Unlock Month
+                            </button>
+                        </div>
+                    ) : null}
                 </section>
             ) : null}
 
             {activeStep === 2 ? (
-                <section className="ui-section">
-                    <SectionHeader title="Step 2: Preview & Generate" subtitle="Review payroll calculation before generation." />
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <InfoCard label="Total Employees" value={formatCount(preview?.summary?.totalEmployees ?? 0)} />
-                        <InfoCard label="Gross Total" value={formatMoney(preview?.summary?.grossTotal ?? 0)} />
-                        <InfoCard label="Deduction Total" value={formatMoney(preview?.summary?.deductionTotal ?? 0)} />
-                        <InfoCard label="Net Total" value={formatMoney(preview?.summary?.netTotal ?? 0)} tone="success" />
-                        <InfoCard label="Employees with Errors" value={formatCount(preview?.summary?.employeesWithErrors ?? 0)} tone="danger" />
-                        <InfoCard label="Missing Salary Structure" value={formatCount(preview?.summary?.missingSalaryStructure ?? 0)} tone="warning" />
-                    </div>
+                <>
+                    <GlobalFilterBar
+                        urls={urls}
+                        filters={filters}
+                        employee={filters.employee}
+                        onChange={onFilterChange}
+                        onClear={onClearFilters}
+                    />
+                    <section className="ui-section hrm-step-content">
+                        <SectionHeader title="Step 2: Preview & Generate" subtitle="Review payroll calculation before generation." />
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                        <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setActiveStep(1)}>Back</button>
-                        <button type="button" className="ui-btn ui-btn-ghost" onClick={onPreview} disabled={loadingPreview || isLocked}>
-                            {loadingPreview ? 'Previewing...' : 'Refresh Preview'}
-                        </button>
-                        <button type="button" className="ui-btn ui-btn-primary" onClick={onGenerate} disabled={submitting || isLocked || !permissions.canGenerate}>
-                            {submitting ? 'Generating...' : 'Generate Payroll'}
-                        </button>
-                    </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setActiveStep(1)}>Back</button>
+                            <button type="button" className="ui-btn ui-btn-ghost" onClick={onPreview} disabled={loadingPreview || isLocked}>
+                                {loadingPreview ? 'Previewing...' : 'Refresh Preview'}
+                            </button>
+                            <button type="button" className="ui-btn ui-btn-primary" onClick={onGenerate} disabled={submitting || isLocked || !permissions.canGenerate}>
+                                {submitting ? 'Generating...' : 'Generate Payroll'}
+                            </button>
+                        </div>
 
-                    <div className="ui-table-wrap mt-4">
-                        <table className="ui-table">
-                            <thead>
-                                <tr>
-                                    <th>Employee Name</th>
-                                    <th>Department</th>
-                                    <th>Gross</th>
-                                    <th>Deductions</th>
-                                    <th>Net</th>
-                                    <th>Error</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {(Array.isArray(preview?.rows) ? preview.rows : []).length === 0 ? (
-                                    <TableEmptyState loading={loadingPreview} error={error} colSpan={6} emptyMessage="No preview rows available." />
-                                ) : (preview.rows || []).map((row) => (
-                                    <tr key={`preview-row-${row.employeeId}`}>
-                                        <td>{row.employeeName}</td>
-                                        <td>{row.department || 'N/A'}</td>
-                                        <td>{formatMoney(row.gross)}</td>
-                                        <td>{formatMoney(row.deductions)}</td>
-                                        <td>{formatMoney(row.net)}</td>
-                                        <td>{row.error ? <span className="ui-status-chip ui-status-red">{row.error}</span> : <span className="ui-status-chip ui-status-green">OK</span>}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+                        {preview ? (
+                            <>
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                    <InfoCard label="Total Employees" value={formatCount(preview?.summary?.totalEmployees ?? 0)} icon="users" />
+                                    <InfoCard label="Gross Total" value={formatMoney(preview?.summary?.grossTotal ?? 0)} icon="money" />
+                                    <InfoCard label="Deduction Total" value={formatMoney(preview?.summary?.deductionTotal ?? 0)} icon="bank" />
+                                    <InfoCard label="Net Total" value={formatMoney(preview?.summary?.netTotal ?? 0)} tone="success" icon="chart" />
+                                    <InfoCard label="Employees with Errors" value={formatCount(preview?.summary?.employeesWithErrors ?? 0)} tone="danger" icon="warning" />
+                                    <InfoCard label="Missing Salary Structure" value={formatCount(preview?.summary?.missingSalaryStructure ?? 0)} tone="warning" icon="shield" />
+                                </div>
+
+                                <div className="ui-table-wrap mt-4">
+                                    <table className="ui-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Employee Name</th>
+                                                <th>Department</th>
+                                                <th>Gross</th>
+                                                <th>Deductions</th>
+                                                <th>Net</th>
+                                                <th>Error</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(Array.isArray(preview?.rows) ? preview.rows : []).length === 0 ? (
+                                                <TableEmptyState loading={loadingPreview} error={error} colSpan={6} emptyMessage="No preview rows available." />
+                                            ) : (preview.rows || []).map((row) => (
+                                                <tr key={`preview-row-${row.employeeId}`}>
+                                                    <td>{row.employeeName}</td>
+                                                    <td>{row.department || 'N/A'}</td>
+                                                    <td>{formatMoney(row.gross)}</td>
+                                                    <td>{formatMoney(row.deductions)}</td>
+                                                    <td>{formatMoney(row.net)}</td>
+                                                    <td>{row.error ? <span className="ui-status-chip ui-status-red">{row.error}</span> : <span className="ui-status-chip ui-status-green">OK</span>}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="mt-4 rounded-xl border p-4 text-sm font-semibold" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface-strong)', color: 'var(--hr-text-muted)' }}>
+                                Run preview to view payroll totals and employee-level calculation output.
+                            </div>
+                        )}
+                    </section>
+                </>
             ) : null}
 
             {activeStep === 3 ? (
-                <section className="ui-section">
+                <section className="ui-section hrm-step-content">
                     <SectionHeader title="Step 3: Approve Payroll" subtitle="Approve generated payroll in bulk with status filters." />
                     <div className="mt-4 flex flex-wrap gap-2">
                         <input
@@ -698,10 +755,10 @@ export function ProcessingPage({ urls, csrfToken, filters, permissions, initialA
             ) : null}
 
             {activeStep === 4 ? (
-                <section className="ui-section">
+                <section className="ui-section hrm-step-content">
                     <SectionHeader title="Step 4: Pay & Lock" subtitle="Final payout confirmation with permanent workflow lock." />
                     <div className="mt-4 grid gap-3 md:grid-cols-3">
-                        <InfoCard label="Total Net Amount" value={formatMoney(overview?.header?.totalNetPay || 0)} tone="success" />
+                        <InfoCard label="Total Net Amount" value={formatMoney(overview?.header?.totalNetPay || 0)} tone="success" icon="money" />
                         <label className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
                             Payment Method
                             <select className="ui-select mt-1" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} disabled={isLocked}>

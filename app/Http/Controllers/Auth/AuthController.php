@@ -262,6 +262,8 @@ class AuthController extends Controller
             $newUser->profile()->create([
                 'employment_type' => 'full_time',
                 'status' => 'inactive',
+                'is_employee' => true,
+                'employee_code' => User::makeEmployeeCode($newUser->id),
             ]);
 
             return $newUser;

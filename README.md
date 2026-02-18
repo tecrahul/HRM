@@ -112,6 +112,95 @@ Start the full local development stack (web server, queue listener, logs, and Vi
 composer run dev
 ```
 
+## Container Deployment (Docker)
+
+This repository now includes a production-oriented container stack with:
+- PHP-FPM app image (`Dockerfile`, multi-stage build)
+- Nginx (default web entry)
+- Apache (optional profile)
+- MySQL 8.4
+- Redis
+- Queue worker and scheduler services
+
+### Included Config Files
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `.dockerignore`
+- `docker/entrypoint.sh`
+- `docker/php/php.ini`
+- `docker/php/opcache.ini`
+- `docker/php/www.conf`
+- `docker/nginx/nginx.conf`
+- `docker/nginx/default.conf`
+- `docker/apache/httpd.conf`
+
+### Start the Stack
+
+Use either Docker Compose command style supported on your machine:
+- `docker compose ...`
+- `docker-compose ...`
+
+Default stack (Nginx + app + db + redis + queue + scheduler):
+
+```bash
+docker-compose up -d --build
+```
+
+Optional Apache web service (runs in addition to default services):
+
+```bash
+docker-compose --profile apache up -d --build
+```
+
+### First-Time App Initialization
+
+After containers are running:
+
+```bash
+docker-compose exec app php artisan key:generate
+docker-compose exec app php artisan migrate --force
+```
+
+Optional (recommended for production):
+
+```bash
+docker-compose exec app php artisan config:cache
+docker-compose exec app php artisan route:cache
+docker-compose exec app php artisan view:cache
+```
+
+### Access URLs
+
+- Nginx: `http://localhost:8080` (or `${NGINX_PORT}`)
+- Apache profile: `http://localhost:8081` (or `${APACHE_PORT}`)
+- Health check endpoint: `/healthz`
+
+### Environment Notes
+
+- The compose file reads `.env` via `env_file`.
+- DB/Redis/container defaults are defined in `docker-compose.yml` and can be overridden in `.env`.
+- Ensure production values are set for:
+  - `APP_KEY`
+  - `APP_URL`
+  - `DB_*`
+  - `REDIS_*`
+  - `MAIL_*`
+
+### Stop and Cleanup
+
+Stop services:
+
+```bash
+docker-compose down
+```
+
+Stop and remove named volumes (data loss: DB/Redis/storage):
+
+```bash
+docker-compose down -v
+```
+
 ## Testing
 
 ```bash

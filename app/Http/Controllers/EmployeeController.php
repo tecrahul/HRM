@@ -32,7 +32,7 @@ class EmployeeController extends Controller
         $status = (string) $request->string('status');
 
         $employees = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->with('profile')
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($innerQuery) use ($search): void {
@@ -68,7 +68,7 @@ class EmployeeController extends Controller
             ->withQueryString();
 
         $employeeIds = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->pluck('id');
 
         $now = now();
@@ -108,12 +108,12 @@ class EmployeeController extends Controller
             ->count();
 
         $headcountAddedThisMonth = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->whereBetween('created_at', [$currentMonthStart, $now])
             ->count();
 
         $headcountAddedLastMonth = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->whereBetween('created_at', [$previousMonthStart, $previousMonthEnd])
             ->count();
 
@@ -215,7 +215,7 @@ class EmployeeController extends Controller
         $department = $profile?->department;
 
         $teamMates = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->with('profile')
             ->when($department !== null && $department !== '', function ($query) use ($department, $viewer): void {
                 $query->whereHas('profile', function ($profileQuery) use ($department): void {

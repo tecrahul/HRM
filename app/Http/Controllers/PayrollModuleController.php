@@ -105,7 +105,7 @@ class PayrollModuleController extends Controller
         $branchName = $this->resolveBranchName($branchId);
 
         $employeeDepartmentNames = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->when($branchName !== null, function (Builder $query) use ($branchName): void {
                 $query->whereHas('profile', function (Builder $profileQuery) use ($branchName): void {
                     $this->applyProfileStringMatch($profileQuery, 'branch', $branchName);
@@ -376,8 +376,8 @@ class PayrollModuleController extends Controller
             'employee_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
                 }),
             ],
             'q' => ['nullable', 'string', 'max:120'],
@@ -442,6 +442,7 @@ class PayrollModuleController extends Controller
                 return [
                     'employeeId' => (int) $employee->id,
                     'employeeName' => (string) $employee->name,
+                    'employeeCode' => (string) ($employee->profile?->employee_code ?: User::makeEmployeeCode($employee->id)),
                     'email' => (string) $employee->email,
                     'department' => (string) ($employee->profile?->department ?? ''),
                     'branch' => (string) ($employee->profile?->branch ?? ''),
@@ -499,8 +500,8 @@ class PayrollModuleController extends Controller
             'employee_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
                 }),
             ],
             'q' => ['nullable', 'string', 'max:120'],
@@ -523,7 +524,7 @@ class PayrollModuleController extends Controller
             ->leftJoin('users as generators', 'generators.id', '=', 'payrolls.generated_by_user_id')
             ->leftJoin('users as approvers', 'approvers.id', '=', 'payrolls.approved_by_user_id')
             ->leftJoin('users as payers', 'payers.id', '=', 'payrolls.paid_by_user_id')
-            ->where('users.role', UserRole::EMPLOYEE->value)
+            ->where('profile.is_employee', true)
             ->when($branchName !== null, function ($query) use ($branchName): void {
                 $this->applyQueryStringMatch($query, 'profile.branch', $branchName);
             })
@@ -700,8 +701,8 @@ class PayrollModuleController extends Controller
             'employee_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
                 }),
             ],
             'payroll_month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
@@ -725,7 +726,7 @@ class PayrollModuleController extends Controller
     private function employeeQuery(?string $branchName, ?string $departmentName, ?int $employeeId, ?string $search): Builder
     {
         return User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->when($employeeId !== null, function (Builder $query) use ($employeeId): void {
                 $query->where('users.id', $employeeId);
             })

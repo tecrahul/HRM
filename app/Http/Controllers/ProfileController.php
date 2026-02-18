@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use App\Models\CompanySetting;
+use App\Models\User;
 use App\Support\ActivityLogger;
 use App\Support\TwoFactorAuthenticator;
 use Illuminate\Contracts\View\View;
@@ -98,7 +99,15 @@ class ProfileController extends Controller
             'name' => $validated['name'],
         ]);
 
+        $isEmployee = $user->profile?->is_employee ?? User::shouldTreatRoleAsEmployee(
+            $user->role instanceof \App\Enums\UserRole ? $user->role : (string) $user->role
+        );
+        $employeeCode = $user->profile?->employee_code
+            ?: ($isEmployee ? User::makeEmployeeCode($user->id) : null);
+
         $user->profile()->updateOrCreate([], [
+            'is_employee' => $isEmployee,
+            'employee_code' => $employeeCode,
             'avatar_url' => $newAvatarUrl ?: $existingAvatarUrl,
             'phone' => $validated['phone'] ?: null,
             'alternate_phone' => $validated['alternate_phone'] ?: null,

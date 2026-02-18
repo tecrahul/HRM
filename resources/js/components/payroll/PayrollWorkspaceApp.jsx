@@ -16,16 +16,6 @@ const parsePayload = (rootElement) => {
     }
 };
 
-const navItems = [
-    { key: 'dashboard', label: 'Dashboard', routeKey: 'dashboard' },
-    { key: 'salary_structures', label: 'Salary Structures', routeKey: 'salaryStructures' },
-    { key: 'processing', label: 'Payroll Processing', routeKey: 'processing' },
-    { key: 'history', label: 'Payroll History', routeKey: 'history' },
-    { key: 'payslips', label: 'Payslips', routeKey: 'payslips' },
-    { key: 'reports', label: 'Reports', routeKey: 'reports' },
-    { key: 'settings', label: 'Settings', routeKey: 'settings' },
-];
-
 function PayrollWorkspaceApp({ payload }) {
     const page = String(payload?.page || 'dashboard');
     const urls = payload?.urls ?? {};
@@ -59,38 +49,15 @@ function PayrollWorkspaceApp({ payload }) {
 
     return (
         <div className="space-y-5">
-            <section className="ui-section">
-                <div className="flex flex-wrap items-center gap-2">
-                    {navItems.map((item) => {
-                        const isActive = item.key === page;
-                        const href = routes[item.routeKey] || '#';
-
-                        return (
-                            <a
-                                key={`payroll-nav-${item.key}`}
-                                href={href}
-                                className="ui-btn"
-                                style={{
-                                    background: isActive ? 'var(--hr-accent-soft)' : 'var(--hr-surface-strong)',
-                                    borderColor: isActive ? 'var(--hr-accent-border)' : 'var(--hr-line)',
-                                    color: 'var(--hr-text-main)',
-                                }}
-                                aria-current={isActive ? 'page' : undefined}
-                            >
-                                {item.label}
-                            </a>
-                        );
-                    })}
-                </div>
-            </section>
-
-            <GlobalFilterBar
-                urls={urls}
-                filters={filters}
-                employee={filters.employee}
-                onChange={onFilterChange}
-                onClear={onClearFilters}
-            />
+            {page !== 'processing' ? (
+                <GlobalFilterBar
+                    urls={urls}
+                    filters={filters}
+                    employee={filters.employee}
+                    onChange={onFilterChange}
+                    onClear={onClearFilters}
+                />
+            ) : null}
 
             {page === 'dashboard' ? (
                 <DashboardPage urls={urls} routes={routes} filters={filters} />
@@ -110,6 +77,8 @@ function PayrollWorkspaceApp({ payload }) {
                     urls={urls}
                     csrfToken={csrfToken}
                     filters={filters}
+                    onFilterChange={onFilterChange}
+                    onClearFilters={onClearFilters}
                     permissions={permissions}
                     initialAlert={initialAlert}
                 />

@@ -59,8 +59,8 @@ class LeaveController extends Controller
             $rules['user_id'] = [
                 'required',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
                 }),
             ];
             $rules['assign_note'] = ['nullable', 'string', 'max:1000'];
@@ -302,15 +302,14 @@ class LeaveController extends Controller
         $dateTo = (string) $request->string('date_to');
         $onDate = (string) $request->string('on_date');
 
-        $employeeRole = UserRole::EMPLOYEE->value;
         $statusOptions = LeaveRequest::statuses();
         $leaveTypeOptions = LeaveRequest::leaveTypes();
         $dayTypeOptions = LeaveRequest::dayTypes();
 
         $requests = LeaveRequest::query()
             ->with(['user.profile', 'reviewer'])
-            ->whereHas('user', function (Builder $query) use ($employeeRole): void {
-                $query->where('role', $employeeRole);
+            ->whereHas('user', function (Builder $query): void {
+                $query->workforce();
             })
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $innerQuery) use ($search): void {
@@ -363,7 +362,7 @@ class LeaveController extends Controller
             ->withQueryString();
 
         $employeeIds = User::query()
-            ->where('role', $employeeRole)
+            ->workforce()
             ->pluck('id');
 
         $baseQuery = LeaveRequest::query()->whereIn('user_id', $employeeIds);
@@ -527,7 +526,7 @@ class LeaveController extends Controller
         }
 
         $employee = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->with('profile:user_id,department')
             ->whereKey((int) $employeeId)
             ->first();
@@ -541,6 +540,7 @@ class LeaveController extends Controller
             'name' => $employee->name,
             'email' => $employee->email,
             'department' => $employee->profile?->department ?? '',
+            'employee_code' => $employee->profile?->employee_code ?: User::makeEmployeeCode($employee->id),
         ];
     }
 

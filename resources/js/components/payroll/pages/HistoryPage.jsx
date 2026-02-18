@@ -73,9 +73,9 @@ export function HistoryPage({ urls, routes, filters, initialStatus = '' }) {
             <section className="ui-section">
                 <SectionHeader title="Payroll History Summary" subtitle="Monthly payroll output and cost trends." />
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <InfoCard label="Total Months Processed" value={loading ? '...' : formatCount(summary?.totalMonthsProcessed ?? 0)} />
-                    <InfoCard label="YTD Payroll Cost" value={loading ? '...' : formatMoney(summary?.ytdPayrollCost ?? 0)} tone="success" />
-                    <InfoCard label="Last Processed Month" value={loading ? '...' : String(summary?.lastProcessedMonth ?? 'N/A')} />
+                    <InfoCard label="Total Months Processed" value={loading ? '...' : formatCount(summary?.totalMonthsProcessed ?? 0)} icon="calendar" />
+                    <InfoCard label="YTD Payroll Cost" value={loading ? '...' : formatMoney(summary?.ytdPayrollCost ?? 0)} tone="success" icon="chart" />
+                    <InfoCard label="Last Processed Month" value={loading ? '...' : String(summary?.lastProcessedMonth ?? 'N/A')} icon="clock" />
                 </div>
             </section>
 

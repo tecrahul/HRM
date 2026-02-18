@@ -12,21 +12,59 @@ use App\Models\Payroll;
 use App\Models\PayrollStructure;
 use App\Models\User;
 use App\Models\UserProfile;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
 class DashboardController extends BaseController
 {
-    public function admin(): View
+    public function admin(Request $request): View
     {
+        $validatedFilters = $this->validatedAdminEmployeeFilters($request);
+        $filterContext = $this->resolveAdminEmployeeFilterContext(
+            $validatedFilters['branch_id'],
+            $validatedFilters['department_id'],
+        );
+        $employeeIds = $this->filteredEmployeeIds($filterContext);
+
+        $sharedData = $this->sharedDashboardData();
+        $sharedData['moduleStats'] = $this->moduleStats($employeeIds);
+        $sharedData['latestEmployees'] = $this->latestEmployees($employeeIds);
+
         return view('dashboard.admin', [
-            ...$this->sharedDashboardData(),
+            ...$sharedData,
             'latestUsers' => $this->latestUsers(),
             'adminCharts' => $this->adminCharts(),
+            'dashboardFilterOptions' => [
+                'branches' => Branch::query()
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(static fn (Branch $branch): array => [
+                        'id' => (int) $branch->id,
+                        'name' => (string) $branch->name,
+                    ])
+                    ->values()
+                    ->all(),
+                'departments' => Department::query()
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(static fn (Department $department): array => [
+                        'id' => (int) $department->id,
+                        'name' => (string) $department->name,
+                    ])
+                    ->values()
+                    ->all(),
+            ],
+            'dashboardFilterState' => [
+                'branchId' => $filterContext['branchId'],
+                'departmentId' => $filterContext['departmentId'],
+            ],
         ]);
     }
 
@@ -34,21 +72,21 @@ class DashboardController extends BaseController
     {
         abort_unless($request->user() !== null, 403);
 
-        return response()->json($this->adminSummaryPayload());
+        return response()->json($this->adminSummaryPayload($request));
     }
 
     public function adminAttendanceOverview(Request $request): JsonResponse
     {
         abort_unless($request->user() !== null, 403);
 
-        return response()->json($this->adminAttendanceOverviewPayload());
+        return response()->json($this->adminAttendanceOverviewPayload($request));
     }
 
     public function adminLeaveOverview(Request $request): JsonResponse
     {
         abort_unless($request->user() !== null, 403);
 
-        return response()->json($this->adminLeaveOverviewPayload());
+        return response()->json($this->adminLeaveOverviewPayload($request));
     }
 
     public function hr(): View
@@ -187,7 +225,7 @@ class DashboardController extends BaseController
      */
     private function employeeStats(): array
     {
-        $employeeUsers = User::query()->where('role', UserRole::EMPLOYEE->value);
+        $employeeUsers = User::query()->workforce();
         $employeeIds = (clone $employeeUsers)->pluck('id');
 
         $active = UserProfile::query()->whereIn('user_id', $employeeIds)->where('status', 'active')->count();
@@ -210,11 +248,13 @@ class DashboardController extends BaseController
     /**
      * @return array<string, int|float>
      */
-    private function moduleStats(): array
+    private function moduleStats(?Collection $employeeIds = null): array
     {
-        $employeeIds = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
-            ->pluck('id');
+        $employeeIds = $employeeIds instanceof Collection
+            ? $employeeIds
+            : User::query()
+                ->workforce()
+                ->pluck('id');
 
         $today = now()->toDateString();
         $monthStart = now()->startOfMonth()->toDateString();
@@ -283,13 +323,91 @@ class DashboardController extends BaseController
     }
 
     /**
+     * @return array{branch_id:int|null,department_id:int|null}
+     */
+    private function validatedAdminEmployeeFilters(Request $request): array
+    {
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
+            'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
+        ]);
+
+        return [
+            'branch_id' => isset($validated['branch_id']) ? (int) $validated['branch_id'] : null,
+            'department_id' => isset($validated['department_id']) ? (int) $validated['department_id'] : null,
+        ];
+    }
+
+    /**
+     * @return array{
+     *  branchId:int|null,
+     *  departmentId:int|null,
+     *  branchNameKey:string|null,
+     *  departmentNameKey:string|null
+     * }
+     */
+    private function resolveAdminEmployeeFilterContext(?int $branchId, ?int $departmentId): array
+    {
+        $branchName = null;
+        if ($branchId !== null) {
+            $resolvedBranchName = Branch::query()->whereKey($branchId)->value('name');
+            if (is_string($resolvedBranchName) && trim($resolvedBranchName) !== '') {
+                $branchName = trim($resolvedBranchName);
+            }
+        }
+
+        $departmentName = null;
+        if ($departmentId !== null) {
+            $resolvedDepartmentName = Department::query()->whereKey($departmentId)->value('name');
+            if (is_string($resolvedDepartmentName) && trim($resolvedDepartmentName) !== '') {
+                $departmentName = trim($resolvedDepartmentName);
+            }
+        }
+
+        return [
+            'branchId' => $branchId,
+            'departmentId' => $departmentId,
+            'branchNameKey' => $branchName !== null ? mb_strtolower(trim($branchName)) : null,
+            'departmentNameKey' => $departmentName !== null ? mb_strtolower(trim($departmentName)) : null,
+        ];
+    }
+
+    /**
+     * @param array{
+     *  branchNameKey:string|null,
+     *  departmentNameKey:string|null
+     * } $filterContext
+     *
+     * @return Collection<int, int>
+     */
+    private function filteredEmployeeIds(array $filterContext): Collection
+    {
+        return User::query()
+            ->workforce()
+            ->when(($filterContext['branchNameKey'] ?? null) !== null, function (Builder $query) use ($filterContext): void {
+                $query->whereHas('profile', function (Builder $profileQuery) use ($filterContext): void {
+                    $profileQuery->whereRaw('LOWER(TRIM(branch)) = ?', [$filterContext['branchNameKey']]);
+                });
+            })
+            ->when(($filterContext['departmentNameKey'] ?? null) !== null, function (Builder $query) use ($filterContext): void {
+                $query->whereHas('profile', function (Builder $profileQuery) use ($filterContext): void {
+                    $profileQuery->whereRaw('LOWER(TRIM(department)) = ?', [$filterContext['departmentNameKey']]);
+                });
+            })
+            ->pluck('id');
+    }
+
+    /**
      * @return array<string, mixed>
      */
-    private function adminSummaryPayload(): array
+    private function adminSummaryPayload(Request $request): array
     {
-        $employeeIds = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
-            ->pluck('id');
+        $validatedFilters = $this->validatedAdminEmployeeFilters($request);
+        $filterContext = $this->resolveAdminEmployeeFilterContext(
+            $validatedFilters['branch_id'],
+            $validatedFilters['department_id'],
+        );
+        $employeeIds = $this->filteredEmployeeIds($filterContext);
 
         $today = now()->toDateString();
         $monthStart = now()->startOfMonth();
@@ -384,12 +502,16 @@ class DashboardController extends BaseController
     /**
      * @return array<string, mixed>
      */
-    private function adminAttendanceOverviewPayload(): array
+    private function adminAttendanceOverviewPayload(Request $request): array
     {
+        $validatedFilters = $this->validatedAdminEmployeeFilters($request);
+        $filterContext = $this->resolveAdminEmployeeFilterContext(
+            $validatedFilters['branch_id'],
+            $validatedFilters['department_id'],
+        );
+
         $today = now()->toDateString();
-        $employeeIds = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
-            ->pluck('id');
+        $employeeIds = $this->filteredEmployeeIds($filterContext);
 
         $totalEmployees = $employeeIds->count();
         if ($totalEmployees === 0) {
@@ -473,7 +595,7 @@ class DashboardController extends BaseController
         $notMarked = max(0, ($totalEmployees - $markedToday) - $onLeaveWithoutAttendance);
 
         $employees = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->whereIn('id', $employeeIds)
             ->with('profile:user_id,department')
             ->get(['id']);
 
@@ -529,70 +651,58 @@ class DashboardController extends BaseController
     /**
      * @return array<string, mixed>
      */
-    private function adminLeaveOverviewPayload(): array
+    private function adminLeaveOverviewPayload(Request $request): array
     {
-        $employeeRole = UserRole::EMPLOYEE->value;
+        $validatedFilters = $this->validatedAdminEmployeeFilters($request);
+        $filterContext = $this->resolveAdminEmployeeFilterContext(
+            $validatedFilters['branch_id'],
+            $validatedFilters['department_id'],
+        );
+        $employeeIds = $this->filteredEmployeeIds($filterContext);
+
         $today = now()->toDateString();
         $monthStart = now()->startOfMonth()->toDateString();
         $monthEnd = now()->endOfMonth()->toDateString();
 
-        $pendingApprovalsRow = DB::selectOne(
-            <<<'SQL'
-            SELECT COUNT(*) AS total
-            FROM leave_requests lr
-            INNER JOIN users u ON u.id = lr.user_id
-            WHERE u.role = ?
-              AND lr.status = 'pending'
-            SQL,
-            [$employeeRole]
-        );
+        $pendingApprovals = LeaveRequest::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', LeaveRequest::STATUS_PENDING)
+            ->count();
 
-        $approvedLeavesRow = DB::selectOne(
-            <<<'SQL'
-            SELECT COUNT(*) AS total
-            FROM leave_requests lr
-            INNER JOIN users u ON u.id = lr.user_id
-            WHERE u.role = ?
-              AND lr.status = 'approved'
-              AND lr.start_date BETWEEN ? AND ?
-            SQL,
-            [$employeeRole, $monthStart, $monthEnd]
-        );
+        $approvedLeaves = LeaveRequest::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereBetween('start_date', [$monthStart, $monthEnd])
+            ->count();
 
-        $leaveTypeBreakdownRow = DB::selectOne(
-            <<<'SQL'
-            SELECT
-                COALESCE(SUM(CASE WHEN lr.leave_type = 'sick' THEN 1 ELSE 0 END), 0) AS sick,
-                COALESCE(SUM(CASE WHEN lr.leave_type = 'casual' THEN 1 ELSE 0 END), 0) AS casual,
-                COALESCE(SUM(CASE WHEN lr.leave_type IN ('earned', 'paid') THEN 1 ELSE 0 END), 0) AS paid
-            FROM leave_requests lr
-            INNER JOIN users u ON u.id = lr.user_id
-            WHERE u.role = ?
-              AND lr.status = 'approved'
-              AND lr.start_date BETWEEN ? AND ?
-            SQL,
-            [$employeeRole, $monthStart, $monthEnd]
-        );
+        $leaveTypeBreakdownRow = LeaveRequest::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereBetween('start_date', [$monthStart, $monthEnd])
+            ->selectRaw("COALESCE(SUM(CASE WHEN leave_type = 'sick' THEN 1 ELSE 0 END), 0) AS sick")
+            ->selectRaw("COALESCE(SUM(CASE WHEN leave_type = 'casual' THEN 1 ELSE 0 END), 0) AS casual")
+            ->selectRaw("COALESCE(SUM(CASE WHEN leave_type IN ('earned', 'paid') THEN 1 ELSE 0 END), 0) AS paid")
+            ->first();
 
-        $employeesOnLeaveTodayRow = DB::selectOne(
-            <<<'SQL'
-            SELECT COUNT(DISTINCT lr.user_id) AS total
-            FROM leave_requests lr
-            INNER JOIN users u ON u.id = lr.user_id
-            WHERE u.role = ?
-              AND lr.status = 'approved'
-              AND lr.start_date <= ?
-              AND lr.end_date >= ?
-            SQL,
-            [$employeeRole, $today, $today]
-        );
+        $sickLeaves = (int) ($leaveTypeBreakdownRow?->sick ?? 0);
+        $casualLeaves = (int) ($leaveTypeBreakdownRow?->casual ?? 0);
+        $paidLeaves = (int) ($leaveTypeBreakdownRow?->paid ?? 0);
 
-        $pendingApprovals = (int) ($pendingApprovalsRow->total ?? 0);
-        $approvedLeaves = (int) ($approvedLeavesRow->total ?? 0);
-        $sickLeaves = (int) ($leaveTypeBreakdownRow->sick ?? 0);
-        $casualLeaves = (int) ($leaveTypeBreakdownRow->casual ?? 0);
-        $paidLeaves = (int) ($leaveTypeBreakdownRow->paid ?? 0);
-        $employeesOnLeaveToday = (int) ($employeesOnLeaveTodayRow->total ?? 0);
+        $employeesOnLeaveToday = LeaveRequest::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->distinct()
+            ->count('user_id');
+
+        $filterRouteParams = [];
+        if ($filterContext['branchId'] !== null) {
+            $filterRouteParams['branch_id'] = $filterContext['branchId'];
+        }
+        if ($filterContext['departmentId'] !== null) {
+            $filterRouteParams['department_id'] = $filterContext['departmentId'];
+        }
 
         return [
             'generatedAt' => now()->toIso8601String(),
@@ -612,34 +722,36 @@ class DashboardController extends BaseController
                 'paid' => $paidLeaves,
             ],
             'actions' => [
-                'pendingApprovalsUrl' => route('modules.leave.index', ['status' => LeaveRequest::STATUS_PENDING]),
-                'approvedLeavesUrl' => route('modules.leave.index', [
+                'pendingApprovalsUrl' => route('modules.leave.index', array_merge([
+                    'status' => LeaveRequest::STATUS_PENDING,
+                ], $filterRouteParams)),
+                'approvedLeavesUrl' => route('modules.leave.index', array_merge([
                     'status' => LeaveRequest::STATUS_APPROVED,
                     'date_from' => $monthStart,
                     'date_to' => $monthEnd,
-                ]),
-                'sickLeavesUrl' => route('modules.leave.index', [
+                ], $filterRouteParams)),
+                'sickLeavesUrl' => route('modules.leave.index', array_merge([
                     'status' => LeaveRequest::STATUS_APPROVED,
                     'leave_type' => LeaveRequest::TYPE_SICK,
                     'date_from' => $monthStart,
                     'date_to' => $monthEnd,
-                ]),
-                'casualLeavesUrl' => route('modules.leave.index', [
+                ], $filterRouteParams)),
+                'casualLeavesUrl' => route('modules.leave.index', array_merge([
                     'status' => LeaveRequest::STATUS_APPROVED,
                     'leave_type' => LeaveRequest::TYPE_CASUAL,
                     'date_from' => $monthStart,
                     'date_to' => $monthEnd,
-                ]),
-                'paidLeavesUrl' => route('modules.leave.index', [
+                ], $filterRouteParams)),
+                'paidLeavesUrl' => route('modules.leave.index', array_merge([
                     'status' => LeaveRequest::STATUS_APPROVED,
                     'leave_type' => LeaveRequest::TYPE_EARNED,
                     'date_from' => $monthStart,
                     'date_to' => $monthEnd,
-                ]),
-                'employeesOnLeaveTodayUrl' => route('modules.leave.index', [
+                ], $filterRouteParams)),
+                'employeesOnLeaveTodayUrl' => route('modules.leave.index', array_merge([
                     'status' => LeaveRequest::STATUS_APPROVED,
                     'on_date' => $today,
-                ]),
+                ], $filterRouteParams)),
             ],
         ];
     }
@@ -650,7 +762,7 @@ class DashboardController extends BaseController
     private function adminCharts(): array
     {
         $employeeIds = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->pluck('id');
         $employeeCount = $employeeIds->count();
 
@@ -770,10 +882,13 @@ class DashboardController extends BaseController
     /**
      * @return Collection<int, User>
      */
-    private function latestEmployees(): Collection
+    private function latestEmployees(?Collection $employeeIds = null): Collection
     {
         return User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
+            ->when($employeeIds instanceof Collection, function (Builder $query) use ($employeeIds): void {
+                $query->whereIn('id', $employeeIds);
+            })
             ->with('profile')
             ->latest()
             ->limit(8)

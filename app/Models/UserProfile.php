@@ -19,6 +19,8 @@ class UserProfile extends Model
         'branch',
         'job_title',
         'employment_type',
+        'is_employee',
+        'employee_code',
         'status',
         'joined_on',
         'date_of_birth',
@@ -46,6 +48,7 @@ class UserProfile extends Model
         return [
             'joined_on' => 'date',
             'date_of_birth' => 'date',
+            'is_employee' => 'boolean',
         ];
     }
 

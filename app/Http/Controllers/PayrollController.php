@@ -93,7 +93,7 @@ class PayrollController extends Controller
 
         $employee = User::query()
             ->where('id', $employeeId)
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->first();
 
         if (! $employee) {
@@ -158,8 +158,8 @@ class PayrollController extends Controller
             'user_id' => [
                 'required',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
                 }),
             ],
             'payroll_month' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
@@ -169,7 +169,7 @@ class PayrollController extends Controller
         $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
         $employee = User::query()
             ->where('id', (int) $validated['user_id'])
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->with('profile')
             ->first();
 
@@ -237,7 +237,7 @@ class PayrollController extends Controller
 
         $employee = User::query()
             ->where('id', $employeeId)
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->first();
 
         if (! $employee) {
@@ -314,7 +314,7 @@ class PayrollController extends Controller
         $this->assertCanApprove($viewer);
         $payroll->loadMissing(['user.profile']);
 
-        if (! $payroll->user?->hasRole(UserRole::EMPLOYEE->value)) {
+        if (! $payroll->user?->isEmployeeRecord()) {
             abort(404);
         }
 
@@ -382,7 +382,7 @@ class PayrollController extends Controller
         $this->assertCanMarkPaid($viewer);
         $payroll->loadMissing(['user.profile']);
 
-        if (! $payroll->user?->hasRole(UserRole::EMPLOYEE->value)) {
+        if (! $payroll->user?->isEmployeeRecord()) {
             abort(404);
         }
 
@@ -916,7 +916,7 @@ class PayrollController extends Controller
         $viewer = $this->ensureManagementAccess($request);
         $this->assertCanGenerate($viewer);
 
-        if (! $user->hasRole(UserRole::EMPLOYEE->value)) {
+        if (! $user->isEmployeeRecord()) {
             abort(404);
         }
 
@@ -988,7 +988,7 @@ class PayrollController extends Controller
     {
         $this->ensureManagementAccess($request);
 
-        if (! $user->hasRole(UserRole::EMPLOYEE->value)) {
+        if (! $user->isEmployeeRecord()) {
             abort(404);
         }
 
@@ -1067,7 +1067,7 @@ class PayrollController extends Controller
             &$deleted
         ): void {
             foreach ($payrolls as $payroll) {
-                if (! $payroll->user?->hasRole(UserRole::EMPLOYEE->value)) {
+                if (! $payroll->user?->isEmployeeRecord()) {
                     $skipped++;
                     continue;
                 }
@@ -1189,7 +1189,7 @@ class PayrollController extends Controller
         $query = Payroll::query()
             ->with('user.profile')
             ->whereHas('user', function (Builder $builder): void {
-                $builder->where('role', UserRole::EMPLOYEE->value);
+                $builder->workforce();
             })
             ->whereYear('payroll_month', $monthStart->year)
             ->whereMonth('payroll_month', $monthStart->month)
@@ -1282,7 +1282,7 @@ class PayrollController extends Controller
         $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
 
         $employees = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->with('payrollStructure')
             ->orderBy('name')
             ->get();
@@ -1340,7 +1340,7 @@ class PayrollController extends Controller
         $viewer = $this->ensureManagementAccess($request);
         $payroll->loadMissing('user');
 
-        if (! $payroll->user?->hasRole(UserRole::EMPLOYEE->value)) {
+        if (! $payroll->user?->isEmployeeRecord()) {
             abort(404);
         }
 
@@ -1477,12 +1477,10 @@ class PayrollController extends Controller
         $monthEnd = $monthStart->copy()->endOfMonth();
 
         $statusOptions = Payroll::statuses();
-        $employeeRole = UserRole::EMPLOYEE->value;
-
         $records = Payroll::query()
             ->with(['user.profile', 'generator', 'approvedBy', 'paidBy'])
-            ->whereHas('user', function (Builder $query) use ($employeeRole): void {
-                $query->where('role', $employeeRole);
+            ->whereHas('user', function (Builder $query): void {
+                $query->workforce();
             })
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $innerQuery) use ($search): void {
@@ -1512,7 +1510,7 @@ class PayrollController extends Controller
             ->withQueryString();
 
         $employeeIds = User::query()
-            ->where('role', $employeeRole)
+            ->workforce()
             ->pluck('id');
 
         $monthBaseQuery = Payroll::query()
@@ -1550,7 +1548,7 @@ class PayrollController extends Controller
 
         $notGeneratedCount = max(0, $employeesWithStructure - $generatedThisMonth);
         $missingBankDetailsCount = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->whereHas('payrolls', function (Builder $builder) use ($monthStart): void {
                 $builder
                     ->whereYear('payroll_month', $monthStart->year)
@@ -1621,6 +1619,9 @@ class PayrollController extends Controller
                     'user' => [
                         'id' => $user?->id,
                         'name' => $user?->name ?? 'Unknown',
+                        'employeeCode' => $user instanceof User
+                            ? ($user->profile?->employee_code ?: User::makeEmployeeCode($user->id))
+                            : null,
                         'email' => $user?->email ?? '',
                         'department' => $profile?->department ?? '',
                     ],
@@ -1653,6 +1654,7 @@ class PayrollController extends Controller
                 return [
                     'id' => $employee->id,
                     'name' => $employee->name,
+                    'employeeCode' => (string) ($employee->profile?->employee_code ?: User::makeEmployeeCode($employee->id)),
                     'email' => $employee->email,
                     'department' => $employee->profile?->department ?? '',
                     'branch' => $employee->profile?->branch ?? '',
@@ -2194,8 +2196,8 @@ class PayrollController extends Controller
             'employee_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
                 }),
             ],
         ];
@@ -2235,7 +2237,7 @@ class PayrollController extends Controller
     private function workflowEmployeeQuery(?string $branch, ?string $department, ?int $employeeId): Builder
     {
         return User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->when(filled($branch), function (Builder $query) use ($branch): void {
                 $query->whereHas('profile', function (Builder $profileQuery) use ($branch): void {
                     $profileQuery->whereRaw('LOWER(TRIM(branch)) = ?', [mb_strtolower(trim((string) $branch))]);
@@ -2260,7 +2262,7 @@ class PayrollController extends Controller
             ->whereMonth('payroll_month', $monthStart->month)
             ->whereHas('user', function (Builder $query) use ($branch, $department, $employeeId): void {
                 $query
-                    ->where('role', UserRole::EMPLOYEE->value)
+                    ->workforce()
                     ->when(filled($branch), function (Builder $userQuery) use ($branch): void {
                         $userQuery->whereHas('profile', function (Builder $profileQuery) use ($branch): void {
                             $profileQuery->whereRaw('LOWER(TRIM(branch)) = ?', [mb_strtolower(trim((string) $branch))]);
@@ -2486,8 +2488,8 @@ class PayrollController extends Controller
             'user_id' => [
                 'required',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
                 }),
             ],
             'basic_salary' => ['required', 'numeric', 'min:0'],
@@ -2520,8 +2522,8 @@ class PayrollController extends Controller
             $rules['user_id'] = [
                 'required',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
                 }),
             ];
             $rules['payable_days'] = ['nullable', 'numeric', 'min:0'];
@@ -2552,7 +2554,7 @@ class PayrollController extends Controller
     private function employeeOptions()
     {
         return User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->with(['profile', 'payrollStructure'])
             ->orderBy('name')
             ->get();

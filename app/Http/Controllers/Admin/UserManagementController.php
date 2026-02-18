@@ -149,7 +149,7 @@ class UserManagementController extends Controller
                 'total' => User::query()->count(),
                 'admins' => User::query()->where('role', UserRole::ADMIN->value)->count(),
                 'hr' => User::query()->where('role', UserRole::HR->value)->count(),
-                'employees' => User::query()->where('role', UserRole::EMPLOYEE->value)->count(),
+                'employees' => User::query()->workforce()->count(),
             ],
         ]);
     }
@@ -179,7 +179,7 @@ class UserManagementController extends Controller
                 'password' => $validated['password'],
             ]);
 
-            $user->profile()->create($this->extractProfilePayload($validated));
+            $user->profile()->create($this->extractProfilePayload($validated, $user->id));
             $user->loadMissing('profile');
 
             return $user;
@@ -195,7 +195,7 @@ class UserManagementController extends Controller
             ['role' => $createdUser->role instanceof UserRole ? $createdUser->role->value : (string) $createdUser->role]
         );
 
-        if ($createdUser->hasRole(UserRole::EMPLOYEE->value)) {
+        if ($createdUser->isEmployeeRecord()) {
             return redirect()
                 ->route('employees.overview', $createdUser)
                 ->with('status', 'Employee created successfully.')
@@ -355,6 +355,10 @@ class UserManagementController extends Controller
         $managerName = $supervisorName ?: (($validated['manager_name'] ?? null) ?: null);
 
         return [
+            'is_employee' => User::shouldTreatRoleAsEmployee((string) ($validated['role'] ?? '')),
+            'employee_code' => User::shouldTreatRoleAsEmployee((string) ($validated['role'] ?? ''))
+                ? User::makeEmployeeCode($managedUserId ?? 0)
+                : null,
             'phone' => ($validated['phone'] ?? null) ?: null,
             'alternate_phone' => ($validated['alternate_phone'] ?? null) ?: null,
             'department' => ($validated['department'] ?? null) ?: null,

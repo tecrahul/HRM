@@ -143,7 +143,7 @@ class DepartmentController extends Controller
 
         UserProfile::query()
             ->whereHas('user', function ($query): void {
-                $query->where('role', UserRole::EMPLOYEE->value);
+                $query->workforce();
             })
             ->whereRaw('LOWER(TRIM(department)) = ?', [$oldNameKey])
             ->update([
@@ -161,7 +161,7 @@ class DepartmentController extends Controller
 
         return UserProfile::query()
             ->whereHas('user', function ($query): void {
-                $query->where('role', UserRole::EMPLOYEE->value);
+                $query->workforce();
             })
             ->whereRaw('LOWER(TRIM(department)) = ?', [$departmentNameKey])
             ->count();

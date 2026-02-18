@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { fetchAdminLeaveOverview } from '../services/adminLeaveOverviewApi';
+import { buildDashboardSummaryQuery } from '../services/adminDashboardApi';
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -97,10 +98,18 @@ function LeaveOverviewSkeleton() {
     );
 }
 
-function AdminLeaveOverview({ endpointUrl }) {
+function AdminLeaveOverview({ endpointUrl, initialBranchId = '', initialDepartmentId = '' }) {
     const [payload, setPayload] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    const queryParams = useMemo(
+        () => buildDashboardSummaryQuery({
+            branchId: initialBranchId,
+            departmentId: initialDepartmentId,
+        }),
+        [initialBranchId, initialDepartmentId],
+    );
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -108,14 +117,14 @@ function AdminLeaveOverview({ endpointUrl }) {
 
         try {
             const abortController = new AbortController();
-            const response = await fetchAdminLeaveOverview(endpointUrl, abortController.signal);
+            const response = await fetchAdminLeaveOverview(endpointUrl, queryParams, abortController.signal);
             setPayload(response);
         } catch (_error) {
             setError('Unable to load leave overview right now.');
         } finally {
             setLoading(false);
         }
-    }, [endpointUrl]);
+    }, [endpointUrl, queryParams]);
 
     useEffect(() => {
         load();
@@ -200,6 +209,14 @@ export function mountAdminLeaveOverview() {
     }
 
     const endpointUrl = rootElement.dataset.endpoint ?? '';
-    createRoot(rootElement).render(<AdminLeaveOverview endpointUrl={endpointUrl} />);
-}
+    const initialBranchId = rootElement.dataset.branchId ?? '';
+    const initialDepartmentId = rootElement.dataset.departmentId ?? '';
 
+    createRoot(rootElement).render(
+        <AdminLeaveOverview
+            endpointUrl={endpointUrl}
+            initialBranchId={initialBranchId}
+            initialDepartmentId={initialDepartmentId}
+        />,
+    );
+}

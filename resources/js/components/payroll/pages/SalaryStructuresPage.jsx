@@ -214,10 +214,10 @@ export function SalaryStructuresPage({ urls, csrfToken, filters, initialStatus =
             <section className="ui-section">
                 <SectionHeader title="Salary Structure Overview" subtitle="Configuration health and salary baseline across selected employees." />
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <InfoCard label="Total Employees" value={loading ? '...' : formatCount(summary?.totalEmployees ?? 0)} />
-                    <InfoCard label="With Structure" value={loading ? '...' : formatCount(summary?.withStructure ?? 0)} tone="success" />
-                    <InfoCard label="Missing Structure" value={loading ? '...' : formatCount(summary?.missingStructure ?? 0)} tone="warning" />
-                    <InfoCard label="Average Gross Salary" value={loading ? '...' : formatMoney(summary?.averageGrossSalary ?? 0)} tone="info" />
+                    <InfoCard label="Total Employees" value={loading ? '...' : formatCount(summary?.totalEmployees ?? 0)} icon="users" />
+                    <InfoCard label="With Structure" value={loading ? '...' : formatCount(summary?.withStructure ?? 0)} tone="success" icon="shield" />
+                    <InfoCard label="Missing Structure" value={loading ? '...' : formatCount(summary?.missingStructure ?? 0)} tone="warning" icon="warning" />
+                    <InfoCard label="Average Gross Salary" value={loading ? '...' : formatMoney(summary?.averageGrossSalary ?? 0)} tone="info" icon="money" />
                 </div>
             </section>
 
@@ -276,6 +276,11 @@ export function SalaryStructuresPage({ urls, csrfToken, filters, initialStatus =
                                 <tr key={`structure-row-${row.employeeId}`}>
                                     <td>
                                         <p className="font-semibold">{row.employeeName}</p>
+                                        {row.employeeCode ? (
+                                            <p className="text-[11px] font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
+                                                {row.employeeCode}
+                                            </p>
+                                        ) : null}
                                         <p className="text-xs" style={{ color: 'var(--hr-text-muted)' }}>{row.email}</p>
                                     </td>
                                     <td>{row.department || 'N/A'}</td>

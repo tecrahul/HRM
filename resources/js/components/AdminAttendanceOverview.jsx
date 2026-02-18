@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { fetchAdminAttendanceOverview } from '../services/adminAttendanceApi';
+import { buildDashboardSummaryQuery } from '../services/adminDashboardApi';
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -149,24 +150,47 @@ function AttendanceSkeleton() {
     );
 }
 
-function AdminAttendanceOverview({ absentUrl, endpointUrl }) {
+function AdminAttendanceOverview({
+    absentUrl,
+    endpointUrl,
+    initialBranchId = '',
+    initialDepartmentId = '',
+}) {
     const [payload, setPayload] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    const queryParams = useMemo(
+        () => buildDashboardSummaryQuery({
+            branchId: initialBranchId,
+            departmentId: initialDepartmentId,
+        }),
+        [initialBranchId, initialDepartmentId],
+    );
+
+    const absentEmployeesUrl = useMemo(() => {
+        const search = new URLSearchParams(queryParams);
+        if (search.toString() === '') {
+            return absentUrl;
+        }
+
+        const separator = absentUrl.includes('?') ? '&' : '?';
+        return `${absentUrl}${separator}${search.toString()}`;
+    }, [absentUrl, queryParams]);
 
     const load = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
             const abortController = new AbortController();
-            const response = await fetchAdminAttendanceOverview(endpointUrl, abortController.signal);
+            const response = await fetchAdminAttendanceOverview(endpointUrl, queryParams, abortController.signal);
             setPayload(response);
         } catch (_error) {
             setError('Unable to load attendance overview right now.');
         } finally {
             setLoading(false);
         }
-    }, [endpointUrl]);
+    }, [endpointUrl, queryParams]);
 
     useEffect(() => {
         load();
@@ -201,7 +225,7 @@ function AdminAttendanceOverview({ absentUrl, endpointUrl }) {
                     <p className="ui-section-subtitle">Today&apos;s status mix and department-wise attendance performance.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <a href={absentUrl} className="ui-btn ui-btn-primary">View Absent Employees</a>
+                    <a href={absentEmployeesUrl} className="ui-btn ui-btn-primary">View Absent Employees</a>
                 </div>
             </div>
 
@@ -248,5 +272,15 @@ export function mountAdminAttendanceOverview() {
 
     const absentUrl = rootElement.dataset.absentUrl ?? '#';
     const endpointUrl = rootElement.dataset.endpoint ?? '';
-    createRoot(rootElement).render(<AdminAttendanceOverview absentUrl={absentUrl} endpointUrl={endpointUrl} />);
+    const initialBranchId = rootElement.dataset.branchId ?? '';
+    const initialDepartmentId = rootElement.dataset.departmentId ?? '';
+
+    createRoot(rootElement).render(
+        <AdminAttendanceOverview
+            absentUrl={absentUrl}
+            endpointUrl={endpointUrl}
+            initialBranchId={initialBranchId}
+            initialDepartmentId={initialDepartmentId}
+        />,
+    );
 }

@@ -4,11 +4,24 @@
 @section('page_heading', 'Admin Command Center')
 
 @section('content')
+    @php
+        $dashboardFilterOptions = is_array($dashboardFilterOptions ?? null) ? $dashboardFilterOptions : [];
+        $branchOptions = is_array($dashboardFilterOptions['branches'] ?? null) ? $dashboardFilterOptions['branches'] : [];
+        $departmentOptions = is_array($dashboardFilterOptions['departments'] ?? null) ? $dashboardFilterOptions['departments'] : [];
+        $dashboardFilterState = is_array($dashboardFilterState ?? null) ? $dashboardFilterState : [];
+        $selectedBranchId = isset($dashboardFilterState['branchId']) && $dashboardFilterState['branchId'] !== null
+            ? (string) $dashboardFilterState['branchId']
+            : '';
+        $selectedDepartmentId = isset($dashboardFilterState['departmentId']) && $dashboardFilterState['departmentId'] !== null
+            ? (string) $dashboardFilterState['departmentId']
+            : '';
+    @endphp
+
     <section class="ui-hero">
         <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
             <div>
                 <p class="ui-kpi-label">Platform Overview</p>
-                <h2 class="mt-2 text-2xl md:text-3xl font-extrabold">All Core Modules Are Live</h2>
+                @include('dashboard.partials.greeting-header', ['functionalTitle' => 'Admin Command Center'])
                 <p class="ui-section-subtitle">Monitor users, employees, attendance, leave, payroll, departments, and branches from one dashboard.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto">
@@ -20,9 +33,46 @@
     </section>
 
     <section class="ui-section">
+        <form method="GET" action="{{ url()->current() }}" class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] md:items-end">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Global Filter</p>
+                <p class="text-xs font-semibold" style="color: var(--hr-text-muted);">Apply branch and department scope to the entire dashboard.</p>
+            </div>
+            <label class="text-xs font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">
+                Branch
+                <select name="branch_id" class="ui-select mt-1">
+                    <option value="">All Branches</option>
+                    @foreach($branchOptions as $branchOption)
+                        <option value="{{ $branchOption['id'] ?? '' }}" @selected((string) ($branchOption['id'] ?? '') === $selectedBranchId)>
+                            {{ $branchOption['name'] ?? 'Unnamed Branch' }}
+                        </option>
+                    @endforeach
+                </select>
+            </label>
+            <label class="text-xs font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">
+                Department
+                <select name="department_id" class="ui-select mt-1">
+                    <option value="">All Departments</option>
+                    @foreach($departmentOptions as $departmentOption)
+                        <option value="{{ $departmentOption['id'] ?? '' }}" @selected((string) ($departmentOption['id'] ?? '') === $selectedDepartmentId)>
+                            {{ $departmentOption['name'] ?? 'Unnamed Department' }}
+                        </option>
+                    @endforeach
+                </select>
+            </label>
+            <div class="flex items-center gap-2 md:justify-end">
+                <a href="{{ url()->current() }}" class="ui-btn ui-btn-ghost">Clear</a>
+                <button type="submit" class="ui-btn ui-btn-primary">Apply</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="ui-section">
         <div
             id="admin-dashboard-summary-cards-root"
             data-summary-endpoint="{{ route('api.dashboard.admin.summary') }}"
+            data-branch-id="{{ $selectedBranchId }}"
+            data-department-id="{{ $selectedDepartmentId }}"
         >
             <div class="rounded-2xl border p-4 text-sm font-semibold" style="background: var(--hr-surface-strong); border-color: var(--hr-line); color: var(--hr-text-muted);">
                 Loading dashboard summary...
@@ -148,6 +198,8 @@
             id="admin-dashboard-attendance-overview-root"
             data-endpoint="{{ route('api.dashboard.admin.attendance-overview') }}"
             data-absent-url="{{ route('modules.attendance.index', ['status' => 'absent', 'attendance_date' => now()->toDateString()]) }}"
+            data-branch-id="{{ $selectedBranchId }}"
+            data-department-id="{{ $selectedDepartmentId }}"
         >
             <div class="rounded-xl border p-4 text-sm font-semibold" style="border-color: var(--hr-line); background: var(--hr-surface-strong); color: var(--hr-text-muted);">
                 Loading attendance overview...
@@ -159,6 +211,8 @@
         <div
             id="admin-dashboard-leave-overview-root"
             data-endpoint="{{ route('api.dashboard.admin.leave-overview') }}"
+            data-branch-id="{{ $selectedBranchId }}"
+            data-department-id="{{ $selectedDepartmentId }}"
         >
             <div class="rounded-xl border p-4 text-sm font-semibold" style="border-color: var(--hr-line); background: var(--hr-surface-strong); color: var(--hr-text-muted);">
                 Loading leave overview...

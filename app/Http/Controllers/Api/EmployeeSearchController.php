@@ -46,7 +46,7 @@ class EmployeeSearchController extends Controller
 
         $records = User::query()
             ->leftJoin('user_profiles as profile', 'profile.user_id', '=', 'users.id')
-            ->where('users.role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->when(is_string($branchName) && trim($branchName) !== '', function ($query) use ($branchName): void {
                 $query->whereRaw('LOWER(TRIM(COALESCE(profile.branch, \"\"))) = ?', [mb_strtolower(trim((string) $branchName))]);
             })
@@ -63,6 +63,7 @@ class EmployeeSearchController extends Controller
                 'users.name',
                 'users.email',
                 DB::raw("COALESCE(profile.department, '') as department"),
+                DB::raw("COALESCE(profile.employee_code, '') as employee_code"),
             ])
             ->orderByRaw(
                 'CASE WHEN LOWER(users.name) LIKE ? THEN 0 WHEN LOWER(users.email) LIKE ? THEN 1 ELSE 2 END, users.name ASC',
@@ -76,6 +77,9 @@ class EmployeeSearchController extends Controller
                     'name' => (string) $record->name,
                     'email' => (string) $record->email,
                     'department' => (string) ($record->department ?? ''),
+                    'employee_code' => (string) (($record->employee_code ?? '') !== ''
+                        ? $record->employee_code
+                        : User::makeEmployeeCode((int) $record->id)),
                 ];
             })
             ->values()

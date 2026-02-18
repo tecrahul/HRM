@@ -279,13 +279,12 @@ class AttendanceController extends Controller
         $attendanceDate = (string) $request->string('attendance_date');
         $employeeId = (int) $request->integer('employee_id');
 
-        $employeeRole = UserRole::EMPLOYEE->value;
         $statusOptions = Attendance::statuses();
 
         $records = Attendance::query()
             ->with(['user.profile', 'markedBy'])
-            ->whereHas('user', function (Builder $query) use ($employeeRole): void {
-                $query->where('role', $employeeRole);
+            ->whereHas('user', function (Builder $query): void {
+                $query->workforce();
             })
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->whereHas('user', function (Builder $userQuery) use ($search): void {
@@ -328,7 +327,7 @@ class AttendanceController extends Controller
             ->withQueryString();
 
         $employeeIds = User::query()
-            ->where('role', $employeeRole)
+            ->workforce()
             ->pluck('id');
 
         $now = now();
@@ -350,7 +349,7 @@ class AttendanceController extends Controller
 
         $totalEmployees = $employeeIds->count();
         $totalEmployeesLastMonth = User::query()
-            ->where('role', $employeeRole)
+            ->workforce()
             ->where('created_at', '<=', $previousMonthEnd)
             ->count();
         $markedToday = (clone $baseTodayQuery)->count();
@@ -522,8 +521,8 @@ class AttendanceController extends Controller
             'user_id' => [
                 'required',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
                 }),
             ],
             'attendance_date' => ['required', 'date'],
@@ -598,7 +597,7 @@ class AttendanceController extends Controller
         }
 
         $employee = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->with('profile:user_id,department')
             ->whereKey((int) $employeeId)
             ->first();
@@ -612,6 +611,7 @@ class AttendanceController extends Controller
             'name' => $employee->name,
             'email' => $employee->email,
             'department' => $employee->profile?->department ?? '',
+            'employee_code' => $employee->profile?->employee_code ?: User::makeEmployeeCode($employee->id),
         ];
     }
 

@@ -46,8 +46,8 @@ class ReportController extends Controller
             'employee_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
                 }),
             ],
             'export' => ['nullable', Rule::in(['csv'])],
@@ -73,7 +73,7 @@ class ReportController extends Controller
         $visibleSections = $this->sectionsForReportType($reportType);
 
         $employeeQuery = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->with('profile')
             ->when($filters['q'] !== '', function (Builder $query) use ($filters): void {
                 $query->where(function (Builder $innerQuery) use ($filters): void {
@@ -249,7 +249,7 @@ class ReportController extends Controller
         if ($isManagement) {
             $departmentOptions = UserProfile::query()
                 ->whereHas('user', function (Builder $query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                    $query->workforce();
                 })
                 ->whereNotNull('department')
                 ->where('department', '!=', '')
@@ -261,7 +261,7 @@ class ReportController extends Controller
 
             $branchOptions = UserProfile::query()
                 ->whereHas('user', function (Builder $query): void {
-                    $query->where('role', UserRole::EMPLOYEE->value);
+                    $query->workforce();
                 })
                 ->whereNotNull('branch')
                 ->where('branch', '!=', '')
@@ -489,7 +489,7 @@ class ReportController extends Controller
         }
 
         $employee = User::query()
-            ->where('role', UserRole::EMPLOYEE->value)
+            ->workforce()
             ->with('profile:user_id,department')
             ->whereKey($employeeId)
             ->first();
@@ -503,6 +503,7 @@ class ReportController extends Controller
             'name' => $employee->name,
             'email' => $employee->email,
             'department' => $employee->profile?->department ?? '',
+            'employee_code' => $employee->profile?->employee_code ?: User::makeEmployeeCode($employee->id),
         ];
     }
 

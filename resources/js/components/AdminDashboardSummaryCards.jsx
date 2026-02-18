@@ -1,35 +1,137 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { fetchAdminDashboardSummary } from '../services/adminDashboardApi';
+import {
+    buildDashboardSummaryQuery,
+    fetchAdminDashboardSummary,
+} from '../services/adminDashboardApi';
 
 const numberFormatter = new Intl.NumberFormat();
 
 const toCount = (value) => numberFormatter.format(Number(value ?? 0));
 const toPercent = (value) => `${Number(value ?? 0).toFixed(1)}%`;
 
-const toneClass = {
-    emerald: 'from-emerald-500/15 to-emerald-500/5 border-emerald-500/25',
-    sky: 'from-sky-500/15 to-sky-500/5 border-sky-500/25',
-    amber: 'from-amber-500/15 to-amber-500/5 border-amber-500/25',
-    violet: 'from-violet-500/15 to-violet-500/5 border-violet-500/25',
-    slate: 'from-slate-500/15 to-slate-500/5 border-slate-500/25',
+const toneStyles = {
+    emerald: {
+        borderColor: 'rgb(16 185 129 / 0.35)',
+        background: 'linear-gradient(150deg, rgb(16 185 129 / 0.2), rgb(16 185 129 / 0.04))',
+        iconBackground: 'rgb(16 185 129 / 0.18)',
+        iconColor: '#047857',
+    },
+    sky: {
+        borderColor: 'rgb(14 165 233 / 0.35)',
+        background: 'linear-gradient(150deg, rgb(14 165 233 / 0.2), rgb(14 165 233 / 0.04))',
+        iconBackground: 'rgb(14 165 233 / 0.18)',
+        iconColor: '#0369a1',
+    },
+    amber: {
+        borderColor: 'rgb(245 158 11 / 0.35)',
+        background: 'linear-gradient(150deg, rgb(245 158 11 / 0.22), rgb(245 158 11 / 0.04))',
+        iconBackground: 'rgb(245 158 11 / 0.2)',
+        iconColor: '#b45309',
+    },
+    violet: {
+        borderColor: 'rgb(139 92 246 / 0.35)',
+        background: 'linear-gradient(150deg, rgb(139 92 246 / 0.22), rgb(139 92 246 / 0.04))',
+        iconBackground: 'rgb(139 92 246 / 0.2)',
+        iconColor: '#6d28d9',
+    },
+    slate: {
+        borderColor: 'rgb(100 116 139 / 0.35)',
+        background: 'linear-gradient(150deg, rgb(100 116 139 / 0.22), rgb(100 116 139 / 0.04))',
+        iconBackground: 'rgb(100 116 139 / 0.2)',
+        iconColor: '#475569',
+    },
 };
 
-function SummaryCard({ title, value, subtitle, tone = 'slate' }) {
+function SummaryIcon({ icon, tone = 'slate' }) {
+    const toneStyle = toneStyles[tone] ?? toneStyles.slate;
+    const iconMap = {
+        users: (
+            <path d="M17 21v-2.2a3.8 3.8 0 0 0-3-3.7M7 21v-2.2a3.8 3.8 0 0 1 3-3.7M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M20 8v6M23 11h-6" />
+        ),
+        attendance: (
+            <>
+                <circle cx="12" cy="12" r="9" />
+                <path d="m8.5 12 2.3 2.3 4.7-4.7" />
+            </>
+        ),
+        leave: (
+            <>
+                <path d="M8 2v3M16 2v3" />
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M3 10h18" />
+                <path d="m9.5 14 1.8 1.8 3.2-3.2" />
+            </>
+        ),
+        approvals: (
+            <>
+                <path d="M12 3 4 7v5c0 5.2 3.2 8 8 9 4.8-1 8-3.8 8-9V7l-8-4z" />
+                <path d="M12 9v5" />
+                <path d="M12 17h.01" />
+            </>
+        ),
+        payroll: (
+            <>
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <path d="M2 10h20" />
+                <path d="M12 14h.01" />
+            </>
+        ),
+        joiners: (
+            <>
+                <circle cx="9" cy="8" r="3" />
+                <path d="M3 21a6 6 0 0 1 12 0" />
+                <path d="M19 8v6M22 11h-6" />
+            </>
+        ),
+        exits: (
+            <>
+                <circle cx="9" cy="8" r="3" />
+                <path d="M3 21a6 6 0 0 1 12 0" />
+                <path d="m16 11 5 5-5 5" />
+                <path d="M21 16h-7" />
+            </>
+        ),
+    };
+
     return (
-        <article
-            className={`rounded-2xl border bg-gradient-to-br p-4 ${toneClass[tone] ?? toneClass.slate}`}
-            style={{ backgroundColor: 'var(--hr-surface-strong)', borderColor: 'var(--hr-line)' }}
+        <span
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl"
+            style={{ background: toneStyle.iconBackground, color: toneStyle.iconColor }}
+            aria-hidden="true"
         >
-            <p className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
-                {title}
-            </p>
-            <p className="mt-2 text-2xl font-extrabold leading-tight" style={{ color: 'var(--hr-text-main)' }}>
-                {value}
-            </p>
-            <p className="mt-2 text-xs font-medium" style={{ color: 'var(--hr-text-muted)' }}>
-                {subtitle}
-            </p>
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {iconMap[icon] ?? iconMap.users}
+            </svg>
+        </span>
+    );
+}
+
+function SummaryCard({ title, value, subtitle, tone = 'slate', icon = 'users' }) {
+    const toneStyle = toneStyles[tone] ?? toneStyles.slate;
+
+    return (
+        <article className="rounded-2xl border p-4 shadow-sm">
+            <div
+                className="rounded-xl border p-4"
+                style={{
+                    borderColor: toneStyle.borderColor,
+                    background: toneStyle.background,
+                }}
+            >
+                <div className="flex items-start justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
+                        {title}
+                    </p>
+                    <SummaryIcon tone={tone} icon={icon} />
+                </div>
+                <p className="mt-3 text-2xl font-extrabold leading-tight" style={{ color: 'var(--hr-text-main)' }}>
+                    {value}
+                </p>
+                <p className="mt-2 text-xs font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
+                    {subtitle}
+                </p>
+            </div>
         </article>
     );
 }
@@ -52,7 +154,7 @@ function SummarySkeleton() {
     );
 }
 
-function AdminDashboardSummaryCards({ endpointUrl }) {
+function AdminDashboardSummaryCards({ endpointUrl, initialBranchId = '', initialDepartmentId = '' }) {
     const [summary, setSummary] = useState(null);
     const [generatedAt, setGeneratedAt] = useState('');
     const [loading, setLoading] = useState(true);
@@ -64,7 +166,14 @@ function AdminDashboardSummaryCards({ endpointUrl }) {
 
         const abortController = new AbortController();
         try {
-            const payload = await fetchAdminDashboardSummary(endpointUrl, abortController.signal);
+            const payload = await fetchAdminDashboardSummary(
+                endpointUrl,
+                buildDashboardSummaryQuery({
+                    branchId: initialBranchId,
+                    departmentId: initialDepartmentId,
+                }),
+                abortController.signal,
+            );
             setSummary(payload?.summary ?? null);
             setGeneratedAt(typeof payload?.generatedAt === 'string' ? payload.generatedAt : '');
         } catch (requestError) {
@@ -74,7 +183,7 @@ function AdminDashboardSummaryCards({ endpointUrl }) {
         } finally {
             setLoading(false);
         }
-    }, [endpointUrl]);
+    }, [endpointUrl, initialBranchId, initialDepartmentId]);
 
     useEffect(() => {
         loadSummary();
@@ -92,6 +201,7 @@ function AdminDashboardSummaryCards({ endpointUrl }) {
                 value: toCount(summary.totalActiveEmployees),
                 subtitle: 'Employees with active status',
                 tone: 'emerald',
+                icon: 'users',
             },
             {
                 key: 'present-today',
@@ -99,6 +209,7 @@ function AdminDashboardSummaryCards({ endpointUrl }) {
                 value: toCount(summary.presentToday?.count),
                 subtitle: `${toPercent(summary.presentToday?.percentage)} of active employees`,
                 tone: 'sky',
+                icon: 'attendance',
             },
             {
                 key: 'currently-on-leave',
@@ -106,6 +217,7 @@ function AdminDashboardSummaryCards({ endpointUrl }) {
                 value: toCount(summary.employeesOnLeave),
                 subtitle: 'Approved leave overlapping today',
                 tone: 'amber',
+                icon: 'leave',
             },
             {
                 key: 'pending-approvals',
@@ -113,6 +225,7 @@ function AdminDashboardSummaryCards({ endpointUrl }) {
                 value: toCount(summary.pendingApprovals?.total),
                 subtitle: `Leave ${toCount(summary.pendingApprovals?.leave)} + Other ${toCount(summary.pendingApprovals?.other)}`,
                 tone: 'violet',
+                icon: 'approvals',
             },
             {
                 key: 'payroll-status',
@@ -120,6 +233,7 @@ function AdminDashboardSummaryCards({ endpointUrl }) {
                 value: `${toCount(summary.payrollStatus?.completed)} / ${toCount(summary.payrollStatus?.pending)}`,
                 subtitle: `${summary.payrollStatus?.state ?? 'Pending'} (Completed / Pending)`,
                 tone: 'slate',
+                icon: 'payroll',
             },
             {
                 key: 'new-joiners',
@@ -127,6 +241,7 @@ function AdminDashboardSummaryCards({ endpointUrl }) {
                 value: toCount(summary.newJoinersThisMonth),
                 subtitle: 'Based on joined-on date',
                 tone: 'emerald',
+                icon: 'joiners',
             },
             {
                 key: 'exits',
@@ -134,39 +249,20 @@ function AdminDashboardSummaryCards({ endpointUrl }) {
                 value: toCount(summary.exitsThisMonth),
                 subtitle: 'Inactive or suspended updates',
                 tone: 'amber',
+                icon: 'exits',
             },
         ];
     }, [summary]);
 
-    if (loading && !summary) {
-        return <SummarySkeleton />;
-    }
-
-    if (error && !summary) {
-        return (
-            <div
-                className="rounded-2xl border p-5"
-                style={{ backgroundColor: 'var(--hr-surface-strong)', borderColor: 'var(--hr-line)' }}
-            >
-                <p className="text-sm font-semibold text-red-600">{error}</p>
-                <button
-                    type="button"
-                    onClick={loadSummary}
-                    className="mt-3 rounded-xl border px-3 py-1.5 text-sm font-semibold"
-                    style={{ borderColor: 'var(--hr-line)' }}
-                >
-                    Retry
-                </button>
-            </div>
-        );
-    }
-
     return (
         <section>
-            <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
-                    Summary cards are loaded from API.
-                </p>
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <h3 className="text-lg font-extrabold" style={{ color: 'var(--hr-text-main)' }}>Summary</h3>
+                    <p className="text-xs font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
+                        Snapshot of workforce, attendance, leave, approvals, and payroll.
+                    </p>
+                </div>
                 <div className="flex items-center gap-3">
                     {generatedAt !== '' && (
                         <p className="text-xs font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
@@ -189,17 +285,22 @@ function AdminDashboardSummaryCards({ endpointUrl }) {
                 <p className="mb-3 text-xs font-semibold text-red-600">{error}</p>
             )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {cards.map((card) => (
-                    <SummaryCard
-                        key={card.key}
-                        title={card.title}
-                        value={card.value}
-                        subtitle={card.subtitle}
-                        tone={card.tone}
-                    />
-                ))}
-            </div>
+            {loading && !summary ? (
+                <SummarySkeleton />
+            ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {cards.map((card) => (
+                        <SummaryCard
+                            key={card.key}
+                            title={card.title}
+                            value={card.value}
+                            subtitle={card.subtitle}
+                            tone={card.tone}
+                            icon={card.icon}
+                        />
+                    ))}
+                </div>
+            )}
         </section>
     );
 }
@@ -211,6 +312,14 @@ export function mountAdminDashboardSummaryCards() {
     }
 
     const endpointUrl = rootElement.dataset.summaryEndpoint ?? '';
-    createRoot(rootElement).render(<AdminDashboardSummaryCards endpointUrl={endpointUrl} />);
-}
+    const initialBranchId = rootElement.dataset.branchId ?? '';
+    const initialDepartmentId = rootElement.dataset.departmentId ?? '';
 
+    createRoot(rootElement).render(
+        <AdminDashboardSummaryCards
+            endpointUrl={endpointUrl}
+            initialBranchId={initialBranchId}
+            initialDepartmentId={initialDepartmentId}
+        />,
+    );
+}

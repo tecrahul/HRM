@@ -148,6 +148,73 @@ class User extends Authenticatable
         return false;
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function workforceRoleValues(): array
+    {
+        return [
+            UserRole::EMPLOYEE->value,
+            UserRole::HR->value,
+            UserRole::FINANCE->value,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function nonWorkforceRoleValues(): array
+    {
+        return [
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+        ];
+    }
+
+    public static function shouldTreatRoleAsEmployee(UserRole|string|null $role): bool
+    {
+        $roleValue = $role instanceof UserRole ? $role->value : (string) $role;
+
+        return in_array($roleValue, self::workforceRoleValues(), true);
+    }
+
+    public static function makeEmployeeCode(int $userId): string
+    {
+        return sprintf('EMP-%06d', max(0, $userId));
+    }
+
+    public function isEmployeeRecord(): bool
+    {
+        if ($this->relationLoaded('profile')) {
+            return (bool) ($this->profile?->is_employee ?? false);
+        }
+
+        $isEmployeeProfile = $this->profile()
+            ->where('is_employee', true)
+            ->exists();
+
+        if ($isEmployeeProfile) {
+            return true;
+        }
+
+        return self::shouldTreatRoleAsEmployee($this->role instanceof UserRole ? $this->role : (string) $this->role);
+    }
+
+    public function scopeWorkforce(Builder $query): Builder
+    {
+        return $query->where(function (Builder $builder): void {
+            $builder
+                ->whereHas('profile', function (Builder $profileQuery): void {
+                    $profileQuery->where('is_employee', true);
+                })
+                ->orWhere(function (Builder $fallbackQuery): void {
+                    $fallbackQuery
+                        ->whereDoesntHave('profile')
+                        ->whereIn('role', self::workforceRoleValues());
+                });
+        });
+    }
+
     public function dashboardRouteName(): string
     {
         $role = $this->role instanceof UserRole

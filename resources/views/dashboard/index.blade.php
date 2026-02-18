@@ -11,7 +11,7 @@
             </span>
             <div>
                 <p class="ui-kpi-label">Role-Based Workspace</p>
-                <h2 class="mt-2 text-2xl md:text-3xl font-extrabold">Open Your Live Dashboard</h2>
+                @include('dashboard.partials.greeting-header', ['functionalTitle' => 'Role Dashboard'])
             </div>
         </div>
         <p class="ui-section-subtitle">

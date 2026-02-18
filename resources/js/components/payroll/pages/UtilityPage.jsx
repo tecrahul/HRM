@@ -56,10 +56,10 @@ export function UtilityPage({ page, urls, routes, filters }) {
                 <SectionHeader title={meta.title} subtitle={meta.subtitle} />
                 {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <InfoCard label="Total Employees" value={loading ? '...' : formatCount(summary?.totalEmployees ?? 0)} />
-                    <InfoCard label="Pending Approvals" value={loading ? '...' : formatCount(summary?.pendingApprovals ?? 0)} tone="warning" />
-                    <InfoCard label="Missing Structure" value={loading ? '...' : formatCount(summary?.missingSalaryStructure ?? 0)} tone="warning" />
-                    <InfoCard label="Net Payroll" value={loading ? '...' : formatMoney(summary?.totalNetPayroll ?? 0)} tone="success" />
+                    <InfoCard label="Total Employees" value={loading ? '...' : formatCount(summary?.totalEmployees ?? 0)} icon="users" />
+                    <InfoCard label="Pending Approvals" value={loading ? '...' : formatCount(summary?.pendingApprovals ?? 0)} tone="warning" icon="clock" />
+                    <InfoCard label="Missing Structure" value={loading ? '...' : formatCount(summary?.missingSalaryStructure ?? 0)} tone="warning" icon="warning" />
+                    <InfoCard label="Net Payroll" value={loading ? '...' : formatMoney(summary?.totalNetPayroll ?? 0)} tone="success" icon="money" />
                 </div>
             </section>
 

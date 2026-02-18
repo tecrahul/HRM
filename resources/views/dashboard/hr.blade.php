@@ -30,7 +30,7 @@
         <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
             <div>
                 <p class="ui-kpi-label">HR Mission Board</p>
-                <h2 class="mt-2 text-2xl md:text-3xl font-extrabold">People, Attendance, Leave, Payroll</h2>
+                @include('dashboard.partials.greeting-header', ['functionalTitle' => 'HR Operations Dashboard'])
                 <p class="ui-section-subtitle">Run daily HR workflows with live module metrics and quick actions.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto">
@@ -189,7 +189,7 @@
                                 <p class="text-xs mt-1" style="color: var(--hr-text-muted);">{{ $employee->profile?->department ?? 'Unassigned' }} • {{ ucfirst((string) ($employee->profile?->status ?? 'active')) }}</p>
                                 <p class="text-xs mt-1" style="color: var(--hr-text-muted);">{{ $employee->email }}</p>
                             </div>
-                            <a href="{{ route('modules.employees.index') }}" class="ui-btn ui-btn-ghost">Review</a>
+                            <a href="{{ route('employees.overview', ['user' => $employee->id]) }}" class="ui-btn ui-btn-ghost">Review</a>
                         </div>
                     </li>
                 @empty

@@ -2,6 +2,7 @@ import axios from 'axios';
 
 /**
  * @param {string} endpointUrl
+ * @param {Record<string, string>} params
  * @param {AbortSignal|undefined} signal
  * @returns {Promise<{
  * generatedAt: string,
@@ -18,12 +19,14 @@ import axios from 'axios';
  * }
  * }>}
  */
-export const fetchAdminLeaveOverview = async (endpointUrl, signal) => {
+export const fetchAdminLeaveOverview = async (endpointUrl, params = {}, signal) => {
     if (typeof endpointUrl !== 'string' || endpointUrl.trim() === '') {
         throw new Error('Leave overview endpoint is missing.');
     }
 
-    const { data } = await axios.get(endpointUrl, { signal });
+    const { data } = await axios.get(endpointUrl, {
+        signal,
+        params,
+    });
     return data;
 };
-

@@ -52,9 +52,11 @@
 
         .hrm-modern-shell {
             min-height: 100vh;
+            height: 100vh;
             display: grid;
             grid-template-columns: 270px minmax(0, 1fr);
             transition: grid-template-columns 220ms ease;
+            overflow: hidden;
         }
 
         .hrm-modern-shell.is-collapsed {
@@ -71,6 +73,27 @@
 
         .hrm-modern-sidebar {
             border-right: 1px solid var(--hr-line);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .hrm-sidebar-scroll {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+        }
+
+        .hrm-main-pane {
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .hrm-main-content {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            overscroll-behavior: contain;
         }
 
         .hrm-modern-nav-link {
@@ -669,6 +692,21 @@
             background: rgb(100 116 139 / 0.16);
         }
 
+        @keyframes hrm-step-content-in {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hrm-step-content {
+            animation: hrm-step-content-in 220ms ease;
+        }
+
         @media (max-width: 1024px) {
             .hrm-modern-shell {
                 grid-template-columns: minmax(0, 1fr);
@@ -765,6 +803,7 @@
             <div class="hrm-brand-copy mt-3 border-t" style="border-color: var(--hr-line);"></div>
         </div>
 
+        <div class="hrm-sidebar-scroll flex flex-col">
         <nav class="hrm-modern-nav flex flex-col gap-1.5 text-sm font-semibold">
             <a href="{{ route($dashboardRoute) }}" class="hrm-modern-nav-link {{ request()->routeIs($dashboardRoute) ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
                 <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -855,7 +894,6 @@
                     <button
                         id="hrmPayrollToggle"
                         type="button"
-                        data-dashboard-url="{{ route('modules.payroll.dashboard') }}"
                         class="hrm-modern-nav-link hrm-submenu-toggle {{ $payrollMenuOpen ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3"
                         aria-controls="hrmPayrollLinks"
                         aria-expanded="{{ $payrollMenuOpen ? 'true' : 'false' }}"
@@ -962,9 +1000,10 @@
             <p class="font-bold text-[11px] uppercase tracking-[0.14em]">HR Pulse</p>
             <p class="mt-1 leading-relaxed">Live records are synced across users, attendance, leave, and payroll modules.</p>
         </div>
+        </div>
     </aside>
 
-    <div class="min-w-0 flex flex-col">
+    <div class="hrm-main-pane min-w-0 flex flex-col">
         <header class="sticky top-0 z-40 border-b backdrop-blur px-4 py-3 md:px-6" style="background: var(--hr-surface); border-color: var(--hr-line); z-index: var(--z-header, 1000);">
             <div class="flex items-center gap-3">
                 <button id="hrmSidebarMobileToggle" type="button" class="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border" style="border-color: var(--hr-line);">
@@ -1146,7 +1185,7 @@
             </div>
         </header>
 
-        <main class="p-4 md:p-6 lg:p-4 space-y-6">
+        <main class="hrm-main-content p-4 md:p-6 lg:p-4 space-y-6">
             @yield('content')
         </main>
     </div>
@@ -1325,6 +1364,10 @@
         if (reportsToggle) {
             reportsToggle.addEventListener("click", (event) => {
                 event.preventDefault();
+                if (shell?.classList.contains("is-collapsed")) {
+                    shell.classList.remove("is-collapsed");
+                    syncSidebarToggleState();
+                }
                 const isOpen = reportsSubmenu?.classList.contains("is-open") ?? false;
                 setReportsSubmenuOpen(!isOpen);
             });
@@ -1333,14 +1376,11 @@
         if (payrollToggle) {
             payrollToggle.addEventListener("click", (event) => {
                 event.preventDefault();
-                const isOpen = payrollSubmenu?.classList.contains("is-open") ?? false;
-                if (!isOpen) {
-                    const dashboardUrl = payrollToggle.getAttribute("data-dashboard-url");
-                    if (dashboardUrl) {
-                        window.location.assign(dashboardUrl);
-                        return;
-                    }
+                if (shell?.classList.contains("is-collapsed")) {
+                    shell.classList.remove("is-collapsed");
+                    syncSidebarToggleState();
                 }
+                const isOpen = payrollSubmenu?.classList.contains("is-open") ?? false;
                 setPayrollSubmenuOpen(!isOpen);
             });
         }

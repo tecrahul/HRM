@@ -6,6 +6,7 @@ import { mountAdminPayrollManagement } from './components/AdminPayrollManagement
 import { mountPayrollWorkspaceApp } from './components/payroll/PayrollWorkspaceApp';
 import { mountEmployeeAutocompletes } from './components/EmployeeAutocomplete';
 import { mountEmployeeOnboardingOverview } from './components/employees/EmployeeOnboardingOverview';
+import { mountDashboardGreetings } from './components/dashboard/GreetingHeader';
 
 const syncLegacyModalScrollLock = () => {
     const hasOpenLegacyModal = Boolean(document.querySelector('.modal-backdrop.is-open'));
@@ -88,3 +89,4 @@ mountAdminPayrollManagement();
 mountPayrollWorkspaceApp();
 mountEmployeeAutocompletes();
 mountEmployeeOnboardingOverview();
+mountDashboardGreetings();
