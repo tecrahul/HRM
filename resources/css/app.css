@@ -40,6 +40,11 @@
     --shadow-soft: 0 18px 34px -24px rgb(15 59 51 / 0.32);
     --shadow-focus: 0 0 0 3px rgb(213 170 104 / 0.28);
     --border-soft: 1px solid rgb(22 82 70 / 0.14);
+    --z-sidebar: 900;
+    --z-header: 1000;
+    --z-popover: 1200;
+    --z-modal-overlay: 2200;
+    --z-modal-content: 2210;
 }
 
 * {
@@ -52,6 +57,11 @@ body {
     font-family: var(--font-sans);
     color: var(--color-text-900);
     background: radial-gradient(circle at top right, #efe7d8 0%, var(--color-sand-100) 46%, #f8f3ea 100%);
+}
+
+body.app-react-modal-open,
+body.app-legacy-modal-open {
+    overflow: hidden;
 }
 
 a {
@@ -601,7 +611,8 @@ html.dark select optgroup {
     align-items: center;
     justify-content: center;
     padding: 20px;
-    z-index: 50;
+    z-index: var(--z-modal-overlay);
+    overflow-y: auto;
 }
 
 .modal-backdrop.is-open {
@@ -615,6 +626,37 @@ html.dark select optgroup {
     border-radius: var(--radius-lg);
     box-shadow: 0 30px 60px -30px rgb(15 59 51 / 0.44);
     overflow: hidden;
+    max-height: calc(100vh - 2.5rem);
+}
+
+.app-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgb(2 8 23 / 0.58);
+    overflow-y: auto;
+}
+
+.app-modal-panel {
+    position: relative;
+    z-index: var(--z-modal-content);
+    width: min(640px, 100%);
+    max-height: calc(100vh - 2rem);
+    overflow: auto;
+    border-radius: 1rem;
+    border: 1px solid var(--hr-line, rgb(148 163 184 / 0.24));
+    background: var(--hr-surface-strong, #fff);
+    box-shadow: 0 32px 64px -32px rgb(2 8 23 / 0.72);
+}
+
+@supports (height: 100dvh) {
+    .app-modal-panel {
+        max-height: calc(100dvh - 2rem);
+    }
 }
 
 .modal-header {

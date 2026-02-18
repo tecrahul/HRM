@@ -83,7 +83,9 @@ class AttendanceController extends Controller
 
         return view('modules.attendance.edit', [
             'attendance' => $attendance,
-            'employeeOptions' => $this->employeeOptions(),
+            'selectedEmployee' => $this->employeeAutocompleteSelection(
+                (int) old('user_id', $attendance->user_id)
+            ),
             'statusOptions' => Attendance::statuses(),
         ]);
     }
@@ -392,7 +394,8 @@ class AttendanceController extends Controller
 
         return view('modules.attendance.admin', [
             'records' => $records,
-            'employees' => $this->employeeOptions(),
+            'selectedCreateEmployee' => $this->employeeAutocompleteSelection((int) old('user_id')),
+            'selectedFilterEmployee' => $this->employeeAutocompleteSelection($employeeId > 0 ? $employeeId : null),
             'departmentOptions' => $this->departmentOptions($employeeIds),
             'branchOptions' => $this->branchOptions($employeeIds),
             'statusOptions' => $statusOptions,
@@ -499,7 +502,11 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->hasAnyRole([UserRole::ADMIN->value, UserRole::HR->value])) {
+        if (! $viewer instanceof User || ! $viewer->hasAnyRole([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::HR->value,
+        ])) {
             abort(403, 'You do not have access to this resource.');
         }
 
@@ -582,15 +589,30 @@ class AttendanceController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, User>
+     * @return array<string, mixed>|null
      */
-    private function employeeOptions()
+    private function employeeAutocompleteSelection(?int $employeeId): ?array
     {
-        return User::query()
+        if (($employeeId ?? 0) <= 0) {
+            return null;
+        }
+
+        $employee = User::query()
             ->where('role', UserRole::EMPLOYEE->value)
-            ->with('profile')
-            ->orderBy('name')
-            ->get();
+            ->with('profile:user_id,department')
+            ->whereKey((int) $employeeId)
+            ->first();
+
+        if (! $employee instanceof User) {
+            return null;
+        }
+
+        return [
+            'id' => $employee->id,
+            'name' => $employee->name,
+            'email' => $employee->email,
+            'department' => $employee->profile?->department ?? '',
+        ];
     }
 
     /**

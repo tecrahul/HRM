@@ -253,18 +253,15 @@
             <form method="POST" action="{{ route('modules.attendance.store') }}" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                 @csrf
                 <div>
-                    <label for="user_id" class="ui-kpi-label block mb-2">Employee</label>
-                    <select id="user_id" name="user_id" class="ui-select">
-                        <option value="">Select employee</option>
-                        @foreach($employees as $employee)
-                            @php
-                                $profile = $employee->profile;
-                            @endphp
-                            <option value="{{ $employee->id }}" {{ (string) old('user_id') === (string) $employee->id ? 'selected' : '' }}>
-                                {{ $employee->name }} ({{ $profile?->department ?? 'No Department' }})
-                            </option>
-                        @endforeach
-                    </select>
+                    <label for="attendance_user_id" class="ui-kpi-label block mb-2">Employee</label>
+                    <div
+                        data-employee-autocomplete-root
+                        data-api-url="{{ route('api.employees.search') }}"
+                        data-name="user_id"
+                        data-input-id="attendance_user_id"
+                        data-required="true"
+                        data-selected='@json($selectedCreateEmployee)'
+                    ></div>
                     @error('user_id')
                         <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                     @enderror
@@ -356,18 +353,19 @@
                 type="text"
                 name="q"
                 value="{{ $filters['q'] }}"
-                placeholder="Search by employee, email, department..."
+                placeholder="Search notes, department, or branch..."
                 class="ui-input md:col-span-2"
             >
 
-            <select name="employee_id" class="ui-select">
-                <option value="">All Employees</option>
-                @foreach($employees as $employee)
-                    <option value="{{ $employee->id }}" {{ (string) $filters['employee_id'] === (string) $employee->id ? 'selected' : '' }}>
-                        {{ $employee->name }}
-                    </option>
-                @endforeach
-            </select>
+            <div>
+                <div
+                    data-employee-autocomplete-root
+                    data-api-url="{{ route('api.employees.search') }}"
+                    data-name="employee_id"
+                    data-input-id="attendance_filter_employee_id"
+                    data-selected='@json($selectedFilterEmployee)'
+                ></div>
+            </div>
 
             <select name="department" class="ui-select">
                 <option value="">All Departments</option>

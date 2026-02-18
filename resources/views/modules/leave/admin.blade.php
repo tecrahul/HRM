@@ -91,36 +91,15 @@
                 @csrf
 
                 <div>
-                    @php
-                        $selectedAssignEmployee = $employees->firstWhere('id', (int) old('user_id'));
-                        $assignEmployeeLookupOptions = $employees
-                            ->map(function ($employee) {
-                                return [
-                                    'id' => (string) $employee->id,
-                                    'name' => (string) $employee->name,
-                                    'email' => (string) $employee->email,
-                                ];
-                            })
-                            ->values()
-                            ->all();
-                    @endphp
-                    <label for="assign_employee_lookup" class="ui-kpi-label block mb-2">Employee</label>
-                    <input
-                        id="assign_employee_lookup"
-                        type="text"
-                        list="assign_employee_options"
-                        class="ui-input"
-                        placeholder="Type name or employee ID"
-                        autocomplete="off"
-                        value="{{ $selectedAssignEmployee ? ($selectedAssignEmployee->name . ' (ID: ' . $selectedAssignEmployee->id . ')') : '' }}"
-                    >
-                    <input id="assign_user_id" type="hidden" name="user_id" value="{{ old('user_id') }}">
-                    <datalist id="assign_employee_options">
-                        @foreach($employees as $employee)
-                            <option value="{{ $employee->name }} (ID: {{ $employee->id }})">{{ $employee->email }}</option>
-                        @endforeach
-                    </datalist>
-                    <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Search by starting letters of name or employee ID.</p>
+                    <label for="assign_user_id" class="ui-kpi-label block mb-2">Employee</label>
+                    <div
+                        data-employee-autocomplete-root
+                        data-api-url="{{ route('api.employees.search') }}"
+                        data-name="user_id"
+                        data-input-id="assign_user_id"
+                        data-required="true"
+                        data-selected='@json($selectedAssignEmployee)'
+                    ></div>
                     @error('user_id')
                         <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                     @enderror
@@ -261,21 +240,20 @@
                         type="text"
                         name="q"
                         value="{{ $filters['q'] }}"
-                        placeholder="Employee, reason, department"
+                        placeholder="Reason, department, branch"
                         class="ui-input"
                     >
                 </div>
 
                 <div>
                     <label for="filter_employee_id" class="ui-kpi-label block mb-2">Employee</label>
-                    <select id="filter_employee_id" name="employee_id" class="ui-select">
-                        <option value="">All Employees</option>
-                        @foreach($employees as $employee)
-                            <option value="{{ $employee->id }}" {{ (string) $filters['employee_id'] === (string) $employee->id ? 'selected' : '' }}>
-                                {{ $employee->name }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <div
+                        data-employee-autocomplete-root
+                        data-api-url="{{ route('api.employees.search') }}"
+                        data-name="employee_id"
+                        data-input-id="filter_employee_id"
+                        data-selected='@json($selectedFilterEmployee)'
+                    ></div>
                 </div>
 
                 <div>
@@ -431,90 +409,6 @@
 @push('scripts')
     <script>
         (() => {
-            const assignForm = document.getElementById('assignLeaveForm');
-            const employeeLookup = document.getElementById('assign_employee_lookup');
-            const assignUserId = document.getElementById('assign_user_id');
-            const employeeOptions = @json($assignEmployeeLookupOptions);
-
-            if (assignForm && employeeLookup && assignUserId) {
-                const preparedOptions = employeeOptions.map((option) => {
-                    const label = `${option.name} (ID: ${option.id})`;
-                    return {
-                        ...option,
-                        label,
-                        idLower: option.id.toLowerCase(),
-                        nameLower: option.name.toLowerCase(),
-                        emailLower: option.email.toLowerCase(),
-                        labelLower: label.toLowerCase(),
-                    };
-                });
-
-                const resolveEmployee = (rawValue) => {
-                    const value = String(rawValue || '').trim().toLowerCase();
-                    if (value === '') {
-                        return null;
-                    }
-
-                    const exactMatch = preparedOptions.find((option) =>
-                        option.idLower === value
-                        || option.nameLower === value
-                        || option.emailLower === value
-                        || option.labelLower === value
-                    );
-                    if (exactMatch) {
-                        return exactMatch;
-                    }
-
-                    const prefixMatches = preparedOptions.filter((option) =>
-                        option.nameLower.startsWith(value) || option.idLower.startsWith(value)
-                    );
-
-                    return prefixMatches.length === 1 ? prefixMatches[0] : null;
-                };
-
-                const syncEmployeeSelection = (isSubmit = false) => {
-                    const typedValue = employeeLookup.value.trim();
-                    const matchedEmployee = resolveEmployee(typedValue);
-
-                    if (matchedEmployee) {
-                        assignUserId.value = matchedEmployee.id;
-                        employeeLookup.setCustomValidity('');
-                        return true;
-                    }
-
-                    assignUserId.value = '';
-                    if (!isSubmit) {
-                        employeeLookup.setCustomValidity('');
-                        return false;
-                    }
-
-                    employeeLookup.setCustomValidity(
-                        typedValue === ''
-                            ? 'Employee selection is required.'
-                            : 'Select a valid employee by name or employee ID.'
-                    );
-                    employeeLookup.reportValidity();
-                    return false;
-                };
-
-                employeeLookup.addEventListener('input', () => {
-                    employeeLookup.setCustomValidity('');
-                    if (employeeLookup.value.trim() === '') {
-                        assignUserId.value = '';
-                        return;
-                    }
-                    syncEmployeeSelection(false);
-                });
-
-                employeeLookup.addEventListener('change', () => syncEmployeeSelection(false));
-                employeeLookup.addEventListener('blur', () => syncEmployeeSelection(false));
-                assignForm.addEventListener('submit', (event) => {
-                    if (!syncEmployeeSelection(true)) {
-                        event.preventDefault();
-                    }
-                });
-            }
-
             const dayType = document.getElementById('assign_day_type');
             const startDate = document.getElementById('assign_start_date');
             const endDate = document.getElementById('assign_end_date');

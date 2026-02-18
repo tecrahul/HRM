@@ -4,12 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Payroll extends Model
 {
     public const STATUS_DRAFT = 'draft';
     public const STATUS_PROCESSED = 'processed';
     public const STATUS_PAID = 'paid';
+    public const STATUS_FAILED = 'failed';
 
     public const PAYMENT_BANK_TRANSFER = 'bank_transfer';
     public const PAYMENT_UPI = 'upi';
@@ -41,6 +43,8 @@ class Payroll extends Model
         'status',
         'notes',
         'generated_by_user_id',
+        'approved_by_user_id',
+        'approved_at',
         'paid_by_user_id',
         'paid_at',
         'payment_method',
@@ -70,6 +74,7 @@ class Payroll extends Model
             'other_deduction' => 'decimal:2',
             'total_deductions' => 'decimal:2',
             'net_salary' => 'decimal:2',
+            'approved_at' => 'datetime',
             'paid_at' => 'datetime',
         ];
     }
@@ -83,6 +88,7 @@ class Payroll extends Model
             self::STATUS_DRAFT,
             self::STATUS_PROCESSED,
             self::STATUS_PAID,
+            self::STATUS_FAILED,
         ];
     }
 
@@ -112,5 +118,16 @@ class Payroll extends Model
     public function paidBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'paid_by_user_id');
+    }
+
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by_user_id');
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class, 'entity_id')
+            ->where('entity_type', 'payroll');
     }
 }

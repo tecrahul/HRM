@@ -195,8 +195,15 @@ class UserManagementController extends Controller
             ['role' => $createdUser->role instanceof UserRole ? $createdUser->role->value : (string) $createdUser->role]
         );
 
+        if ($createdUser->hasRole(UserRole::EMPLOYEE->value)) {
+            return redirect()
+                ->route('employees.overview', $createdUser)
+                ->with('status', 'Employee created successfully.')
+                ->with('show_employee_created_banner', true);
+        }
+
         return redirect()
-            ->route('admin.users.index')
+            ->route('admin.users.edit', $createdUser)
             ->with('status', 'User created successfully.');
     }
 

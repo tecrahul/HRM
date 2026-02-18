@@ -155,8 +155,10 @@ class User extends Authenticatable
             : UserRole::tryFrom((string) $this->role);
 
         return match ($role) {
+            UserRole::SUPER_ADMIN => 'admin.dashboard',
             UserRole::ADMIN => 'admin.dashboard',
             UserRole::HR => 'hr.dashboard',
+            UserRole::FINANCE => 'finance.dashboard',
             UserRole::EMPLOYEE => 'employee.dashboard',
             default => 'employee.dashboard',
         };
@@ -205,6 +207,11 @@ class User extends Authenticatable
     public function paidPayrolls(): HasMany
     {
         return $this->hasMany(Payroll::class, 'paid_by_user_id');
+    }
+
+    public function approvedPayrolls(): HasMany
+    {
+        return $this->hasMany(Payroll::class, 'approved_by_user_id');
     }
 
     public function activities(): HasMany

@@ -2,6 +2,15 @@ import './bootstrap';
 import { mountAdminDashboardSummaryCards } from './components/AdminDashboardSummaryCards';
 import { mountAdminAttendanceOverview } from './components/AdminAttendanceOverview';
 import { mountAdminLeaveOverview } from './components/AdminLeaveOverview';
+import { mountAdminPayrollManagement } from './components/AdminPayrollManagement';
+import { mountPayrollWorkspaceApp } from './components/payroll/PayrollWorkspaceApp';
+import { mountEmployeeAutocompletes } from './components/EmployeeAutocomplete';
+import { mountEmployeeOnboardingOverview } from './components/employees/EmployeeOnboardingOverview';
+
+const syncLegacyModalScrollLock = () => {
+    const hasOpenLegacyModal = Boolean(document.querySelector('.modal-backdrop.is-open'));
+    document.body.classList.toggle('app-legacy-modal-open', hasOpenLegacyModal);
+};
 
 const toggleModal = (modalName, open) => {
     const modal = document.querySelector(`[data-modal="${modalName}"]`);
@@ -11,6 +20,7 @@ const toggleModal = (modalName, open) => {
     }
 
     modal.classList.toggle('is-open', open);
+    syncLegacyModalScrollLock();
 };
 
 const toggleUserMenu = (open) => {
@@ -54,6 +64,7 @@ document.addEventListener('click', (event) => {
     const backdrop = event.target.closest('.modal-backdrop');
     if (backdrop && event.target === backdrop) {
         backdrop.classList.remove('is-open');
+        syncLegacyModalScrollLock();
     }
 });
 
@@ -67,8 +78,13 @@ document.addEventListener('keydown', (event) => {
     document.querySelectorAll('.modal-backdrop.is-open').forEach((modal) => {
         modal.classList.remove('is-open');
     });
+    syncLegacyModalScrollLock();
 });
 
 mountAdminDashboardSummaryCards();
 mountAdminAttendanceOverview();
 mountAdminLeaveOverview();
+mountAdminPayrollManagement();
+mountPayrollWorkspaceApp();
+mountEmployeeAutocompletes();
+mountEmployeeOnboardingOverview();

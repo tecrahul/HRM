@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PayrollStructure extends Model
 {
@@ -57,5 +58,10 @@ class PayrollStructure extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by_user_id');
+    }
+
+    public function histories(): HasMany
+    {
+        return $this->hasMany(PayrollStructureHistory::class)->orderByDesc('changed_at');
     }
 }

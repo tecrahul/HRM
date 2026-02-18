@@ -79,13 +79,13 @@
 
                     @if ($isManagement)
                         <div>
-                            <label for="report_q" class="ui-kpi-label block mb-2">Search Employee</label>
+                            <label for="report_q" class="ui-kpi-label block mb-2">Search Keyword</label>
                             <input
                                 id="report_q"
                                 type="text"
                                 name="q"
                                 value="{{ $filters['q'] }}"
-                                placeholder="Name or email"
+                                placeholder="Name, email, branch, or department"
                                 class="ui-input"
                             >
                         </div>
@@ -122,14 +122,13 @@
 
                         <div>
                             <label for="report_employee_id" class="ui-kpi-label block mb-2">Employee</label>
-                            <select id="report_employee_id" name="employee_id" class="ui-select">
-                                <option value="">All Employees</option>
-                                @foreach($employeeOptions as $employeeOption)
-                                    <option value="{{ $employeeOption->id }}" {{ (int) $filters['employee_id'] === (int) $employeeOption->id ? 'selected' : '' }}>
-                                        {{ $employeeOption->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <div
+                                data-employee-autocomplete-root
+                                data-api-url="{{ route('api.employees.search') }}"
+                                data-name="employee_id"
+                                data-input-id="report_employee_id"
+                                data-selected='@json($selectedReportEmployee)'
+                            ></div>
                         </div>
                     </div>
                 @endif

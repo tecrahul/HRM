@@ -31,6 +31,7 @@ class ReportController extends Controller
         }
 
         $isManagement = $viewer->hasAnyRole([
+            UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
             UserRole::HR->value,
         ]);
@@ -245,7 +246,6 @@ class ReportController extends Controller
 
         $departmentOptions = collect();
         $branchOptions = collect();
-        $employeeOptions = collect();
         if ($isManagement) {
             $departmentOptions = UserProfile::query()
                 ->whereHas('user', function (Builder $query): void {
@@ -270,11 +270,6 @@ class ReportController extends Controller
                 ->unique()
                 ->sort()
                 ->values();
-
-            $employeeOptions = User::query()
-                ->where('role', UserRole::EMPLOYEE->value)
-                ->orderBy('name')
-                ->get(['id', 'name', 'email']);
         }
 
         return view('modules.reports.index', [
@@ -294,7 +289,7 @@ class ReportController extends Controller
             'payrollEnabled' => $payrollEnabled,
             'departmentOptions' => $departmentOptions,
             'branchOptions' => $branchOptions,
-            'employeeOptions' => $employeeOptions,
+            'selectedReportEmployee' => $this->employeeAutocompleteSelection($filters['employee_id']),
         ]);
     }
 
@@ -307,6 +302,7 @@ class ReportController extends Controller
         }
 
         $isManagement = $viewer->hasAnyRole([
+            UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
             UserRole::HR->value,
         ]);
@@ -455,6 +451,7 @@ class ReportController extends Controller
         }
 
         $isManagement = $viewer->hasAnyRole([
+            UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
             UserRole::HR->value,
         ]);
@@ -480,6 +477,33 @@ class ReportController extends Controller
             'activity' => $activity,
             'backUrl' => $backUrl,
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function employeeAutocompleteSelection(int $employeeId): ?array
+    {
+        if ($employeeId <= 0) {
+            return null;
+        }
+
+        $employee = User::query()
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->with('profile:user_id,department')
+            ->whereKey($employeeId)
+            ->first();
+
+        if (! $employee instanceof User) {
+            return null;
+        }
+
+        return [
+            'id' => $employee->id,
+            'name' => $employee->name,
+            'email' => $employee->email,
+            'department' => $employee->profile?->department ?? '',
+        ];
     }
 
     /**

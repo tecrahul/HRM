@@ -264,7 +264,7 @@
             background: var(--hr-surface-strong);
             box-shadow: 0 20px 38px -28px rgb(2 8 23 / 0.86);
             padding: 6px;
-            z-index: 80;
+            z-index: var(--z-popover, 1200);
         }
 
         .hrm-profile-dropdown-item {
@@ -299,7 +299,7 @@
             border: 1px solid var(--hr-line);
             background: var(--hr-surface-strong);
             box-shadow: 0 20px 38px -28px rgb(2 8 23 / 0.86);
-            z-index: 90;
+            z-index: var(--z-popover, 1200);
             overflow: hidden;
         }
 
@@ -678,7 +678,7 @@
                 position: fixed;
                 inset: 0 auto 0 0;
                 width: 270px;
-                z-index: 70;
+                z-index: var(--z-sidebar, 900);
                 transform: translateX(-108%);
                 transition: transform 220ms ease;
             }
@@ -834,12 +834,72 @@
                 </svg>
                 <span class="hrm-nav-label">Leave</span>
             </a>
-            <a href="{{ route('modules.payroll.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
-                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path>
-                </svg>
-                <span class="hrm-nav-label">Payroll</span>
-            </a>
+            @if ($isEmployee)
+                <a href="{{ route('modules.payroll.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
+                    <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path>
+                    </svg>
+                    <span class="hrm-nav-label">Payroll</span>
+                </a>
+            @else
+                @php
+                    $payrollMenuOpen = request()->routeIs('modules.payroll.dashboard')
+                        || request()->routeIs('modules.payroll.salary-structures')
+                        || request()->routeIs('modules.payroll.processing')
+                        || request()->routeIs('modules.payroll.history')
+                        || request()->routeIs('modules.payroll.payslips')
+                        || request()->routeIs('modules.payroll.reports')
+                        || request()->routeIs('modules.payroll.settings');
+                @endphp
+                <div id="hrmPayrollSubmenu" class="hrm-submenu flex flex-col gap-1 {{ $payrollMenuOpen ? 'is-open' : '' }}">
+                    <button
+                        id="hrmPayrollToggle"
+                        type="button"
+                        data-dashboard-url="{{ route('modules.payroll.dashboard') }}"
+                        class="hrm-modern-nav-link hrm-submenu-toggle {{ $payrollMenuOpen ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3"
+                        aria-controls="hrmPayrollLinks"
+                        aria-expanded="{{ $payrollMenuOpen ? 'true' : 'false' }}"
+                    >
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path>
+                        </svg>
+                        <span class="hrm-nav-label">Payroll</span>
+                        <svg class="h-4 w-4 shrink-0 hrm-submenu-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m6 9 6 6 6-6"></path>
+                        </svg>
+                    </button>
+                    <div id="hrmPayrollLinks" class="hrm-submenu-links flex flex-col gap-1 {{ $payrollMenuOpen ? '' : 'hidden' }}">
+                        <a href="{{ route('modules.payroll.dashboard') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.dashboard') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Dashboard</span>
+                        </a>
+                        <a href="{{ route('modules.payroll.salary-structures') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.salary-structures') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Salary Structures</span>
+                        </a>
+                        <a href="{{ route('modules.payroll.processing') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.processing') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Payroll Processing</span>
+                        </a>
+                        <a href="{{ route('modules.payroll.history') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.history') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Payroll History</span>
+                        </a>
+                        <a href="{{ route('modules.payroll.payslips') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.payslips') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Payslips</span>
+                        </a>
+                        <a href="{{ route('modules.payroll.reports') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.reports') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Reports</span>
+                        </a>
+                        <a href="{{ route('modules.payroll.settings') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.settings') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Settings</span>
+                        </a>
+                    </div>
+                </div>
+            @endif
             <a href="{{ route('modules.communication.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.communication.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
                 <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -905,7 +965,7 @@
     </aside>
 
     <div class="min-w-0 flex flex-col">
-        <header class="sticky top-0 z-40 border-b backdrop-blur px-4 py-3 md:px-6" style="background: var(--hr-surface); border-color: var(--hr-line);">
+        <header class="sticky top-0 z-40 border-b backdrop-blur px-4 py-3 md:px-6" style="background: var(--hr-surface); border-color: var(--hr-line); z-index: var(--z-header, 1000);">
             <div class="flex items-center gap-3">
                 <button id="hrmSidebarMobileToggle" type="button" class="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border" style="border-color: var(--hr-line);">
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1114,6 +1174,9 @@
         const reportsSubmenu = document.getElementById("hrmReportsSubmenu");
         const reportsToggle = document.getElementById("hrmReportsToggle");
         const reportsLinks = document.getElementById("hrmReportsLinks");
+        const payrollSubmenu = document.getElementById("hrmPayrollSubmenu");
+        const payrollToggle = document.getElementById("hrmPayrollToggle");
+        const payrollLinks = document.getElementById("hrmPayrollLinks");
 
         const getInitialTheme = () => {
             const storedTheme = localStorage.getItem("hrm-modern-theme");
@@ -1170,6 +1233,16 @@
             reportsSubmenu.classList.toggle("is-open", open);
             reportsLinks.classList.toggle("hidden", !open);
             reportsToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        };
+
+        const setPayrollSubmenuOpen = (open) => {
+            if (!payrollSubmenu || !payrollToggle || !payrollLinks) {
+                return;
+            }
+
+            payrollSubmenu.classList.toggle("is-open", open);
+            payrollLinks.classList.toggle("hidden", !open);
+            payrollToggle.setAttribute("aria-expanded", open ? "true" : "false");
         };
 
         const initPasswordToggles = () => {
@@ -1254,6 +1327,21 @@
                 event.preventDefault();
                 const isOpen = reportsSubmenu?.classList.contains("is-open") ?? false;
                 setReportsSubmenuOpen(!isOpen);
+            });
+        }
+
+        if (payrollToggle) {
+            payrollToggle.addEventListener("click", (event) => {
+                event.preventDefault();
+                const isOpen = payrollSubmenu?.classList.contains("is-open") ?? false;
+                if (!isOpen) {
+                    const dashboardUrl = payrollToggle.getAttribute("data-dashboard-url");
+                    if (dashboardUrl) {
+                        window.location.assign(dashboardUrl);
+                        return;
+                    }
+                }
+                setPayrollSubmenuOpen(!isOpen);
             });
         }
 

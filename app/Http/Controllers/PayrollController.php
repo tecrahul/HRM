@@ -3,10 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
+use App\Models\AuditLog;
 use App\Models\Attendance;
+use App\Models\Branch;
+use App\Models\Department;
 use App\Models\LeaveRequest;
 use App\Models\Payroll;
+use App\Models\PayrollMonthLock;
 use App\Models\PayrollStructure;
+use App\Models\PayrollStructureHistory;
 use App\Models\User;
 use App\Support\ActivityLogger;
 use App\Support\HolidayCalendar;
@@ -15,13 +20,16 @@ use Carbon\Carbon;
 use DomainException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Validation\Rule;
 
 class PayrollController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $viewer = $request->user();
 
@@ -29,36 +37,17 @@ class PayrollController extends Controller
             return $this->employeePage($request, $viewer);
         }
 
-        return $this->managementPage($request);
+        return redirect()->route('modules.payroll.dashboard');
     }
 
     public function storeStructure(Request $request): RedirectResponse
     {
         $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanGenerate($viewer);
         $validated = $this->validateStructurePayload($request);
 
-        $structure = PayrollStructure::query()->firstOrNew([
-            'user_id' => (int) $validated['user_id'],
-        ]);
-
-        if (! $structure->exists) {
-            $structure->created_by_user_id = $viewer->id;
-        }
-
-        $structure->fill([
-            'basic_salary' => $validated['basic_salary'],
-            'hra' => $validated['hra'] ?? 0,
-            'special_allowance' => $validated['special_allowance'] ?? 0,
-            'bonus' => $validated['bonus'] ?? 0,
-            'other_allowance' => $validated['other_allowance'] ?? 0,
-            'pf_deduction' => $validated['pf_deduction'] ?? 0,
-            'tax_deduction' => $validated['tax_deduction'] ?? 0,
-            'other_deduction' => $validated['other_deduction'] ?? 0,
-            'effective_from' => blank($validated['effective_from'] ?? null) ? null : $validated['effective_from'],
-            'notes' => blank($validated['notes'] ?? null) ? null : $validated['notes'],
-            'updated_by_user_id' => $viewer->id,
-        ]);
-        $structure->save();
+        $result = $this->saveStructureWithHistory($viewer, $validated);
+        $structure = $result['structure'];
 
         $structure->loadMissing('user');
         $employeeName = $structure->user?->name ?? 'Unknown employee';
@@ -75,6 +64,16 @@ class PayrollController extends Controller
             ['user_id' => $structure->user_id]
         );
 
+        $this->logPayrollAudit(
+            $viewer,
+            'payroll_structure',
+            (int) $structure->id,
+            $structure->wasRecentlyCreated ? 'structure.create' : 'structure.update',
+            $result['beforeValues'],
+            $result['afterValues'],
+            ['user_id' => (int) $structure->user_id]
+        );
+
         return redirect()
             ->route('modules.payroll.index')
             ->with('status', 'Salary structure saved successfully.');
@@ -83,6 +82,7 @@ class PayrollController extends Controller
     public function generate(Request $request): RedirectResponse
     {
         $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanGenerate($viewer);
         $validated = $this->validateGeneratePayload($request, false);
 
         $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
@@ -150,9 +150,1133 @@ class PayrollController extends Controller
             ->with('status', $result['updated'] ? 'Payroll recalculated successfully.' : 'Payroll generated successfully.');
     }
 
+    public function previewWorkflow(Request $request): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanGenerate($viewer);
+        $validated = $request->validate([
+            'user_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where(function ($query): void {
+                    $query->where('role', UserRole::EMPLOYEE->value);
+                }),
+            ],
+            'payroll_month' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'payable_days' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
+        $employee = User::query()
+            ->where('id', (int) $validated['user_id'])
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->with('profile')
+            ->first();
+
+        if (! $employee) {
+            return response()->json([
+                'message' => 'Selected employee was not found.',
+            ], 422);
+        }
+
+        $structure = PayrollStructure::query()
+            ->where('user_id', $employee->id)
+            ->first();
+
+        if (! $structure) {
+            return response()->json([
+                'message' => "Salary structure is missing for {$employee->name}.",
+            ], 422);
+        }
+
+        try {
+            $calculation = $this->calculatePayroll(
+                $employee,
+                $monthStart,
+                $structure,
+                array_key_exists('payable_days', $validated) ? (float) $validated['payable_days'] : null,
+            );
+        } catch (DomainException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        $existingPayroll = Payroll::query()
+            ->where('user_id', $employee->id)
+            ->whereDate('payroll_month', $monthStart->toDateString())
+            ->latest('id')
+            ->first();
+
+        return response()->json([
+            'preview' => array_merge($calculation, [
+                'employee' => [
+                    'id' => $employee->id,
+                    'name' => $employee->name,
+                    'email' => $employee->email,
+                    'department' => $employee->profile?->department ?? '',
+                ],
+                'monthLabel' => $monthStart->format('M Y'),
+            ]),
+            'existingPayroll' => $existingPayroll ? $this->workflowPayrollPayload($existingPayroll) : null,
+            'isLocked' => $existingPayroll?->status === Payroll::STATUS_PAID,
+        ]);
+    }
+
+    public function generateWorkflow(Request $request): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanGenerate($viewer);
+        $validated = $this->validateGeneratePayload($request, false);
+
+        $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
+        $employeeId = (int) $validated['user_id'];
+        $overridePayableDays = array_key_exists('payable_days', $validated)
+            ? (float) $validated['payable_days']
+            : null;
+
+        $employee = User::query()
+            ->where('id', $employeeId)
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->first();
+
+        if (! $employee) {
+            return response()->json([
+                'message' => 'Selected employee was not found.',
+            ], 422);
+        }
+
+        try {
+            $result = $this->createOrUpdatePayroll(
+                $employee,
+                $monthStart,
+                $viewer,
+                $overridePayableDays,
+                $validated['notes'] ?? null,
+            );
+        } catch (DomainException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        $payroll = Payroll::query()
+            ->where('user_id', $employee->id)
+            ->whereDate('payroll_month', $monthStart->toDateString())
+            ->latest('id')
+            ->first();
+
+        if (! $payroll instanceof Payroll) {
+            return response()->json([
+                'message' => 'Unable to locate generated payroll record.',
+            ], 500);
+        }
+
+        ActivityLogger::log(
+            $viewer,
+            $result['updated'] ? 'payroll.updated' : 'payroll.generated',
+            $result['updated'] ? 'Payroll recalculated' : 'Payroll generated',
+            "{$employee->name} • {$monthStart->format('M Y')}",
+            '#10b981',
+            $payroll
+        );
+
+        NotificationCenter::notifyUser(
+            $employee,
+            "payroll.generated.{$employee->id}.{$monthStart->format('Y-m')}",
+            $result['updated'] ? 'Payroll recalculated' : 'Payroll generated',
+            "Payroll for {$monthStart->format('M Y')} is now available.",
+            route('modules.payroll.index'),
+            'info',
+            0
+        );
+
+        $this->logPayrollAudit(
+            $viewer,
+            'payroll',
+            (int) $payroll->id,
+            $result['updated'] ? 'payroll.generate.updated' : 'payroll.generate.created',
+            null,
+            $this->workflowPayrollPayload($payroll),
+            ['user_id' => $employee->id, 'month' => $monthStart->format('Y-m')]
+        );
+
+        return response()->json([
+            'message' => $result['updated'] ? 'Payroll recalculated successfully.' : 'Payroll generated successfully.',
+            'payroll' => $this->workflowPayrollPayload($payroll),
+            'updated' => (bool) $result['updated'],
+        ]);
+    }
+
+    public function approveWorkflow(Request $request, Payroll $payroll): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanApprove($viewer);
+        $payroll->loadMissing(['user.profile']);
+
+        if (! $payroll->user?->hasRole(UserRole::EMPLOYEE->value)) {
+            abort(404);
+        }
+
+        if ($this->activeMonthLock($payroll->payroll_month?->copy()->startOfMonth() ?? now()->startOfMonth()) !== null
+            && ! $viewer->hasRole(UserRole::SUPER_ADMIN->value)) {
+            return response()->json([
+                'message' => 'Payroll month is locked.',
+            ], 422);
+        }
+
+        if ($payroll->status === Payroll::STATUS_PAID) {
+            return response()->json([
+                'message' => 'Paid payroll is locked and cannot be modified.',
+            ], 422);
+        }
+
+        $beforeValues = $this->workflowPayrollPayload($payroll);
+
+        $payroll->status = Payroll::STATUS_PROCESSED;
+        $payroll->approved_by_user_id = $viewer->id;
+        $payroll->approved_at = now();
+        $payroll->save();
+
+        ActivityLogger::log(
+            $viewer,
+            'payroll.status_updated',
+            'Payroll Processed',
+            "{$payroll->user?->name} • {$payroll->payroll_month?->format('M Y')}",
+            '#10b981',
+            $payroll,
+            ['status' => (string) $payroll->status]
+        );
+
+        if ($payroll->user instanceof User) {
+            NotificationCenter::notifyUser(
+                $payroll->user,
+                "payroll.status.{$payroll->id}.{$payroll->status}",
+                'Payroll Processed',
+                "Your payroll status for {$payroll->payroll_month?->format('M Y')} is now Processed.",
+                route('modules.payroll.index'),
+                'warning',
+                0
+            );
+        }
+
+        $this->logPayrollAudit(
+            $viewer,
+            'payroll',
+            (int) $payroll->id,
+            'payroll.approve',
+            $beforeValues,
+            $this->workflowPayrollPayload($payroll),
+            ['status' => (string) $payroll->status]
+        );
+
+        return response()->json([
+            'message' => 'Payroll approved successfully.',
+            'payroll' => $this->workflowPayrollPayload($payroll),
+        ]);
+    }
+
+    public function markPaidWorkflow(Request $request, Payroll $payroll): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanMarkPaid($viewer);
+        $payroll->loadMissing(['user.profile']);
+
+        if (! $payroll->user?->hasRole(UserRole::EMPLOYEE->value)) {
+            abort(404);
+        }
+
+        if ($this->activeMonthLock($payroll->payroll_month?->copy()->startOfMonth() ?? now()->startOfMonth()) !== null
+            && ! $viewer->hasRole(UserRole::SUPER_ADMIN->value)) {
+            return response()->json([
+                'message' => 'Payroll month is locked.',
+            ], 422);
+        }
+
+        if ($payroll->status === Payroll::STATUS_PAID) {
+            return response()->json([
+                'message' => 'Paid payroll is locked and cannot be modified.',
+            ], 422);
+        }
+
+        if ($payroll->status !== Payroll::STATUS_PROCESSED) {
+            return response()->json([
+                'message' => 'Payroll must be approved before marking as paid.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'payment_method' => ['required', Rule::in(Payroll::paymentMethods())],
+            'payment_reference' => ['nullable', 'string', 'max:120'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $beforeValues = $this->workflowPayrollPayload($payroll);
+
+        $payroll->status = Payroll::STATUS_PAID;
+        $payroll->payment_method = (string) $validated['payment_method'];
+        $payroll->payment_reference = blank($validated['payment_reference'] ?? null)
+            ? null
+            : (string) $validated['payment_reference'];
+        $payroll->notes = blank($validated['notes'] ?? null)
+            ? null
+            : (string) $validated['notes'];
+        $payroll->paid_by_user_id = $viewer->id;
+        $payroll->paid_at = now();
+        $payroll->save();
+
+        ActivityLogger::log(
+            $viewer,
+            'payroll.status_updated',
+            'Payroll Paid',
+            "{$payroll->user?->name} • {$payroll->payroll_month?->format('M Y')}",
+            '#10b981',
+            $payroll,
+            ['status' => (string) $payroll->status]
+        );
+
+        if ($payroll->user instanceof User) {
+            NotificationCenter::notifyUser(
+                $payroll->user,
+                "payroll.status.{$payroll->id}.{$payroll->status}",
+                'Payroll Paid',
+                "Your payroll status for {$payroll->payroll_month?->format('M Y')} is now Paid.",
+                route('modules.payroll.index'),
+                'success',
+                0
+            );
+        }
+
+        $this->logPayrollAudit(
+            $viewer,
+            'payroll',
+            (int) $payroll->id,
+            'payroll.mark_paid',
+            $beforeValues,
+            $this->workflowPayrollPayload($payroll),
+            ['status' => (string) $payroll->status]
+        );
+
+        return response()->json([
+            'message' => 'Payroll marked as paid successfully.',
+            'payroll' => $this->workflowPayrollPayload($payroll),
+            'isLocked' => true,
+        ]);
+    }
+
+    public function workflowOverviewApi(Request $request): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $validated = $request->validate($this->workflowFilterRules(false));
+        $resolvedFilters = $this->resolveWorkflowFilters($validated);
+
+        $monthStart = $this->resolveMonthOrCurrent((string) ($validated['payroll_month'] ?? ''));
+
+        return response()->json(
+            $this->buildWorkflowOverviewPayload(
+                $monthStart,
+                $resolvedFilters['branch'],
+                $resolvedFilters['department'],
+                $resolvedFilters['employeeId'],
+                $viewer
+            )
+        );
+    }
+
+    public function workflowPreviewBatchApi(Request $request): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanGenerate($viewer);
+        $validated = $request->validate($this->workflowFilterRules(true));
+        $resolvedFilters = $this->resolveWorkflowFilters($validated);
+
+        $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
+
+        $activeLock = $this->activeMonthLock($monthStart);
+        if ($activeLock !== null) {
+            return response()->json([
+                'message' => 'Payroll month is closed and locked.',
+            ], 422);
+        }
+
+        $employees = $this->workflowEmployeeQuery(
+            $resolvedFilters['branch'],
+            $resolvedFilters['department'],
+            $resolvedFilters['employeeId']
+        )->get();
+        $generatedCount = $this->workflowPayrollQuery(
+            $monthStart,
+            $resolvedFilters['branch'],
+            $resolvedFilters['department'],
+            $resolvedFilters['employeeId']
+        )->count();
+
+        $rows = [];
+        $grossTotal = 0.0;
+        $deductionTotal = 0.0;
+        $netTotal = 0.0;
+        $employeesWithErrors = 0;
+        $missingStructure = 0;
+
+        foreach ($employees as $employee) {
+            $structure = $employee->payrollStructure;
+            if (! $structure) {
+                $missingStructure++;
+                $employeesWithErrors++;
+                $rows[] = [
+                    'employeeId' => $employee->id,
+                    'employeeName' => $employee->name,
+                    'department' => $employee->profile?->department ?? '',
+                    'gross' => 0,
+                    'deductions' => 0,
+                    'net' => 0,
+                    'error' => 'Missing salary structure',
+                ];
+                continue;
+            }
+
+            try {
+                $calculation = $this->calculatePayroll($employee, $monthStart, $structure, null);
+                $gross = (float) ($calculation['gross_earnings'] ?? 0);
+                $deductions = (float) ($calculation['total_deductions'] ?? 0);
+                $net = (float) ($calculation['net_salary'] ?? 0);
+
+                $grossTotal += $gross;
+                $deductionTotal += $deductions;
+                $netTotal += $net;
+
+                $rows[] = [
+                    'employeeId' => $employee->id,
+                    'employeeName' => $employee->name,
+                    'department' => $employee->profile?->department ?? '',
+                    'gross' => $gross,
+                    'deductions' => $deductions,
+                    'net' => $net,
+                    'error' => null,
+                ];
+            } catch (DomainException $exception) {
+                $employeesWithErrors++;
+                $rows[] = [
+                    'employeeId' => $employee->id,
+                    'employeeName' => $employee->name,
+                    'department' => $employee->profile?->department ?? '',
+                    'gross' => 0,
+                    'deductions' => 0,
+                    'net' => 0,
+                    'error' => $exception->getMessage(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'summary' => [
+                'totalEmployees' => $employees->count(),
+                'grossTotal' => round($grossTotal, 2),
+                'deductionTotal' => round($deductionTotal, 2),
+                'netTotal' => round($netTotal, 2),
+                'employeesWithErrors' => $employeesWithErrors,
+                'missingSalaryStructure' => $missingStructure,
+            ],
+            'rows' => $rows,
+            'warning' => $generatedCount > 0
+                ? 'Payroll is already generated for some employees in this month. Regeneration will update existing draft records.'
+                : null,
+        ]);
+    }
+
+    public function workflowGenerateBatchApi(Request $request): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanGenerate($viewer);
+        $validated = $request->validate(array_merge(
+            $this->workflowFilterRules(true),
+            [
+                'notes' => ['nullable', 'string', 'max:1000'],
+            ]
+        ));
+        $resolvedFilters = $this->resolveWorkflowFilters($validated);
+
+        $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
+
+        $activeLock = $this->activeMonthLock($monthStart);
+        if ($activeLock !== null) {
+            return response()->json([
+                'message' => 'Payroll month is closed and locked.',
+            ], 422);
+        }
+
+        $employees = $this->workflowEmployeeQuery(
+            $resolvedFilters['branch'],
+            $resolvedFilters['department'],
+            $resolvedFilters['employeeId']
+        )->get();
+        $generated = 0;
+        $updated = 0;
+        $missingStructure = 0;
+        $failed = 0;
+
+        foreach ($employees as $employee) {
+            if (! $employee->payrollStructure) {
+                $missingStructure++;
+                continue;
+            }
+
+            try {
+                $result = $this->createOrUpdatePayroll(
+                    $employee,
+                    $monthStart,
+                    $viewer,
+                    null,
+                    $validated['notes'] ?? null
+                );
+
+                if ($result['updated']) {
+                    $updated++;
+                } else {
+                    $generated++;
+                }
+            } catch (DomainException) {
+                $failed++;
+            }
+        }
+
+        $this->logPayrollAudit(
+            $viewer,
+            'payroll',
+            null,
+            'payroll.workflow.generate_batch',
+            null,
+            null,
+            [
+                'month' => $monthStart->format('Y-m'),
+                'branch' => $resolvedFilters['branch'],
+                'department' => $resolvedFilters['department'],
+                'employee_id' => $resolvedFilters['employeeId'],
+                'generated' => $generated,
+                'updated' => $updated,
+                'failed' => $failed,
+                'missing_structure' => $missingStructure,
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Payroll generated successfully.',
+            'summary' => [
+                'generated' => $generated,
+                'updated' => $updated,
+                'failed' => $failed,
+                'missingSalaryStructure' => $missingStructure,
+            ],
+            'overview' => $this->buildWorkflowOverviewPayload(
+                $monthStart,
+                $resolvedFilters['branch'],
+                $resolvedFilters['department'],
+                $resolvedFilters['employeeId'],
+                $viewer
+            ),
+        ]);
+    }
+
+    public function workflowApproveBatchApi(Request $request): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanApprove($viewer);
+        $validated = $request->validate(array_merge(
+            $this->workflowFilterRules(true),
+            [
+                'payroll_ids' => ['nullable', 'array', 'max:2000'],
+                'payroll_ids.*' => ['integer', Rule::exists('payrolls', 'id')],
+            ]
+        ));
+        $resolvedFilters = $this->resolveWorkflowFilters($validated);
+
+        $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
+
+        $activeLock = $this->activeMonthLock($monthStart);
+        if ($activeLock !== null) {
+            return response()->json([
+                'message' => 'Payroll month is closed and locked.',
+            ], 422);
+        }
+
+        $query = $this->workflowPayrollQuery(
+            $monthStart,
+            $resolvedFilters['branch'],
+            $resolvedFilters['department'],
+            $resolvedFilters['employeeId']
+        )
+            ->whereIn('status', [Payroll::STATUS_DRAFT, Payroll::STATUS_FAILED]);
+
+        $ids = collect((array) ($validated['payroll_ids'] ?? []))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($ids !== []) {
+            $query->whereIn('id', $ids);
+        }
+
+        $records = $query->get();
+        $approved = 0;
+
+        foreach ($records as $payroll) {
+            $beforeValues = $this->workflowPayrollPayload($payroll);
+            $payroll->status = Payroll::STATUS_PROCESSED;
+            $payroll->approved_by_user_id = $viewer->id;
+            $payroll->approved_at = now();
+            $payroll->save();
+            $approved++;
+
+            $this->logPayrollAudit(
+                $viewer,
+                'payroll',
+                (int) $payroll->id,
+                'payroll.workflow.approve_batch',
+                $beforeValues,
+                $this->workflowPayrollPayload($payroll),
+                ['month' => $monthStart->format('Y-m')]
+            );
+        }
+
+        return response()->json([
+            'message' => 'Selected payroll records approved.',
+            'summary' => [
+                'approved' => $approved,
+            ],
+            'overview' => $this->buildWorkflowOverviewPayload(
+                $monthStart,
+                $resolvedFilters['branch'],
+                $resolvedFilters['department'],
+                $resolvedFilters['employeeId'],
+                $viewer
+            ),
+        ]);
+    }
+
+    public function workflowPayCloseApi(Request $request): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanMarkPaid($viewer);
+        $validated = $request->validate(array_merge(
+            $this->workflowFilterRules(true),
+            [
+                'payment_method' => ['required', Rule::in(Payroll::paymentMethods())],
+                'payment_reference' => ['nullable', 'string', 'max:120'],
+                'notes' => ['nullable', 'string', 'max:1000'],
+                'confirm_lock' => ['required', 'accepted'],
+            ]
+        ));
+        $resolvedFilters = $this->resolveWorkflowFilters($validated);
+
+        $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
+
+        $activeLock = $this->activeMonthLock($monthStart);
+        if ($activeLock !== null) {
+            return response()->json([
+                'message' => 'Payroll month is already locked.',
+            ], 422);
+        }
+
+        $records = $this->workflowPayrollQuery(
+            $monthStart,
+            $resolvedFilters['branch'],
+            $resolvedFilters['department'],
+            $resolvedFilters['employeeId']
+        )->get();
+        if ($records->isEmpty()) {
+            return response()->json([
+                'message' => 'No payroll records found for selected month.',
+            ], 422);
+        }
+
+        $hasPending = $records->contains(function (Payroll $payroll): bool {
+            return ! in_array($payroll->status, [Payroll::STATUS_PROCESSED, Payroll::STATUS_PAID], true);
+        });
+
+        if ($hasPending) {
+            return response()->json([
+                'message' => 'All payroll records must be approved before payment.',
+            ], 422);
+        }
+
+        $paidNow = 0;
+        foreach ($records as $payroll) {
+            if ($payroll->status === Payroll::STATUS_PAID) {
+                continue;
+            }
+
+            $beforeValues = $this->workflowPayrollPayload($payroll);
+            $payroll->status = Payroll::STATUS_PAID;
+            $payroll->payment_method = (string) $validated['payment_method'];
+            $payroll->payment_reference = blank($validated['payment_reference'] ?? null)
+                ? null
+                : (string) $validated['payment_reference'];
+            $payroll->notes = blank($validated['notes'] ?? null)
+                ? null
+                : (string) $validated['notes'];
+            $payroll->paid_by_user_id = $viewer->id;
+            $payroll->paid_at = now();
+            $payroll->save();
+            $paidNow++;
+
+            $this->logPayrollAudit(
+                $viewer,
+                'payroll',
+                (int) $payroll->id,
+                'payroll.workflow.pay_close',
+                $beforeValues,
+                $this->workflowPayrollPayload($payroll),
+                ['month' => $monthStart->format('Y-m')]
+            );
+        }
+
+        PayrollMonthLock::query()->create([
+            'payroll_month' => $monthStart->toDateString(),
+            'locked_by_user_id' => $viewer->id,
+            'locked_at' => now(),
+            'metadata' => [
+                'payment_method' => (string) $validated['payment_method'],
+                'payment_reference' => (string) ($validated['payment_reference'] ?? ''),
+                'branch' => $resolvedFilters['branch'],
+                'department' => $resolvedFilters['department'],
+                'employee_id' => $resolvedFilters['employeeId'],
+                'paid_now' => $paidNow,
+            ],
+        ]);
+
+        $this->logPayrollAudit(
+            $viewer,
+            'payroll_month',
+            null,
+            'payroll.workflow.month_locked',
+            null,
+            null,
+            ['month' => $monthStart->format('Y-m'), 'paid_now' => $paidNow]
+        );
+
+        return response()->json([
+            'message' => 'Payroll paid and month closed successfully.',
+            'summary' => [
+                'paid' => $paidNow,
+            ],
+            'overview' => $this->buildWorkflowOverviewPayload(
+                $monthStart,
+                $resolvedFilters['branch'],
+                $resolvedFilters['department'],
+                $resolvedFilters['employeeId'],
+                $viewer
+            ),
+        ]);
+    }
+
+    public function workflowUnlockApi(Request $request): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanUnlock($viewer);
+        $validated = $request->validate([
+            'payroll_month' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'unlock_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
+        $activeLock = $this->activeMonthLock($monthStart);
+        if (! $activeLock instanceof PayrollMonthLock) {
+            return response()->json([
+                'message' => 'Selected payroll month is not locked.',
+            ], 422);
+        }
+
+        $activeLock->unlocked_by_user_id = $viewer->id;
+        $activeLock->unlocked_at = now();
+        $activeLock->unlock_reason = blank($validated['unlock_reason'] ?? null)
+            ? null
+            : (string) $validated['unlock_reason'];
+        $activeLock->save();
+
+        $this->logPayrollAudit(
+            $viewer,
+            'payroll_month',
+            (int) $activeLock->id,
+            'payroll.workflow.month_unlocked',
+            null,
+            null,
+            ['month' => $monthStart->format('Y-m'), 'reason' => $activeLock->unlock_reason]
+        );
+
+        return response()->json([
+            'message' => 'Payroll month unlocked successfully.',
+            'overview' => $this->buildWorkflowOverviewPayload($monthStart, null, null, null, $viewer),
+        ]);
+    }
+
+    public function upsertStructureApi(Request $request, User $user): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanGenerate($viewer);
+
+        if (! $user->hasRole(UserRole::EMPLOYEE->value)) {
+            abort(404);
+        }
+
+        // Upsert endpoint identifies employee by route param; inject user_id for shared validator.
+        $request->merge([
+            'user_id' => $user->id,
+        ]);
+
+        $validated = $this->validateStructurePayload($request);
+
+        $result = $this->saveStructureWithHistory($viewer, $validated);
+        $structure = $result['structure']->loadMissing(['user.profile', 'updatedBy']);
+
+        $this->logPayrollAudit(
+            $viewer,
+            'payroll_structure',
+            (int) $structure->id,
+            $structure->wasRecentlyCreated ? 'structure.create' : 'structure.update',
+            $result['beforeValues'],
+            $result['afterValues'],
+            ['user_id' => (int) $structure->user_id, 'source' => 'api']
+        );
+
+        $history = PayrollStructureHistory::query()
+            ->with('changedBy:id,name')
+            ->where('user_id', $user->id)
+            ->latest('changed_at')
+            ->limit(20)
+            ->get()
+            ->map(fn (PayrollStructureHistory $entry): array => [
+                'id' => $entry->id,
+                'changedAt' => $entry->changed_at?->toIso8601String(),
+                'changedBy' => $entry->changedBy?->name ?? 'System',
+                'changeSummary' => $entry->change_summary ?? [],
+            ])
+            ->values()
+            ->all();
+
+        return response()->json([
+            'message' => $structure->wasRecentlyCreated ? 'Salary structure created successfully.' : 'Salary structure updated successfully.',
+            'structure' => [
+                'id' => $structure->id,
+                'userId' => $structure->user_id,
+                'userName' => $structure->user?->name ?? 'Unknown',
+                'userEmail' => $structure->user?->email ?? '',
+                'department' => $structure->user?->profile?->department ?? '',
+                'effectiveFrom' => $structure->effective_from?->format('Y-m-d'),
+                'updatedAt' => $structure->updated_at?->toIso8601String(),
+                'basicSalary' => (float) $structure->basic_salary,
+                'hra' => (float) $structure->hra,
+                'specialAllowance' => (float) $structure->special_allowance,
+                'bonus' => (float) $structure->bonus,
+                'otherAllowance' => (float) $structure->other_allowance,
+                'pfDeduction' => (float) $structure->pf_deduction,
+                'taxDeduction' => (float) $structure->tax_deduction,
+                'otherDeduction' => (float) $structure->other_deduction,
+                'grossConfigured' => (float) $structure->basic_salary
+                    + (float) $structure->hra
+                    + (float) $structure->special_allowance
+                    + (float) $structure->bonus
+                    + (float) $structure->other_allowance,
+                'notes' => $structure->notes,
+            ],
+            'history' => $history,
+        ]);
+    }
+
+    public function structureHistoryApi(Request $request, User $user): JsonResponse
+    {
+        $this->ensureManagementAccess($request);
+
+        if (! $user->hasRole(UserRole::EMPLOYEE->value)) {
+            abort(404);
+        }
+
+        $history = PayrollStructureHistory::query()
+            ->with('changedBy:id,name')
+            ->where('user_id', $user->id)
+            ->latest('changed_at')
+            ->limit(30)
+            ->get()
+            ->map(fn (PayrollStructureHistory $entry): array => [
+                'id' => $entry->id,
+                'changedAt' => $entry->changed_at?->toIso8601String(),
+                'changedBy' => $entry->changedBy?->name ?? 'System',
+                'changeSummary' => $entry->change_summary ?? [],
+            ])
+            ->values()
+            ->all();
+
+        return response()->json([
+            'history' => $history,
+        ]);
+    }
+
+    public function bulkDirectoryAction(Request $request): JsonResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $validated = $request->validate([
+            'action' => ['required', Rule::in(['approve', 'mark_paid', 'delete'])],
+            'payroll_ids' => ['required', 'array', 'min:1', 'max:500'],
+            'payroll_ids.*' => ['integer', Rule::exists('payrolls', 'id')],
+            'payment_method' => ['nullable', Rule::in(Payroll::paymentMethods())],
+            'payment_reference' => ['nullable', 'string', 'max:120'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'override_lock' => ['nullable', 'boolean'],
+        ]);
+
+        $action = (string) $validated['action'];
+        $overrideLock = (bool) ($validated['override_lock'] ?? false);
+        if ($action === 'approve') {
+            $this->assertCanApprove($viewer);
+        } elseif ($action === 'mark_paid') {
+            $this->assertCanMarkPaid($viewer);
+            if (blank($validated['payment_method'] ?? null)) {
+                return response()->json([
+                    'message' => 'Payment method is required for mark paid action.',
+                ], 422);
+            }
+        } else {
+            $this->assertCanGenerate($viewer);
+        }
+
+        $ids = collect((array) $validated['payroll_ids'])
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $payrolls = Payroll::query()
+            ->with('user')
+            ->whereIn('id', $ids)
+            ->get();
+
+        $updated = 0;
+        $skipped = 0;
+        $deleted = 0;
+
+        DB::transaction(function () use (
+            $payrolls,
+            $action,
+            $viewer,
+            $overrideLock,
+            $validated,
+            &$updated,
+            &$skipped,
+            &$deleted
+        ): void {
+            foreach ($payrolls as $payroll) {
+                if (! $payroll->user?->hasRole(UserRole::EMPLOYEE->value)) {
+                    $skipped++;
+                    continue;
+                }
+
+                if (
+                    $this->activeMonthLock($payroll->payroll_month?->copy()->startOfMonth() ?? now()->startOfMonth()) !== null
+                    && ! $viewer->hasRole(UserRole::SUPER_ADMIN->value)
+                ) {
+                    $skipped++;
+                    continue;
+                }
+
+                if (
+                    $payroll->status === Payroll::STATUS_PAID
+                    && ! ($overrideLock && $viewer->hasRole(UserRole::ADMIN->value))
+                ) {
+                    $skipped++;
+                    continue;
+                }
+
+                $beforeValues = $this->workflowPayrollPayload($payroll);
+
+                if ($action === 'approve') {
+                    if (! in_array($payroll->status, [Payroll::STATUS_DRAFT, Payroll::STATUS_FAILED], true)) {
+                        $skipped++;
+                        continue;
+                    }
+
+                    $payroll->status = Payroll::STATUS_PROCESSED;
+                    $payroll->approved_by_user_id = $viewer->id;
+                    $payroll->approved_at = now();
+                    $payroll->save();
+                    $updated++;
+
+                    $this->logPayrollAudit(
+                        $viewer,
+                        'payroll',
+                        (int) $payroll->id,
+                        'payroll.bulk.approve',
+                        $beforeValues,
+                        $this->workflowPayrollPayload($payroll),
+                        ['bulk' => true]
+                    );
+
+                    continue;
+                }
+
+                if ($action === 'mark_paid') {
+                    if ($payroll->status !== Payroll::STATUS_PROCESSED) {
+                        $skipped++;
+                        continue;
+                    }
+
+                    $payroll->status = Payroll::STATUS_PAID;
+                    $payroll->payment_method = (string) $validated['payment_method'];
+                    $payroll->payment_reference = blank($validated['payment_reference'] ?? null)
+                        ? null
+                        : (string) $validated['payment_reference'];
+                    $payroll->notes = blank($validated['notes'] ?? null)
+                        ? null
+                        : (string) $validated['notes'];
+                    $payroll->paid_by_user_id = $viewer->id;
+                    $payroll->paid_at = now();
+                    $payroll->save();
+                    $updated++;
+
+                    $this->logPayrollAudit(
+                        $viewer,
+                        'payroll',
+                        (int) $payroll->id,
+                        'payroll.bulk.mark_paid',
+                        $beforeValues,
+                        $this->workflowPayrollPayload($payroll),
+                        ['bulk' => true]
+                    );
+
+                    continue;
+                }
+
+                if (! in_array($payroll->status, [Payroll::STATUS_DRAFT, Payroll::STATUS_FAILED], true)) {
+                    $skipped++;
+                    continue;
+                }
+
+                $this->logPayrollAudit(
+                    $viewer,
+                    'payroll',
+                    (int) $payroll->id,
+                    'payroll.bulk.delete',
+                    $beforeValues,
+                    null,
+                    ['bulk' => true]
+                );
+
+                $payroll->delete();
+                $deleted++;
+            }
+        });
+
+        return response()->json([
+            'message' => 'Bulk action completed.',
+            'summary' => [
+                'action' => $action,
+                'updated' => $updated,
+                'deleted' => $deleted,
+                'skipped' => $skipped,
+            ],
+        ]);
+    }
+
+    public function exportDirectoryCsv(Request $request): StreamedResponse
+    {
+        $viewer = $this->ensureManagementAccess($request);
+        $statusFilter = (string) $request->string('status');
+        $search = (string) $request->string('q');
+        $monthFilter = (string) $request->string('payroll_month');
+        $monthStart = $this->resolveMonthOrCurrent($monthFilter);
+
+        $query = Payroll::query()
+            ->with('user.profile')
+            ->whereHas('user', function (Builder $builder): void {
+                $builder->where('role', UserRole::EMPLOYEE->value);
+            })
+            ->whereYear('payroll_month', $monthStart->year)
+            ->whereMonth('payroll_month', $monthStart->month)
+            ->when($search !== '', function (Builder $builder) use ($search): void {
+                $builder->where(function (Builder $innerBuilder) use ($search): void {
+                    $innerBuilder
+                        ->where('payment_reference', 'like', "%{$search}%")
+                        ->orWhere('notes', 'like', "%{$search}%")
+                        ->orWhereHas('user', function (Builder $userBuilder) use ($search): void {
+                            $userBuilder
+                                ->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
+                });
+            });
+
+        $dbStatus = $this->uiStatusToDbStatus($statusFilter);
+        if ($dbStatus !== null) {
+            $query->where('status', $dbStatus);
+        }
+
+        $filename = 'payroll-directory-' . $monthStart->format('Y-m') . '.csv';
+
+        $this->logPayrollAudit(
+            $viewer,
+            'payroll',
+            null,
+            'payroll.directory.export_csv',
+            null,
+            null,
+            ['month' => $monthStart->format('Y-m'), 'status' => $statusFilter, 'search' => $search]
+        );
+
+        return response()->streamDownload(function () use ($query): void {
+            $handle = fopen('php://output', 'wb');
+            if (! is_resource($handle)) {
+                return;
+            }
+
+            fputcsv($handle, [
+                'Month',
+                'Employee',
+                'Email',
+                'Department',
+                'Status',
+                'Working Days',
+                'Payable Days',
+                'Gross',
+                'Deductions',
+                'Net',
+                'Payment Method',
+                'Payment Reference',
+                'Paid At',
+            ]);
+
+            $query->orderByDesc('payroll_month')
+                ->orderBy('user_id')
+                ->chunk(500, function ($records) use ($handle): void {
+                    foreach ($records as $record) {
+                        fputcsv($handle, [
+                            $record->payroll_month?->format('Y-m') ?? '',
+                            $record->user?->name ?? '',
+                            $record->user?->email ?? '',
+                            $record->user?->profile?->department ?? '',
+                            $this->statusLabelFromDb((string) $record->status),
+                            (float) $record->working_days,
+                            (float) $record->payable_days,
+                            (float) $record->gross_earnings,
+                            (float) $record->total_deductions,
+                            (float) $record->net_salary,
+                            $record->payment_method ?? '',
+                            $record->payment_reference ?? '',
+                            $record->paid_at?->format('Y-m-d H:i:s') ?? '',
+                        ]);
+                    }
+                });
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
     public function generateBulk(Request $request): RedirectResponse
     {
         $viewer = $this->ensureManagementAccess($request);
+        $this->assertCanGenerate($viewer);
         $validated = $this->validateGeneratePayload($request, true);
 
         $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
@@ -220,12 +1344,46 @@ class PayrollController extends Controller
             abort(404);
         }
 
+        if (
+            $this->activeMonthLock($payroll->payroll_month?->copy()->startOfMonth() ?? now()->startOfMonth()) !== null
+            && ! $viewer->hasRole(UserRole::SUPER_ADMIN->value)
+        ) {
+            return redirect()
+                ->route('modules.payroll.index')
+                ->with('error', 'Payroll month is locked and cannot be modified.');
+        }
+
         $validated = $request->validate([
             'status' => ['required', Rule::in(Payroll::statuses())],
             'payment_method' => ['nullable', Rule::in(Payroll::paymentMethods())],
             'payment_reference' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'override_lock' => ['nullable', 'boolean'],
         ]);
+
+        $overrideLock = (bool) ($validated['override_lock'] ?? false);
+        if ($payroll->status === Payroll::STATUS_PAID && ! ($overrideLock && $viewer->hasRole(UserRole::ADMIN->value))) {
+            return redirect()
+                ->route('modules.payroll.index')
+                ->with('error', 'Paid payroll is locked and cannot be modified.');
+        }
+
+        if ($validated['status'] === Payroll::STATUS_PROCESSED) {
+            $this->assertCanApprove($viewer);
+        }
+
+        if ($validated['status'] === Payroll::STATUS_PAID) {
+            $this->assertCanMarkPaid($viewer);
+        }
+
+        if (
+            $validated['status'] === Payroll::STATUS_PAID
+            && $payroll->status !== Payroll::STATUS_PROCESSED
+        ) {
+            return redirect()
+                ->route('modules.payroll.index')
+                ->with('error', 'Payroll must be approved before marking as paid.');
+        }
 
         if (
             $validated['status'] === Payroll::STATUS_PAID
@@ -237,6 +1395,8 @@ class PayrollController extends Controller
                 ->withInput();
         }
 
+        $beforeValues = $this->workflowPayrollPayload($payroll);
+
         $payroll->status = $validated['status'];
         $payroll->notes = blank($validated['notes'] ?? null) ? null : $validated['notes'];
 
@@ -245,9 +1405,20 @@ class PayrollController extends Controller
             $payroll->payment_reference = blank($validated['payment_reference'] ?? null)
                 ? null
                 : $validated['payment_reference'];
+            $payroll->approved_by_user_id = $payroll->approved_by_user_id ?: $viewer->id;
+            $payroll->approved_at = $payroll->approved_at ?: now();
             $payroll->paid_by_user_id = $viewer->id;
             $payroll->paid_at = now();
+        } elseif ($validated['status'] === Payroll::STATUS_PROCESSED) {
+            $payroll->approved_by_user_id = $viewer->id;
+            $payroll->approved_at = now();
+            $payroll->paid_by_user_id = null;
+            $payroll->paid_at = null;
+            $payroll->payment_method = null;
+            $payroll->payment_reference = null;
         } else {
+            $payroll->approved_by_user_id = null;
+            $payroll->approved_at = null;
             $payroll->payment_method = null;
             $payroll->payment_reference = null;
             $payroll->paid_by_user_id = null;
@@ -265,6 +1436,16 @@ class PayrollController extends Controller
             '#10b981',
             $payroll,
             ['status' => (string) $payroll->status]
+        );
+
+        $this->logPayrollAudit(
+            $viewer,
+            'payroll',
+            (int) $payroll->id,
+            'payroll.status.update',
+            $beforeValues,
+            $this->workflowPayrollPayload($payroll),
+            ['status' => (string) $payroll->status, 'override_lock' => $overrideLock]
         );
 
         if ($payroll->user instanceof User) {
@@ -286,6 +1467,7 @@ class PayrollController extends Controller
 
     private function managementPage(Request $request): View
     {
+        $viewer = $this->ensureManagementAccess($request);
         $search = (string) $request->string('q');
         $status = (string) $request->string('status');
         $employeeId = (int) $request->integer('employee_id');
@@ -298,7 +1480,7 @@ class PayrollController extends Controller
         $employeeRole = UserRole::EMPLOYEE->value;
 
         $records = Payroll::query()
-            ->with(['user.profile', 'generator', 'paidBy'])
+            ->with(['user.profile', 'generator', 'approvedBy', 'paidBy'])
             ->whereHas('user', function (Builder $query) use ($employeeRole): void {
                 $query->where('role', $employeeRole);
             })
@@ -337,32 +1519,233 @@ class PayrollController extends Controller
             ->whereIn('user_id', $employeeIds)
             ->whereBetween('payroll_month', [$monthStart->toDateString(), $monthEnd->toDateString()]);
 
+        $employees = $this->employeeOptions();
         $structures = PayrollStructure::query()
             ->with('user.profile')
             ->whereIn('user_id', $employeeIds)
             ->orderByDesc('updated_at')
             ->get();
 
-        return view('modules.payroll.admin', [
-            'records' => $records,
-            'employees' => $this->employeeOptions(),
-            'structures' => $structures,
+        $totalEmployees = (int) $employeeIds->count();
+        $employeesWithStructure = (int) PayrollStructure::query()->whereIn('user_id', $employeeIds)->count();
+        $generatedThisMonth = (int) (clone $monthBaseQuery)->count();
+        $paidThisMonth = (int) (clone $monthBaseQuery)->where('status', Payroll::STATUS_PAID)->count();
+        $draftThisMonth = (int) (clone $monthBaseQuery)->where('status', Payroll::STATUS_DRAFT)->count();
+        $processedThisMonth = (int) (clone $monthBaseQuery)->where('status', Payroll::STATUS_PROCESSED)->count();
+        $failedThisMonth = (int) (clone $monthBaseQuery)->where('status', Payroll::STATUS_FAILED)->count();
+        $pendingThisMonth = (int) (clone $monthBaseQuery)->where('status', '!=', Payroll::STATUS_PAID)->count();
+        $netThisMonth = (float) ((clone $monthBaseQuery)->sum('net_salary'));
+
+        $stats = [
+            'totalEmployees' => $totalEmployees,
+            'employeesWithStructure' => $employeesWithStructure,
+            'generatedThisMonth' => $generatedThisMonth,
+            'paidThisMonth' => $paidThisMonth,
+            'pendingThisMonth' => $pendingThisMonth,
+            'draftThisMonth' => $draftThisMonth,
+            'processedThisMonth' => $processedThisMonth,
+            'failedThisMonth' => $failedThisMonth,
+            'netThisMonth' => $netThisMonth,
+        ];
+
+        $notGeneratedCount = max(0, $employeesWithStructure - $generatedThisMonth);
+        $missingBankDetailsCount = User::query()
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->whereHas('payrolls', function (Builder $builder) use ($monthStart): void {
+                $builder
+                    ->whereYear('payroll_month', $monthStart->year)
+                    ->whereMonth('payroll_month', $monthStart->month);
+            })
+            ->whereHas('profile', function (Builder $builder): void {
+                $builder
+                    ->where(function (Builder $innerBuilder): void {
+                        $innerBuilder
+                            ->whereNull('bank_account_name')
+                            ->orWhere('bank_account_name', '')
+                            ->orWhereNull('bank_account_number')
+                            ->orWhere('bank_account_number', '')
+                            ->orWhereNull('bank_ifsc')
+                            ->orWhere('bank_ifsc', '');
+                    });
+            })
+            ->count();
+
+        $alerts = [
+            'missing_structure' => max(0, $totalEmployees - $employeesWithStructure),
+            'not_generated' => $notGeneratedCount,
+            'pending_approvals' => $draftThisMonth,
+            'calculation_errors' => $failedThisMonth,
+            'missing_bank_details' => (int) $missingBankDetailsCount,
+        ];
+
+        $filters = [
+            'q' => $search,
+            'status' => $status,
+            'employee_id' => $employeeId > 0 ? (string) $employeeId : '',
+            'payroll_month' => $monthStart->format('Y-m'),
+        ];
+
+        $recordsPayload = $records->getCollection()
+            ->tap(function ($collection): void {
+                $collection->loadMissing(['user.profile', 'generator', 'approvedBy', 'paidBy']);
+            });
+
+        $auditTrailByPayrollId = AuditLog::query()
+            ->with('performedBy:id,name')
+            ->where('entity_type', 'payroll')
+            ->whereIn('entity_id', $recordsPayload->pluck('id')->all())
+            ->orderByDesc('performed_at')
+            ->get()
+            ->groupBy('entity_id')
+            ->map(function ($items): array {
+                return $items->take(5)->map(function (AuditLog $log): array {
+                    return [
+                        'id' => $log->id,
+                        'action' => (string) $log->action,
+                        'performedAt' => $log->performed_at?->toIso8601String(),
+                        'performedByUserId' => $log->performed_by_user_id,
+                        'performedByName' => $log->performedBy?->name ?? 'System',
+                    ];
+                })->values()->all();
+            });
+
+        $recordsPayload = $recordsPayload
+            ->map(function (Payroll $record) use ($auditTrailByPayrollId): array {
+                $user = $record->user;
+                $profile = $user?->profile;
+
+                return [
+                    'id' => $record->id,
+                    'payrollMonth' => $record->payroll_month?->format('Y-m-d'),
+                    'payrollMonthLabel' => $record->payroll_month?->format('M Y') ?? 'N/A',
+                    'user' => [
+                        'id' => $user?->id,
+                        'name' => $user?->name ?? 'Unknown',
+                        'email' => $user?->email ?? '',
+                        'department' => $profile?->department ?? '',
+                    ],
+                    'workingDays' => (float) $record->working_days,
+                    'payableDays' => (float) $record->payable_days,
+                    'lopDays' => (float) $record->lop_days,
+                    'grossEarnings' => (float) $record->gross_earnings,
+                    'totalDeductions' => (float) $record->total_deductions,
+                    'netSalary' => (float) $record->net_salary,
+                    'status' => (string) $record->status,
+                    'uiStatus' => $this->dbStatusToUiStatus((string) $record->status),
+                    'statusLabel' => $this->statusLabelFromDb((string) $record->status),
+                    'locked' => $record->status === Payroll::STATUS_PAID,
+                    'generatorName' => $record->generator?->name ?? 'System',
+                    'approvedByName' => $record->approvedBy?->name,
+                    'approvedAt' => $record->approved_at?->toIso8601String(),
+                    'paymentMethod' => $record->payment_method,
+                    'paymentReference' => $record->payment_reference,
+                    'paidAt' => $record->paid_at?->toIso8601String(),
+                    'notes' => $record->notes,
+                    'statusUpdateUrl' => route('modules.payroll.status.update', $record),
+                    'auditTrail' => $auditTrailByPayrollId->get($record->id, []),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $employeesPayload = $employees
+            ->map(function (User $employee): array {
+                return [
+                    'id' => $employee->id,
+                    'name' => $employee->name,
+                    'email' => $employee->email,
+                    'department' => $employee->profile?->department ?? '',
+                    'branch' => $employee->profile?->branch ?? '',
+                    'hasStructure' => $employee->payrollStructure !== null,
+                    'hasBankDetails' => filled($employee->profile?->bank_account_name)
+                        && filled($employee->profile?->bank_account_number)
+                        && filled($employee->profile?->bank_ifsc),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $structuresPayload = $structures
+            ->map(function (PayrollStructure $structure): array {
+                $grossConfigured = (float) $structure->basic_salary
+                    + (float) $structure->hra
+                    + (float) $structure->special_allowance
+                    + (float) $structure->bonus
+                    + (float) $structure->other_allowance;
+
+                return [
+                    'id' => $structure->id,
+                    'userId' => $structure->user_id,
+                    'userName' => $structure->user?->name ?? 'Unknown',
+                    'userEmail' => $structure->user?->email ?? '',
+                    'department' => $structure->user?->profile?->department ?? '',
+                    'effectiveFrom' => $structure->effective_from?->format('Y-m-d'),
+                    'updatedAt' => $structure->updated_at?->toIso8601String(),
+                    'grossConfigured' => $grossConfigured,
+                    'basicSalary' => (float) $structure->basic_salary,
+                    'hra' => (float) $structure->hra,
+                    'specialAllowance' => (float) $structure->special_allowance,
+                    'bonus' => (float) $structure->bonus,
+                    'otherAllowance' => (float) $structure->other_allowance,
+                    'pfDeduction' => (float) $structure->pf_deduction,
+                    'taxDeduction' => (float) $structure->tax_deduction,
+                    'otherDeduction' => (float) $structure->other_deduction,
+                    'notes' => $structure->notes,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $managementPayload = [
+            'generatedAt' => now()->toIso8601String(),
+            'monthLabel' => $monthStart->format('M Y'),
+            'stats' => $stats,
+            'filters' => $filters,
             'statusOptions' => $statusOptions,
             'paymentMethodOptions' => Payroll::paymentMethods(),
-            'stats' => [
-                'totalEmployees' => $employeeIds->count(),
-                'employeesWithStructure' => PayrollStructure::query()->whereIn('user_id', $employeeIds)->count(),
-                'generatedThisMonth' => (clone $monthBaseQuery)->count(),
-                'paidThisMonth' => (clone $monthBaseQuery)->where('status', Payroll::STATUS_PAID)->count(),
-                'pendingThisMonth' => (clone $monthBaseQuery)->where('status', '!=', Payroll::STATUS_PAID)->count(),
-                'netThisMonth' => (float) ((clone $monthBaseQuery)->sum('net_salary')),
+            'alerts' => $alerts,
+            'employees' => $employeesPayload,
+            'records' => $recordsPayload,
+            'structures' => $structuresPayload,
+            'pagination' => [
+                'from' => $records->firstItem(),
+                'to' => $records->lastItem(),
+                'total' => $records->total(),
+                'currentPage' => $records->currentPage(),
+                'lastPage' => $records->lastPage(),
+                'prevPageUrl' => $records->previousPageUrl(),
+                'nextPageUrl' => $records->nextPageUrl(),
             ],
-            'filters' => [
-                'q' => $search,
-                'status' => $status,
-                'employee_id' => $employeeId > 0 ? (string) $employeeId : '',
-                'payroll_month' => $monthStart->format('Y-m'),
+            'urls' => [
+                'index' => route('modules.payroll.index'),
+                'structureStore' => route('modules.payroll.structure.store'),
+                'generate' => route('modules.payroll.generate'),
+                'generateBulk' => route('modules.payroll.generate-bulk'),
+                'workflowPreview' => route('modules.payroll.workflow.preview'),
+                'workflowGenerate' => route('modules.payroll.workflow.generate'),
+                'workflowOverview' => route('modules.payroll.workflow.overview'),
+                'workflowPreviewBatch' => route('modules.payroll.workflow.preview-batch'),
+                'workflowGenerateBatch' => route('modules.payroll.workflow.generate-batch'),
+                'workflowApproveBatch' => route('modules.payroll.workflow.approve-batch'),
+                'workflowPayClose' => route('modules.payroll.workflow.pay-close'),
+                'workflowUnlock' => route('modules.payroll.workflow.unlock'),
+                'employeeSearch' => route('api.employees.search'),
+                'structureUpsert' => route('modules.payroll.structure.upsert', ['user' => '__USER_ID__']),
+                'structureHistory' => route('modules.payroll.structure.history', ['user' => '__USER_ID__']),
+                'directoryBulkAction' => route('modules.payroll.directory.bulk-action'),
+                'directoryExportCsv' => route('modules.payroll.directory.export-csv'),
             ],
+            'permissions' => [
+                'canGenerate' => $this->canGenerate($viewer),
+                'canApprove' => $this->canApprove($viewer),
+                'canMarkPaid' => $this->canMarkPaid($viewer),
+                'canUnlock' => $this->canUnlock($viewer),
+                'isAdmin' => $viewer->hasAnyRole([UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value]),
+            ],
+        ];
+
+        return view('modules.payroll.admin', [
+            'managementPayload' => $managementPayload,
         ]);
     }
 
@@ -442,6 +1825,10 @@ class PayrollController extends Controller
 
         $monthDate = $monthStart->toDateString();
 
+        if ($this->activeMonthLock($monthStart) !== null && ! $viewer->hasRole(UserRole::SUPER_ADMIN->value)) {
+            throw new DomainException("Payroll month {$monthStart->format('M Y')} is locked.");
+        }
+
         $existingPayroll = Payroll::query()
             ->where('user_id', $employee->id)
             ->whereDate('payroll_month', $monthDate)
@@ -457,6 +1844,8 @@ class PayrollController extends Controller
             'status' => Payroll::STATUS_DRAFT,
             'notes' => blank($notes) ? null : $notes,
             'generated_by_user_id' => $viewer->id,
+            'approved_by_user_id' => null,
+            'approved_at' => null,
             'paid_by_user_id' => null,
             'paid_at' => null,
             'payment_method' => null,
@@ -626,6 +2015,471 @@ class PayrollController extends Controller
     /**
      * @return array<string, mixed>
      */
+    private function workflowPayrollPayload(Payroll $payroll): array
+    {
+        $payroll->loadMissing(['user.profile', 'generator', 'approvedBy', 'paidBy']);
+
+        return [
+            'id' => $payroll->id,
+            'status' => (string) $payroll->status,
+            'uiStatus' => $this->dbStatusToUiStatus((string) $payroll->status),
+            'statusLabel' => (string) str((string) $payroll->status)->replace('_', ' ')->title(),
+            'locked' => $payroll->status === Payroll::STATUS_PAID,
+            'payrollMonth' => $payroll->payroll_month?->format('Y-m-d'),
+            'payrollMonthLabel' => $payroll->payroll_month?->format('M Y'),
+            'workingDays' => (float) $payroll->working_days,
+            'payableDays' => (float) $payroll->payable_days,
+            'lopDays' => (float) $payroll->lop_days,
+            'grossEarnings' => (float) $payroll->gross_earnings,
+            'totalDeductions' => (float) $payroll->total_deductions,
+            'netSalary' => (float) $payroll->net_salary,
+            'paymentMethod' => $payroll->payment_method,
+            'paymentReference' => $payroll->payment_reference,
+            'paidAt' => $payroll->paid_at?->toIso8601String(),
+            'approvedAt' => $payroll->approved_at?->toIso8601String(),
+            'approvedByName' => $payroll->approvedBy?->name,
+            'notes' => $payroll->notes,
+            'user' => [
+                'id' => $payroll->user?->id,
+                'name' => $payroll->user?->name ?? 'Unknown',
+                'email' => $payroll->user?->email ?? '',
+                'department' => $payroll->user?->profile?->department ?? '',
+            ],
+            'approveUrl' => route('modules.payroll.workflow.approve', $payroll),
+            'payUrl' => route('modules.payroll.workflow.pay', $payroll),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $validated
+     * @return array{structure: PayrollStructure, beforeValues: ?array<string, mixed>, afterValues: ?array<string, mixed>}
+     */
+    private function saveStructureWithHistory(User $viewer, array $validated): array
+    {
+        $structure = PayrollStructure::query()->firstOrNew([
+            'user_id' => (int) $validated['user_id'],
+        ]);
+
+        $beforeValues = $structure->exists ? [
+            'basic_salary' => (float) $structure->basic_salary,
+            'hra' => (float) $structure->hra,
+            'special_allowance' => (float) $structure->special_allowance,
+            'bonus' => (float) $structure->bonus,
+            'other_allowance' => (float) $structure->other_allowance,
+            'pf_deduction' => (float) $structure->pf_deduction,
+            'tax_deduction' => (float) $structure->tax_deduction,
+            'other_deduction' => (float) $structure->other_deduction,
+            'effective_from' => $structure->effective_from?->format('Y-m-d'),
+            'notes' => $structure->notes,
+        ] : null;
+
+        if (! $structure->exists) {
+            $structure->created_by_user_id = $viewer->id;
+        }
+
+        $structure->fill([
+            'basic_salary' => $validated['basic_salary'],
+            'hra' => $validated['hra'] ?? 0,
+            'special_allowance' => $validated['special_allowance'] ?? 0,
+            'bonus' => $validated['bonus'] ?? 0,
+            'other_allowance' => $validated['other_allowance'] ?? 0,
+            'pf_deduction' => $validated['pf_deduction'] ?? 0,
+            'tax_deduction' => $validated['tax_deduction'] ?? 0,
+            'other_deduction' => $validated['other_deduction'] ?? 0,
+            'effective_from' => blank($validated['effective_from'] ?? null) ? null : $validated['effective_from'],
+            'notes' => blank($validated['notes'] ?? null) ? null : $validated['notes'],
+            'updated_by_user_id' => $viewer->id,
+        ]);
+        $structure->save();
+
+        $afterValues = [
+            'basic_salary' => (float) $structure->basic_salary,
+            'hra' => (float) $structure->hra,
+            'special_allowance' => (float) $structure->special_allowance,
+            'bonus' => (float) $structure->bonus,
+            'other_allowance' => (float) $structure->other_allowance,
+            'pf_deduction' => (float) $structure->pf_deduction,
+            'tax_deduction' => (float) $structure->tax_deduction,
+            'other_deduction' => (float) $structure->other_deduction,
+            'effective_from' => $structure->effective_from?->format('Y-m-d'),
+            'notes' => $structure->notes,
+        ];
+
+        $changeSummary = $this->diffKeyValueSummary($beforeValues ?? [], $afterValues);
+        if ($changeSummary !== [] || $beforeValues === null) {
+            PayrollStructureHistory::query()->create([
+                'payroll_structure_id' => $structure->id,
+                'user_id' => $structure->user_id,
+                'changed_by_user_id' => $viewer->id,
+                'before_values' => $beforeValues,
+                'after_values' => $afterValues,
+                'change_summary' => $changeSummary,
+                'changed_at' => now(),
+            ]);
+        }
+
+        return [
+            'structure' => $structure,
+            'beforeValues' => $beforeValues,
+            'afterValues' => $afterValues,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $before
+     * @param array<string, mixed> $after
+     * @return array<int, array{field: string, from: mixed, to: mixed}>
+     */
+    private function diffKeyValueSummary(array $before, array $after): array
+    {
+        $keys = array_values(array_unique(array_merge(array_keys($before), array_keys($after))));
+        $changes = [];
+
+        foreach ($keys as $key) {
+            $from = $before[$key] ?? null;
+            $to = $after[$key] ?? null;
+
+            if ((string) $from === (string) $to) {
+                continue;
+            }
+
+            $changes[] = [
+                'field' => (string) $key,
+                'from' => $from,
+                'to' => $to,
+            ];
+        }
+
+        return $changes;
+    }
+
+    /**
+     * @param array<string, mixed>|null $oldValues
+     * @param array<string, mixed>|null $newValues
+     * @param array<string, mixed> $metadata
+     */
+    private function logPayrollAudit(
+        User $viewer,
+        string $entityType,
+        ?int $entityId,
+        string $action,
+        ?array $oldValues = null,
+        ?array $newValues = null,
+        array $metadata = [],
+    ): void {
+        AuditLog::query()->create([
+            'entity_type' => $entityType,
+            'entity_id' => $entityId,
+            'action' => $action,
+            'performed_by_user_id' => $viewer->id,
+            'old_values' => $oldValues,
+            'new_values' => $newValues,
+            'metadata' => $metadata,
+            'performed_at' => now(),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function workflowFilterRules(bool $monthRequired): array
+    {
+        $monthRule = $monthRequired ? 'required' : 'nullable';
+
+        return [
+            'payroll_month' => [$monthRule, 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
+            'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
+            'department' => ['nullable', 'string', 'max:120'],
+            'employee_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(function ($query): void {
+                    $query->where('role', UserRole::EMPLOYEE->value);
+                }),
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $validated
+     * @return array{branch: ?string, department: ?string, employeeId: ?int}
+     */
+    private function resolveWorkflowFilters(array $validated): array
+    {
+        $branch = null;
+        if (isset($validated['branch_id'])) {
+            $branchName = Branch::query()->whereKey((int) $validated['branch_id'])->value('name');
+            if (is_string($branchName) && trim($branchName) !== '') {
+                $branch = trim($branchName);
+            }
+        }
+
+        $department = null;
+        if (isset($validated['department_id'])) {
+            $departmentName = Department::query()->whereKey((int) $validated['department_id'])->value('name');
+            if (is_string($departmentName) && trim($departmentName) !== '') {
+                $department = trim($departmentName);
+            }
+        } elseif (filled($validated['department'] ?? null)) {
+            $department = trim((string) $validated['department']);
+        }
+
+        return [
+            'branch' => $branch,
+            'department' => $department,
+            'employeeId' => isset($validated['employee_id']) ? (int) $validated['employee_id'] : null,
+        ];
+    }
+
+    private function workflowEmployeeQuery(?string $branch, ?string $department, ?int $employeeId): Builder
+    {
+        return User::query()
+            ->where('role', UserRole::EMPLOYEE->value)
+            ->when(filled($branch), function (Builder $query) use ($branch): void {
+                $query->whereHas('profile', function (Builder $profileQuery) use ($branch): void {
+                    $profileQuery->whereRaw('LOWER(TRIM(branch)) = ?', [mb_strtolower(trim((string) $branch))]);
+                });
+            })
+            ->when(filled($department), function (Builder $query) use ($department): void {
+                $query->whereHas('profile', function (Builder $profileQuery) use ($department): void {
+                    $profileQuery->whereRaw('LOWER(TRIM(department)) = ?', [mb_strtolower(trim((string) $department))]);
+                });
+            })
+            ->when(($employeeId ?? 0) > 0, function (Builder $query) use ($employeeId): void {
+                $query->where('id', (int) $employeeId);
+            })
+            ->with(['profile', 'payrollStructure']);
+    }
+
+    private function workflowPayrollQuery(Carbon $monthStart, ?string $branch, ?string $department, ?int $employeeId): Builder
+    {
+        return Payroll::query()
+            ->with(['user.profile', 'generator', 'approvedBy', 'paidBy'])
+            ->whereYear('payroll_month', $monthStart->year)
+            ->whereMonth('payroll_month', $monthStart->month)
+            ->whereHas('user', function (Builder $query) use ($branch, $department, $employeeId): void {
+                $query
+                    ->where('role', UserRole::EMPLOYEE->value)
+                    ->when(filled($branch), function (Builder $userQuery) use ($branch): void {
+                        $userQuery->whereHas('profile', function (Builder $profileQuery) use ($branch): void {
+                            $profileQuery->whereRaw('LOWER(TRIM(branch)) = ?', [mb_strtolower(trim((string) $branch))]);
+                        });
+                    })
+                    ->when(filled($department), function (Builder $userQuery) use ($department): void {
+                        $userQuery->whereHas('profile', function (Builder $profileQuery) use ($department): void {
+                            $profileQuery->whereRaw('LOWER(TRIM(department)) = ?', [mb_strtolower(trim((string) $department))]);
+                        });
+                    })
+                    ->when(($employeeId ?? 0) > 0, function (Builder $userQuery) use ($employeeId): void {
+                        $userQuery->where('id', (int) $employeeId);
+                    });
+            });
+    }
+
+    private function activeMonthLock(Carbon $monthStart): ?PayrollMonthLock
+    {
+        return PayrollMonthLock::query()
+            ->with('lockedBy:id,name')
+            ->whereDate('payroll_month', $monthStart->toDateString())
+            ->whereNull('unlocked_at')
+            ->latest('locked_at')
+            ->first();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildWorkflowOverviewPayload(
+        Carbon $monthStart,
+        ?string $branch,
+        ?string $department,
+        ?int $employeeId,
+        User $viewer
+    ): array {
+        $records = $this->workflowPayrollQuery($monthStart, $branch, $department, $employeeId)->get();
+        $totalEmployees = $this->workflowEmployeeQuery($branch, $department, $employeeId)->count();
+        $activeLock = $this->activeMonthLock($monthStart);
+
+        $generatedCount = (int) $records->count();
+        $approvedCount = (int) $records->filter(function (Payroll $payroll): bool {
+            return in_array($payroll->status, [Payroll::STATUS_PROCESSED, Payroll::STATUS_PAID], true);
+        })->count();
+        $paidCount = (int) $records->where('status', Payroll::STATUS_PAID)->count();
+        $failedCount = (int) $records->where('status', Payroll::STATUS_FAILED)->count();
+        $draftCount = (int) $records->where('status', Payroll::STATUS_DRAFT)->count();
+        $netTotal = (float) $records->sum('net_salary');
+
+        $allApproved = $generatedCount > 0 && $approvedCount === $generatedCount;
+        $allPaid = $generatedCount > 0 && $paidCount === $generatedCount;
+        $isLocked = $activeLock !== null || $allPaid;
+
+        $workflowStatus = $isLocked
+            ? 'paid'
+            : ($allApproved ? 'approved' : ($generatedCount > 0 ? 'generated' : 'draft'));
+
+        $latestRecordUpdatedAt = $records->max('updated_at');
+        $latestTimestamp = $activeLock?->locked_at;
+        if ($latestRecordUpdatedAt instanceof Carbon) {
+            $latestTimestamp = $latestTimestamp instanceof Carbon
+                ? ($latestRecordUpdatedAt->greaterThan($latestTimestamp) ? $latestRecordUpdatedAt : $latestTimestamp)
+                : $latestRecordUpdatedAt;
+        }
+
+        $rows = $records->map(function (Payroll $record) use ($isLocked): array {
+            return [
+                'id' => $record->id,
+                'employeeId' => $record->user?->id,
+                'employeeName' => $record->user?->name ?? 'Unknown',
+                'department' => $record->user?->profile?->department ?? '',
+                'gross' => (float) $record->gross_earnings,
+                'deductions' => (float) $record->total_deductions,
+                'net' => (float) $record->net_salary,
+                'status' => (string) $record->status,
+                'uiStatus' => $this->dbStatusToUiStatus((string) $record->status),
+                'statusLabel' => $this->statusLabelFromDb((string) $record->status),
+                'error' => $record->status === Payroll::STATUS_FAILED ? ($record->notes ?: 'Calculation error') : null,
+                'locked' => $record->status === Payroll::STATUS_PAID || $isLocked,
+                'generatedBy' => $record->generator?->name,
+                'generatedAt' => $record->created_at?->toIso8601String(),
+                'approvedBy' => $record->approvedBy?->name,
+                'approvedAt' => $record->approved_at?->toIso8601String(),
+                'paidBy' => $record->paidBy?->name,
+                'paidAt' => $record->paid_at?->toIso8601String(),
+            ];
+        })->values()->all();
+
+        return [
+            'month' => $monthStart->format('Y-m'),
+            'header' => [
+                'payrollMonth' => $monthStart->format('M Y'),
+                'payrollMonthValue' => $monthStart->format('Y-m'),
+                'status' => $workflowStatus,
+                'statusLabel' => ucfirst($workflowStatus),
+                'totalEmployees' => $totalEmployees,
+                'totalNetPay' => round($netTotal, 2),
+                'lastUpdatedAt' => $latestTimestamp?->toIso8601String(),
+                'locked' => $isLocked,
+                'lockedAt' => $activeLock?->locked_at?->toIso8601String(),
+                'lockedBy' => $activeLock?->lockedBy?->name,
+            ],
+            'permissions' => [
+                'canGenerate' => $this->canGenerate($viewer),
+                'canApprove' => $this->canApprove($viewer),
+                'canMarkPaid' => $this->canMarkPaid($viewer),
+                'canUnlock' => $this->canUnlock($viewer),
+            ],
+            'steps' => [
+                'step1' => ! $isLocked,
+                'step2' => ! $isLocked,
+                'step3' => $generatedCount > 0 && ! $isLocked,
+                'step4' => $allApproved && ! $isLocked,
+            ],
+            'summary' => [
+                'generatedCount' => $generatedCount,
+                'approvedCount' => $approvedCount,
+                'paidCount' => $paidCount,
+                'failedCount' => $failedCount,
+                'draftCount' => $draftCount,
+            ],
+            'records' => $rows,
+        ];
+    }
+
+    private function canGenerate(User $viewer): bool
+    {
+        return $viewer->hasAnyRole([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::HR->value,
+            UserRole::ADMIN->value,
+        ]);
+    }
+
+    private function canApprove(User $viewer): bool
+    {
+        return $viewer->hasAnyRole([UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value]);
+    }
+
+    private function canMarkPaid(User $viewer): bool
+    {
+        return $viewer->hasAnyRole([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::FINANCE->value,
+            UserRole::ADMIN->value,
+        ]);
+    }
+
+    private function canUnlock(User $viewer): bool
+    {
+        return $viewer->hasRole(UserRole::SUPER_ADMIN->value);
+    }
+
+    private function assertCanGenerate(User $viewer): void
+    {
+        if (! $this->canGenerate($viewer)) {
+            abort(403, 'Only HR Manager, Admin, or Super Admin can generate payroll.');
+        }
+    }
+
+    private function assertCanApprove(User $viewer): void
+    {
+        if (! $this->canApprove($viewer)) {
+            abort(403, 'Only Admin or Super Admin can approve payroll.');
+        }
+    }
+
+    private function assertCanMarkPaid(User $viewer): void
+    {
+        if (! $this->canMarkPaid($viewer)) {
+            abort(403, 'Only Finance, Admin, or Super Admin can mark payroll as paid.');
+        }
+    }
+
+    private function assertCanUnlock(User $viewer): void
+    {
+        if (! $this->canUnlock($viewer)) {
+            abort(403, 'Only Super Admin can unlock paid payroll months.');
+        }
+    }
+
+    private function dbStatusToUiStatus(string $dbStatus): string
+    {
+        return match ($dbStatus) {
+            Payroll::STATUS_DRAFT => 'generated',
+            Payroll::STATUS_PROCESSED => 'approved',
+            Payroll::STATUS_PAID => 'paid',
+            Payroll::STATUS_FAILED => 'failed',
+            default => 'generated',
+        };
+    }
+
+    private function uiStatusToDbStatus(?string $uiStatus): ?string
+    {
+        $status = strtolower((string) ($uiStatus ?? ''));
+
+        return match ($status) {
+            'generated' => Payroll::STATUS_DRAFT,
+            'approved' => Payroll::STATUS_PROCESSED,
+            'paid' => Payroll::STATUS_PAID,
+            'failed' => Payroll::STATUS_FAILED,
+            default => null,
+        };
+    }
+
+    private function statusLabelFromDb(string $dbStatus): string
+    {
+        return match ($dbStatus) {
+            Payroll::STATUS_DRAFT => 'Generated',
+            Payroll::STATUS_PROCESSED => 'Approved',
+            Payroll::STATUS_PAID => 'Paid',
+            Payroll::STATUS_FAILED => 'Failed',
+            default => (string) str($dbStatus)->replace('_', ' ')->title(),
+        };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function validateStructurePayload(Request $request): array
     {
         return $request->validate([
@@ -680,7 +2534,12 @@ class PayrollController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->hasAnyRole([UserRole::ADMIN->value, UserRole::HR->value])) {
+        if (! $viewer instanceof User || ! $viewer->hasAnyRole([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::HR->value,
+            UserRole::FINANCE->value,
+        ])) {
             abort(403, 'You do not have access to this resource.');
         }
 

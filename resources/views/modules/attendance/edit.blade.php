@@ -18,18 +18,15 @@
             @method('PUT')
 
             <div>
-                <label for="user_id" class="ui-kpi-label block mb-2">Employee</label>
-                <select id="user_id" name="user_id" class="ui-select">
-                    <option value="">Select employee</option>
-                    @foreach($employeeOptions as $employee)
-                        @php
-                            $profile = $employee->profile;
-                        @endphp
-                        <option value="{{ $employee->id }}" {{ (string) old('user_id', $attendance->user_id) === (string) $employee->id ? 'selected' : '' }}>
-                            {{ $employee->name }} ({{ $profile?->department ?? 'No Department' }})
-                        </option>
-                    @endforeach
-                </select>
+                <label for="attendance_edit_user_id" class="ui-kpi-label block mb-2">Employee</label>
+                <div
+                    data-employee-autocomplete-root
+                    data-api-url="{{ route('api.employees.search') }}"
+                    data-name="user_id"
+                    data-input-id="attendance_edit_user_id"
+                    data-required="true"
+                    data-selected='@json($selectedEmployee)'
+                ></div>
                 @error('user_id')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror

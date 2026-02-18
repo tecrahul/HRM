@@ -749,7 +749,7 @@
         </article>
     </section>
 
-    <div id="avatarCropModal" class="fixed inset-0 z-[90] hidden items-center justify-center p-4" style="background: rgb(2 8 23 / 0.72);">
+    <div id="avatarCropModal" class="fixed inset-0 z-[2200] hidden items-center justify-center p-4" style="background: rgb(2 8 23 / 0.72);">
         <div class="w-full max-w-3xl rounded-2xl border p-4 md:p-5" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
             <div class="flex items-center justify-between gap-3">
                 <div>
@@ -1087,6 +1087,7 @@
             const setModalOpen = (open) => {
                 cropModal.classList.toggle('hidden', !open);
                 cropModal.classList.toggle('flex', open);
+                document.body.classList.toggle('app-legacy-modal-open', open);
             };
 
             const resetSelection = () => {

@@ -358,7 +358,32 @@
         $preferredSelectedId = (int) ($selectedEmployeeId ?? 0);
         $resolvedSelectedId = in_array($preferredSelectedId, $employeeIdsOnPage, true)
             ? $preferredSelectedId
-            : ($employeeIdsOnPage[0] ?? null);
+            : null;
+        $resolveAvatarUrl = static function (?string $avatarUrl): string {
+            $raw = trim((string) $avatarUrl);
+            if ($raw === '') {
+                return asset('images/user-avatar.svg');
+            }
+
+            if (
+                str_starts_with($raw, 'http://')
+                || str_starts_with($raw, 'https://')
+                || str_starts_with($raw, 'data:')
+                || str_starts_with($raw, '/')
+            ) {
+                return $raw;
+            }
+
+            if (str_starts_with($raw, 'storage/')) {
+                return asset($raw);
+            }
+
+            if (str_starts_with($raw, 'public/')) {
+                return asset('storage/'.ltrim(substr($raw, 7), '/'));
+            }
+
+            return asset('storage/'.$raw);
+        };
         $totalEmployees = (int) ($stats['total'] ?? 0);
         $activeEmployees = (int) ($stats['active'] ?? 0);
         $newJoinersThisMonth = (int) ($stats['newJoiners'] ?? 0);
@@ -638,14 +663,15 @@
                                         $statusClass = 'is-active';
                                     }
 
-                                    $cardSelectUrl = route('modules.employees.index', array_merge(request()->except('selected'), ['selected' => $employee->id]));
+                                    $employeeOverviewUrl = route('employees.overview', $employee);
+                                    $avatarUrl = $resolveAvatarUrl($profile?->avatar_url);
                                     $isSelected = $resolvedSelectedId !== null && (int) $employee->id === (int) $resolvedSelectedId;
                                 @endphp
 
                                 <tr class="{{ $isSelected ? 'is-selected' : '' }}">
                                     <td>
                                         <div class="flex items-center gap-3">
-                                            <img src="{{ asset('images/user-avatar.svg') }}" alt="{{ $employee->name }} profile" class="h-10 w-10 rounded-full border object-cover" style="border-color: var(--emp-card-border);">
+                                            <img src="{{ $avatarUrl }}" alt="{{ $employee->name }} profile" class="h-10 w-10 rounded-full border object-cover" style="border-color: var(--emp-card-border);">
                                             <div>
                                                 <p class="text-sm font-bold emp-main-text">{{ $employee->name }}</p>
                                                 <p class="text-xs font-semibold" style="color: var(--emp-job-color);">{{ $profile?->job_title ?? 'Employee' }}</p>
@@ -670,7 +696,7 @@
                                     </td>
                                     <td>
                                         <div class="flex items-center justify-end gap-2">
-                                            <a href="{{ $cardSelectUrl }}" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border" style="border-color: var(--emp-control-border); color: var(--emp-text-main);">Select</a>
+                                            <a href="{{ $employeeOverviewUrl }}" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border" style="border-color: var(--emp-control-border); color: var(--emp-text-main);">View</a>
                                             @if ($canManageUsers)
                                                 <a href="{{ route('admin.users.edit', $employee) }}" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border" style="border-color: var(--emp-control-border); color: var(--emp-text-main);">Edit</a>
                                                 <form method="POST" action="{{ route('admin.users.destroy', $employee) }}" onsubmit="return confirm('Delete this employee?');">
@@ -714,7 +740,8 @@
                                 $statusClass = 'is-active';
                             }
 
-                            $cardSelectUrl = route('modules.employees.index', array_merge(request()->except('selected'), ['selected' => $employee->id]));
+                            $employeeOverviewUrl = route('employees.overview', $employee);
+                            $avatarUrl = $resolveAvatarUrl($profile?->avatar_url);
                             $isSelected = $resolvedSelectedId !== null && (int) $employee->id === (int) $resolvedSelectedId;
                         @endphp
 
@@ -731,7 +758,7 @@
                                         </svg>
                                     </summary>
                                     <div class="emp-menu-panel absolute right-0 z-20 mt-2 w-44 rounded-xl p-2 text-sm">
-                                        <a href="{{ $cardSelectUrl }}" class="block rounded-lg px-2.5 py-2 hover:bg-blue-500/20 emp-main-text">Select Card</a>
+                                        <a href="{{ $employeeOverviewUrl }}" class="block rounded-lg px-2.5 py-2 hover:bg-blue-500/20 emp-main-text">View Employee</a>
                                         @if ($canManageUsers)
                                             <a href="{{ route('admin.users.edit', $employee) }}" class="block rounded-lg px-2.5 py-2 hover:bg-blue-500/20 emp-main-text">Edit Employee</a>
                                             <form method="POST" action="{{ route('admin.users.destroy', $employee) }}" onsubmit="return confirm('Delete this employee?');">
@@ -745,7 +772,7 @@
                             </div>
 
                             <div class="mt-4 flex items-center gap-3">
-                                <img src="{{ asset('images/user-avatar.svg') }}" alt="{{ $employee->name }} profile" class="h-14 w-14 rounded-full border object-cover" style="border-color: var(--emp-card-border);">
+                                <img src="{{ $avatarUrl }}" alt="{{ $employee->name }} profile" class="h-14 w-14 rounded-full border object-cover" style="border-color: var(--emp-card-border);">
                                 <div>
                                     <h5 class="text-base font-bold emp-main-text">{{ $employee->name }}</h5>
                                     <p class="text-sm font-semibold" style="color: var(--emp-job-color);">{{ $profile?->job_title ?? 'Employee' }}</p>
