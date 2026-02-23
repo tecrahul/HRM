@@ -31,6 +31,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(PermissionSeeder::class);
+
         DB::transaction(function (): void {
             $defaultPassword = 'Password@123';
             $today = now()->startOfDay();

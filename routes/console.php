@@ -404,6 +404,9 @@ Artisan::command(
                     ],
                     [
                         'is_optional' => (bool) $holidayTemplate['optional'],
+                        'holiday_type' => (bool) $holidayTemplate['optional'] ? 'optional' : 'public',
+                        'is_active' => true,
+                        'end_date' => null,
                         'description' => "Demo holiday for {$year}",
                         'created_by_user_id' => $admin->id,
                         'updated_by_user_id' => $admin->id,
@@ -424,6 +427,9 @@ Artisan::command(
                 ],
                 [
                     'is_optional' => true,
+                    'holiday_type' => 'optional',
+                    'is_active' => true,
+                    'end_date' => null,
                     'description' => "Branch specific holiday for {$branch->name}",
                     'created_by_user_id' => $admin->id,
                     'updated_by_user_id' => $admin->id,

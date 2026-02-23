@@ -14,7 +14,10 @@ class Holiday extends Model
     protected $fillable = [
         'name',
         'holiday_date',
+        'end_date',
         'branch_id',
+        'holiday_type',
+        'is_active',
         'is_optional',
         'description',
         'created_by_user_id',
@@ -28,6 +31,8 @@ class Holiday extends Model
     {
         return [
             'holiday_date' => 'date',
+            'end_date' => 'date',
+            'is_active' => 'bool',
             'is_optional' => 'bool',
         ];
     }
@@ -49,6 +54,15 @@ class Holiday extends Model
 
     public function scopeWithinDateRange(Builder $query, string $startDate, string $endDate): Builder
     {
-        return $query->whereBetween('holiday_date', [$startDate, $endDate]);
+        return $query->where(function (Builder $rangeQuery) use ($startDate, $endDate): void {
+            $rangeQuery
+                ->whereBetween('holiday_date', [$startDate, $endDate])
+                ->orWhere(function (Builder $multiDayQuery) use ($startDate, $endDate): void {
+                    $multiDayQuery
+                        ->whereNotNull('end_date')
+                        ->whereDate('holiday_date', '<=', $endDate)
+                        ->whereDate('end_date', '>=', $startDate);
+                });
+        });
     }
 }

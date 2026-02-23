@@ -41,52 +41,6 @@
         </div>
     </section>
 
-    <section class="ui-kpi-grid is-4">
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Attendance Score</p>
-                    <p class="ui-kpi-value">{{ number_format((float) $employeeSnapshot['attendanceScore'], 1) }}%</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-sky"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
-            </div>
-            <p class="ui-kpi-meta">Present units {{ number_format((float) $employeeSnapshot['presentUnits'], 1) }} / {{ $employeeSnapshot['monthDays'] }}</p>
-        </article>
-
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Leave Balance</p>
-                    <p class="ui-kpi-value">{{ number_format((float) $employeeSnapshot['remainingLeave'], 1) }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-amber"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path></svg></span>
-            </div>
-            <p class="ui-kpi-meta">Pending requests {{ $employeeSnapshot['pendingLeaves'] }}</p>
-        </article>
-
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Latest Payroll</p>
-                    <p class="ui-kpi-value">{{ number_format((float) $employeeSnapshot['latestPayrollNet'], 2) }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-violet"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg></span>
-            </div>
-            <p class="ui-kpi-meta">Status {{ str($employeeSnapshot['latestPayrollStatus'])->replace('_', ' ')->title() }}</p>
-        </article>
-
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Net Paid (Year)</p>
-                    <p class="ui-kpi-value">{{ number_format((float) $employeeSnapshot['thisYearNet'], 2) }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-green"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><path d="M7 13l4-4 3 3 5-6"></path></svg></span>
-            </div>
-            <p class="ui-kpi-meta">Pending payslips {{ $employeeSnapshot['payrollPending'] }}</p>
-        </article>
-    </section>
-
     <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
         <article class="ui-section">
             <div class="ui-section-head">

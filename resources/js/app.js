@@ -8,6 +8,11 @@ import { mountEmployeeAutocompletes } from './components/EmployeeAutocomplete';
 import { mountEmployeeOnboardingOverview } from './components/employees/EmployeeOnboardingOverview';
 import { mountDashboardGreetings } from './components/dashboard/GreetingHeader';
 import { mountSmtpSettingsPage } from './components/settings/SmtpSettingsApp';
+import { mountBranchesPageApp } from './components/branches/BranchesPageApp';
+import { mountDepartmentsPageApp } from './components/departments/DepartmentsPageApp';
+import { mountLeaveManagementPage } from './pages/LeaveManagement/LeaveManagementPage';
+import { mountAttendancePage } from './pages/Attendance/AttendancePage';
+import { mountHolidaysPage } from './pages/Holidays/HolidaysPage';
 
 const syncLegacyModalScrollLock = () => {
     const hasOpenLegacyModal = Boolean(document.querySelector('.modal-backdrop.is-open'));
@@ -92,3 +97,8 @@ mountEmployeeAutocompletes();
 mountEmployeeOnboardingOverview();
 mountDashboardGreetings();
 mountSmtpSettingsPage();
+mountBranchesPageApp();
+mountDepartmentsPageApp();
+mountLeaveManagementPage();
+mountAttendancePage();
+mountHolidaysPage();

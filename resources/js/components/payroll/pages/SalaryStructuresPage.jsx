@@ -12,6 +12,7 @@ import {
     useDebouncedValue,
 } from '../shared/ui';
 import { AppModalPortal } from '../../shared/AppModalPortal';
+import { QuickInfoGrid } from '../../common/QuickInfoGrid';
 
 const initialFormState = {
     basic_salary: '',
@@ -213,12 +214,12 @@ export function SalaryStructuresPage({ urls, csrfToken, filters, initialStatus =
         <div className="space-y-5">
             <section className="ui-section">
                 <SectionHeader title="Salary Structure Overview" subtitle="Configuration health and salary baseline across selected employees." />
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <QuickInfoGrid className="mt-4">
                     <InfoCard label="Total Employees" value={loading ? '...' : formatCount(summary?.totalEmployees ?? 0)} icon="users" />
                     <InfoCard label="With Structure" value={loading ? '...' : formatCount(summary?.withStructure ?? 0)} tone="success" icon="shield" />
                     <InfoCard label="Missing Structure" value={loading ? '...' : formatCount(summary?.missingStructure ?? 0)} tone="warning" icon="warning" />
                     <InfoCard label="Average Gross Salary" value={loading ? '...' : formatMoney(summary?.averageGrossSalary ?? 0)} tone="info" icon="money" />
-                </div>
+                </QuickInfoGrid>
             </section>
 
             <section className="ui-section">

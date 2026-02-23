@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\LeaveRequest;
 use App\Models\User;
+use App\Support\FinancialYear;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -31,12 +32,12 @@ class LeaveModuleTest extends TestCase
         $this->actingAs($admin)
             ->get(route('modules.leave.index'))
             ->assertOk()
-            ->assertSee('Leave Directory');
+            ->assertSee('Leave Management');
 
         $this->actingAs($hr)
             ->get(route('modules.leave.index'))
             ->assertOk()
-            ->assertSee('Pending Approvals');
+            ->assertSee('Leave Management');
     }
 
     public function test_employee_sees_leave_self_service_page(): void
@@ -48,9 +49,199 @@ class LeaveModuleTest extends TestCase
         $this->actingAs($employee)
             ->get(route('modules.leave.index'))
             ->assertOk()
-            ->assertSee('Apply Leave')
-            ->assertSee('Leave History')
-            ->assertDontSee('Pending Approvals');
+            ->assertSee('Leave Management')
+            ->assertSee('leave-management-root');
+    }
+
+    public function test_leave_filters_default_to_current_financial_year(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::ADMIN->value,
+        ]);
+
+        $employee = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+
+        $range = FinancialYear::rangeForStartYear(FinancialYear::currentStartYear());
+        $dateFrom = $range['start']->toDateString();
+        $dateTo = $range['end']->toDateString();
+
+        LeaveRequest::query()->create([
+            'user_id' => $employee->id,
+            'leave_type' => LeaveRequest::TYPE_CASUAL,
+            'day_type' => LeaveRequest::DAY_TYPE_FULL,
+            'start_date' => $range['start']->copy()->subDay()->toDateString(),
+            'end_date' => $range['start']->copy()->subDay()->toDateString(),
+            'total_days' => 1.0,
+            'reason' => 'Before FY window',
+            'status' => LeaveRequest::STATUS_APPROVED,
+        ]);
+
+        $insideLeave = LeaveRequest::query()->create([
+            'user_id' => $employee->id,
+            'leave_type' => LeaveRequest::TYPE_CASUAL,
+            'day_type' => LeaveRequest::DAY_TYPE_FULL,
+            'start_date' => $range['start']->copy()->addDay()->toDateString(),
+            'end_date' => $range['start']->copy()->addDay()->toDateString(),
+            'total_days' => 1.0,
+            'reason' => 'Within FY window',
+            'status' => LeaveRequest::STATUS_APPROVED,
+        ]);
+
+        $response = $this->actingAs($admin)->getJson(route('modules.leave.index'));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('filters.date_from', $dateFrom)
+            ->assertJsonPath('filters.date_to', $dateTo)
+            ->assertJsonPath('meta.total', 1);
+
+        $this->assertSame([$insideLeave->id], collect($response->json('data'))->pluck('id')->all());
+    }
+
+    public function test_management_roles_can_filter_by_specific_employee(): void
+    {
+        $employeeA = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+        $employeeB = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+
+        $range = FinancialYear::rangeForStartYear(FinancialYear::currentStartYear());
+        $baseDate = $range['start']->copy()->addDays(5)->toDateString();
+
+        $leaveA = LeaveRequest::query()->create([
+            'user_id' => $employeeA->id,
+            'leave_type' => LeaveRequest::TYPE_CASUAL,
+            'day_type' => LeaveRequest::DAY_TYPE_FULL,
+            'start_date' => $baseDate,
+            'end_date' => $baseDate,
+            'total_days' => 1.0,
+            'reason' => 'Employee A leave',
+            'status' => LeaveRequest::STATUS_PENDING,
+        ]);
+
+        LeaveRequest::query()->create([
+            'user_id' => $employeeB->id,
+            'leave_type' => LeaveRequest::TYPE_SICK,
+            'day_type' => LeaveRequest::DAY_TYPE_FULL,
+            'start_date' => $range['start']->copy()->addDays(6)->toDateString(),
+            'end_date' => $range['start']->copy()->addDays(6)->toDateString(),
+            'total_days' => 1.0,
+            'reason' => 'Employee B leave',
+            'status' => LeaveRequest::STATUS_PENDING,
+        ]);
+
+        foreach ([UserRole::SUPER_ADMIN, UserRole::ADMIN, UserRole::HR] as $role) {
+            $manager = User::factory()->create([
+                'role' => $role->value,
+            ]);
+
+            $response = $this->actingAs($manager)->getJson(route('modules.leave.index', [
+                'employee_id' => $employeeA->id,
+            ]));
+
+            $response
+                ->assertOk()
+                ->assertJsonPath('filters.employee_id', (string) $employeeA->id)
+                ->assertJsonPath('meta.total', 1);
+
+            $this->assertSame([$leaveA->id], collect($response->json('data'))->pluck('id')->all());
+        }
+    }
+
+    public function test_finance_cannot_filter_by_specific_employee(): void
+    {
+        $finance = User::factory()->create([
+            'role' => UserRole::FINANCE->value,
+        ]);
+        $employeeA = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+        $employeeB = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+
+        $range = FinancialYear::rangeForStartYear(FinancialYear::currentStartYear());
+        $leaveA = LeaveRequest::query()->create([
+            'user_id' => $employeeA->id,
+            'leave_type' => LeaveRequest::TYPE_CASUAL,
+            'day_type' => LeaveRequest::DAY_TYPE_FULL,
+            'start_date' => $range['start']->copy()->addDays(7)->toDateString(),
+            'end_date' => $range['start']->copy()->addDays(7)->toDateString(),
+            'total_days' => 1.0,
+            'reason' => 'Finance view leave A',
+            'status' => LeaveRequest::STATUS_PENDING,
+        ]);
+        $leaveB = LeaveRequest::query()->create([
+            'user_id' => $employeeB->id,
+            'leave_type' => LeaveRequest::TYPE_EARNED,
+            'day_type' => LeaveRequest::DAY_TYPE_FULL,
+            'start_date' => $range['start']->copy()->addDays(8)->toDateString(),
+            'end_date' => $range['start']->copy()->addDays(8)->toDateString(),
+            'total_days' => 1.0,
+            'reason' => 'Finance view leave B',
+            'status' => LeaveRequest::STATUS_PENDING,
+        ]);
+
+        $response = $this->actingAs($finance)->getJson(route('modules.leave.index', [
+            'employee_id' => $employeeA->id,
+        ]));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('filters.employee_id', '')
+            ->assertJsonPath('meta.total', 2);
+
+        $this->assertEqualsCanonicalizing(
+            [$leaveA->id, $leaveB->id],
+            collect($response->json('data'))->pluck('id')->all()
+        );
+    }
+
+    public function test_employee_cannot_filter_by_other_employee_id(): void
+    {
+        $employeeA = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+        $employeeB = User::factory()->create([
+            'role' => UserRole::EMPLOYEE->value,
+        ]);
+
+        $range = FinancialYear::rangeForStartYear(FinancialYear::currentStartYear());
+        $leaveA = LeaveRequest::query()->create([
+            'user_id' => $employeeA->id,
+            'leave_type' => LeaveRequest::TYPE_CASUAL,
+            'day_type' => LeaveRequest::DAY_TYPE_FULL,
+            'start_date' => $range['start']->copy()->addDays(9)->toDateString(),
+            'end_date' => $range['start']->copy()->addDays(9)->toDateString(),
+            'total_days' => 1.0,
+            'reason' => 'Own leave',
+            'status' => LeaveRequest::STATUS_PENDING,
+        ]);
+        LeaveRequest::query()->create([
+            'user_id' => $employeeB->id,
+            'leave_type' => LeaveRequest::TYPE_SICK,
+            'day_type' => LeaveRequest::DAY_TYPE_FULL,
+            'start_date' => $range['start']->copy()->addDays(10)->toDateString(),
+            'end_date' => $range['start']->copy()->addDays(10)->toDateString(),
+            'total_days' => 1.0,
+            'reason' => 'Other employee leave',
+            'status' => LeaveRequest::STATUS_PENDING,
+        ]);
+
+        $response = $this->actingAs($employeeA)->getJson(route('modules.leave.index', [
+            'employee_id' => $employeeB->id,
+        ]));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('filters.employee_id', '')
+            ->assertJsonPath('meta.total', 1);
+
+        $this->assertSame([$leaveA->id], collect($response->json('data'))->pluck('id')->all());
     }
 
     public function test_employee_can_submit_leave_request(): void

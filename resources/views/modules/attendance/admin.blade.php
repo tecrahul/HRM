@@ -103,6 +103,178 @@
             box-shadow: 0 20px 38px -24px rgb(124 58 237 / 0.9);
             background: linear-gradient(120deg, #7c3aed, #ec4899);
         }
+
+        .att-create-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            border-radius: 0.75rem;
+            padding: 0.62rem 1rem;
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(120deg, #0f766e, #0ea5a4);
+            box-shadow: 0 16px 32px -24px rgb(15 118 110 / 0.9);
+        }
+
+        .att-create-btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        .att-form-shell {
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transform: translateY(-8px);
+            transition: max-height 360ms ease, opacity 260ms ease, transform 260ms ease;
+            pointer-events: none;
+        }
+
+        .att-form-shell.is-open {
+            max-height: 1600px;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .att-workflow-grid {
+            display: grid;
+            gap: 0.9rem;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+
+        @media (min-width: 768px) {
+            .att-workflow-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        .att-workflow-card {
+            border: 1px solid var(--hr-line);
+            background: var(--hr-surface);
+            border-radius: 1rem;
+            padding: 0.95rem 1rem;
+            box-shadow: 0 14px 24px -24px rgb(2 8 23 / 0.85);
+        }
+
+        .att-workflow-step {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(120deg, #0f766e, #0ea5a4);
+        }
+
+        .att-filter-shell {
+            margin-top: 1rem;
+            border: 1px solid var(--hr-line);
+            border-radius: 1rem;
+            padding: 0.95rem;
+            background: var(--hr-surface-strong);
+        }
+
+        .att-filter-grid {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+
+        @media (min-width: 768px) {
+            .att-filter-grid {
+                grid-template-columns: repeat(12, minmax(0, 1fr));
+            }
+        }
+
+        .att-filter-col-3 {
+            grid-column: span 12 / span 12;
+        }
+
+        .att-filter-col-2 {
+            grid-column: span 12 / span 12;
+        }
+
+        @media (min-width: 768px) {
+            .att-filter-col-3 {
+                grid-column: span 3 / span 3;
+            }
+
+            .att-filter-col-2 {
+                grid-column: span 2 / span 2;
+            }
+        }
+
+        .att-filter-label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--hr-text-muted);
+        }
+
+        .att-filter-actions {
+            display: flex;
+            align-items: end;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .att-pill-list {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+        }
+
+        .att-pill {
+            border-radius: 999px;
+            border: 1px solid var(--hr-line);
+            background: var(--hr-surface);
+            padding: 0.32rem 0.72rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--hr-text-muted);
+        }
+
+        .att-status-legend {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+            margin-top: 0.9rem;
+        }
+
+        .att-status-legend .chip {
+            border-radius: 999px;
+            padding: 0.2rem 0.62rem;
+            font-size: 0.69rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .att-table-wrap {
+            margin-top: 0.8rem;
+        }
+
+        .att-table-wrap .ui-table tbody tr {
+            transition: background 180ms ease;
+        }
+
+        .att-table-wrap .ui-table tbody tr:hover {
+            background: rgb(14 165 233 / 0.06);
+        }
+
+        html.dark .att-table-wrap .ui-table tbody tr:hover {
+            background: rgb(14 165 233 / 0.12);
+        }
     </style>
 @endpush
 
@@ -152,6 +324,18 @@
         $presentTrendClass = $presentDelta > 0 ? 'is-up' : ($presentDelta < 0 ? 'is-down' : 'is-neutral');
         $pendingTrendClass = $pendingDelta < 0 ? 'is-up' : ($pendingDelta > 0 ? 'is-down' : 'is-neutral');
         $headcountProgress = $totalEmployees > 0 ? round((max(0, $headcountDelta) / $totalEmployees) * 100, 1) : 0.0;
+        $shouldOpenForm = $errors->any();
+        $activeFilterCount = collect([
+            $filters['q'] ?? '',
+            $filters['employee_id'] ?? '',
+            $filters['department'] ?? '',
+            $filters['branch'] ?? '',
+            $filters['status'] ?? '',
+            $filters['attendance_date'] ?? '',
+        ])->filter(fn ($value) => filled((string) $value))->count();
+        $recordsFrom = $records->firstItem() ?? 0;
+        $recordsTo = $records->lastItem() ?? 0;
+        $recordsTotal = $records->total();
     @endphp
 
     <section class="att-hero rounded-3xl p-4 md:p-5">
@@ -163,9 +347,18 @@
             </div>
 
             <div class="flex flex-col sm:flex-row gap-2.5">
-                <a href="#mark-attendance-form" class="att-hero-btn inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold">
-                    Mark Attendance
-                </a>
+                <button
+                    type="button"
+                    class="att-hero-btn inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold"
+                    data-attendance-form-open
+                    aria-expanded="{{ $shouldOpenForm ? 'true' : 'false' }}"
+                >
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14"></path>
+                        <path d="M5 12h14"></path>
+                    </svg>
+                    <span data-attendance-form-open-label>Mark Attendance</span>
+                </button>
                 <a href="#attendance-directory" class="ui-btn ui-btn-ghost">View Directory</a>
             </div>
         </div>
@@ -241,13 +434,69 @@
         </div>
     </section>
 
-    <section class="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <article id="mark-attendance-form" class="ui-section xl:col-span-2">
+    <section class="ui-section">
+        <div class="ui-section-head">
+            <div>
+                <h3 class="ui-section-title">Attendance Workflow</h3>
+                <p class="ui-section-subtitle">Follow this sequence to mark records quickly and reduce manual errors.</p>
+            </div>
+        </div>
+
+        <div class="att-workflow-grid mt-4">
+            <article class="att-workflow-card">
+                <div class="flex items-center gap-2">
+                    <span class="att-workflow-step">1</span>
+                    <p class="font-semibold">Open Mark Attendance</p>
+                </div>
+                <p class="text-sm mt-2" style="color: var(--hr-text-muted);">
+                    Use the + Mark Attendance button to open the form and select employee/date.
+                </p>
+            </article>
+            <article class="att-workflow-card">
+                <div class="flex items-center gap-2">
+                    <span class="att-workflow-step">2</span>
+                    <p class="font-semibold">Save Status and Time</p>
+                </div>
+                <p class="text-sm mt-2" style="color: var(--hr-text-muted);">
+                    Choose attendance status and optional check-in/check-out. Save to create or update record.
+                </p>
+            </article>
+            <article class="att-workflow-card">
+                <div class="flex items-center gap-2">
+                    <span class="att-workflow-step">3</span>
+                    <p class="font-semibold">Review in Directory</p>
+                </div>
+                <p class="text-sm mt-2" style="color: var(--hr-text-muted);">
+                    Use filters and status chips to audit entries and edit incorrect records.
+                </p>
+            </article>
+        </div>
+    </section>
+
+    <section
+        id="mark-attendance-form"
+        class="att-form-shell{{ $shouldOpenForm ? ' is-open' : '' }}"
+        data-attendance-form-shell
+        data-initial-open="{{ $shouldOpenForm ? '1' : '0' }}"
+    >
+        <article class="ui-section">
             <div class="ui-section-head">
                 <div>
                     <h3 class="ui-section-title">Mark Attendance</h3>
                     <p class="ui-section-subtitle">Create or update attendance records for any employee.</p>
                 </div>
+                <button
+                    type="button"
+                    class="h-9 w-9 rounded-lg border inline-flex items-center justify-center"
+                    style="border-color: var(--hr-line);"
+                    data-attendance-form-close
+                    aria-label="Close form"
+                >
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6 6 18"></path>
+                        <path d="m6 6 12 12"></path>
+                    </svg>
+                </button>
             </div>
 
             <form method="POST" action="{{ route('modules.attendance.store') }}" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -311,97 +560,170 @@
                 </div>
                 <div class="md:col-span-2 flex items-center gap-2">
                     <button type="submit" class="ui-btn ui-btn-primary">Save Attendance</button>
+                    <button type="button" class="ui-btn ui-btn-ghost" data-attendance-form-close>Cancel</button>
                 </div>
             </form>
         </article>
+    </section>
 
-        <article class="ui-section">
-            <div class="ui-section-head">
-                <div>
-                    <h3 class="ui-section-title">Status Breakdown</h3>
-                    <p class="ui-section-subtitle">Current month attendance by status.</p>
-                </div>
+    <section class="ui-section">
+        <div class="ui-section-head">
+            <div>
+                <h3 class="ui-section-title">Status Breakdown</h3>
+                <p class="ui-section-subtitle">Current month attendance by status.</p>
             </div>
+        </div>
 
-            <ul class="mt-4 space-y-3 text-sm">
-                @forelse($statusBreakdown as $item)
-                    <li class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                        <div class="flex items-center justify-between gap-2">
-                            <p class="font-semibold">{{ str($item->status)->replace('_', ' ')->title() }}</p>
-                            <span class="ui-status-chip" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
-                                {{ $item->record_count }}
-                            </span>
-                        </div>
-                    </li>
-                @empty
-                    <li class="ui-empty rounded-xl border" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">No attendance records available yet.</li>
-                @endforelse
-            </ul>
-        </article>
+        <ul class="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm">
+            @forelse($statusBreakdown as $item)
+                <li class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="font-semibold">{{ str($item->status)->replace('_', ' ')->title() }}</p>
+                        <span class="ui-status-chip" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
+                            {{ $item->record_count }}
+                        </span>
+                    </div>
+                </li>
+            @empty
+                <li class="ui-empty rounded-xl border md:col-span-2 xl:col-span-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">No attendance records available yet.</li>
+            @endforelse
+        </ul>
     </section>
 
     <section id="attendance-directory" class="ui-section">
-        <div class="ui-section-head">
+        <div class="ui-section-head flex-wrap gap-3">
             <div>
                 <h3 class="ui-section-title">Attendance Directory</h3>
                 <p class="ui-section-subtitle">Filter and audit attendance records.</p>
             </div>
+            <button
+                type="button"
+                class="att-create-btn"
+                data-attendance-form-open
+                aria-expanded="{{ $shouldOpenForm ? 'true' : 'false' }}"
+            >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14"></path>
+                    <path d="M5 12h14"></path>
+                </svg>
+                <span data-attendance-form-open-label>+ Mark Attendance</span>
+            </button>
         </div>
 
-        <form method="GET" action="{{ route('modules.attendance.index') }}" class="mt-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-            <input
-                type="text"
-                name="q"
-                value="{{ $filters['q'] }}"
-                placeholder="Search notes, department, or branch..."
-                class="ui-input md:col-span-2"
-            >
-
-            <div>
-                <div
-                    data-employee-autocomplete-root
-                    data-api-url="{{ route('api.employees.search') }}"
-                    data-name="employee_id"
-                    data-input-id="attendance_filter_employee_id"
-                    data-selected='@json($selectedFilterEmployee)'
-                ></div>
+        <div class="att-filter-shell">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-sm font-semibold">
+                    Showing {{ number_format($recordsFrom) }}-{{ number_format($recordsTo) }} of {{ number_format($recordsTotal) }} records
+                </p>
+                <p class="text-xs font-semibold" style="color: var(--hr-text-muted);">
+                    {{ $activeFilterCount > 0 ? $activeFilterCount.' filter(s) active' : 'No filters applied' }}
+                </p>
             </div>
 
-            <select name="department" class="ui-select">
-                <option value="">All Departments</option>
-                @foreach($departmentOptions as $departmentOption)
-                    <option value="{{ $departmentOption }}" {{ $filters['department'] === $departmentOption ? 'selected' : '' }}>
-                        {{ $departmentOption }}
-                    </option>
-                @endforeach
-            </select>
+            <form method="GET" action="{{ route('modules.attendance.index') }}" class="att-filter-grid mt-3">
+                <div class="att-filter-col-3">
+                    <label for="attendance_filter_q" class="att-filter-label">Search</label>
+                    <input
+                        id="attendance_filter_q"
+                        type="text"
+                        name="q"
+                        value="{{ $filters['q'] }}"
+                        placeholder="Search employee, notes, department or branch..."
+                        class="ui-input"
+                    >
+                </div>
 
-            <select name="branch" class="ui-select">
-                <option value="">All Branches</option>
-                @foreach($branchOptions as $branchOption)
-                    <option value="{{ $branchOption }}" {{ $filters['branch'] === $branchOption ? 'selected' : '' }}>
-                        {{ $branchOption }}
-                    </option>
-                @endforeach
-            </select>
+                <div class="att-filter-col-3">
+                    <label class="att-filter-label" for="attendance_filter_employee_id">Employee</label>
+                    <div
+                        data-employee-autocomplete-root
+                        data-api-url="{{ route('api.employees.search') }}"
+                        data-name="employee_id"
+                        data-input-id="attendance_filter_employee_id"
+                        data-selected='@json($selectedFilterEmployee)'
+                    ></div>
+                </div>
 
-            <div class="flex items-center gap-2">
-                <select name="status" class="ui-select">
-                    <option value="">All Status</option>
-                    @foreach($statusOptions as $statusOption)
-                        <option value="{{ $statusOption }}" {{ $filters['status'] === $statusOption ? 'selected' : '' }}>
-                            {{ str($statusOption)->replace('_', ' ')->title() }}
-                        </option>
-                    @endforeach
-                </select>
-                <button type="submit" class="ui-btn ui-btn-primary">Filter</button>
-                <a href="{{ route('modules.attendance.index') }}" class="ui-btn ui-btn-ghost">Reset</a>
+                <div class="att-filter-col-2">
+                    <label for="attendance_filter_department" class="att-filter-label">Department</label>
+                    <select id="attendance_filter_department" name="department" class="ui-select">
+                        <option value="">All Departments</option>
+                        @foreach($departmentOptions as $departmentOption)
+                            <option value="{{ $departmentOption }}" {{ $filters['department'] === $departmentOption ? 'selected' : '' }}>
+                                {{ $departmentOption }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="att-filter-col-2">
+                    <label for="attendance_filter_branch" class="att-filter-label">Branch</label>
+                    <select id="attendance_filter_branch" name="branch" class="ui-select">
+                        <option value="">All Branches</option>
+                        @foreach($branchOptions as $branchOption)
+                            <option value="{{ $branchOption }}" {{ $filters['branch'] === $branchOption ? 'selected' : '' }}>
+                                {{ $branchOption }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="att-filter-col-2">
+                    <label for="attendance_filter_status" class="att-filter-label">Status</label>
+                    <select id="attendance_filter_status" name="status" class="ui-select">
+                        <option value="">All Status</option>
+                        @foreach($statusOptions as $statusOption)
+                            <option value="{{ $statusOption }}" {{ $filters['status'] === $statusOption ? 'selected' : '' }}>
+                                {{ str($statusOption)->replace('_', ' ')->title() }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="att-filter-col-2">
+                    <label for="attendance_filter_date" class="att-filter-label">Date</label>
+                    <input id="attendance_filter_date" type="date" name="attendance_date" value="{{ $filters['attendance_date'] }}" class="ui-input">
+                </div>
+
+                <div class="att-filter-col-2 att-filter-actions">
+                    <button type="submit" class="ui-btn ui-btn-primary">Apply Filters</button>
+                    <a href="{{ route('modules.attendance.index') }}" class="ui-btn ui-btn-ghost">Reset</a>
+                </div>
+            </form>
+
+            <div class="att-status-legend">
+                <span class="chip" style="color:#166534;background:rgb(34 197 94 / 0.2);">Present</span>
+                <span class="chip" style="color:#b45309;background:rgb(245 158 11 / 0.2);">Half Day</span>
+                <span class="chip" style="color:#0369a1;background:rgb(14 165 233 / 0.2);">Remote</span>
+                <span class="chip" style="color:#b91c1c;background:rgb(239 68 68 / 0.2);">Absent</span>
+                <span class="chip" style="color:#1d4ed8;background:rgb(59 130 246 / 0.2);">On Leave</span>
             </div>
 
-            <input type="date" name="attendance_date" value="{{ $filters['attendance_date'] }}" class="ui-input">
-        </form>
+            @if ($activeFilterCount > 0)
+                <div class="att-pill-list">
+                    @if (filled($filters['q']))
+                        <span class="att-pill">Search: {{ $filters['q'] }}</span>
+                    @endif
+                    @if (filled($selectedFilterEmployee['name'] ?? ''))
+                        <span class="att-pill">Employee: {{ $selectedFilterEmployee['name'] }}</span>
+                    @endif
+                    @if (filled($filters['department']))
+                        <span class="att-pill">Department: {{ $filters['department'] }}</span>
+                    @endif
+                    @if (filled($filters['branch']))
+                        <span class="att-pill">Branch: {{ $filters['branch'] }}</span>
+                    @endif
+                    @if (filled($filters['status']))
+                        <span class="att-pill">Status: {{ str($filters['status'])->replace('_', ' ')->title() }}</span>
+                    @endif
+                    @if (filled($filters['attendance_date']))
+                        <span class="att-pill">Date: {{ $filters['attendance_date'] }}</span>
+                    @endif
+                </div>
+            @endif
+        </div>
 
-        <div class="ui-table-wrap">
+        <div class="ui-table-wrap att-table-wrap">
             <table class="ui-table" style="min-width: 980px;">
                 <thead>
                 <tr>
@@ -466,3 +788,61 @@
         </div>
     </section>
 @endsection
+
+@push('scripts')
+    <script>
+        (() => {
+            const formShell = document.querySelector('[data-attendance-form-shell]');
+            if (!formShell) {
+                return;
+            }
+
+            const openButtons = Array.from(document.querySelectorAll('[data-attendance-form-open]'));
+            const closeButtons = Array.from(document.querySelectorAll('[data-attendance-form-close]'));
+            const initialOpen = formShell.dataset.initialOpen === '1';
+
+            const syncLabels = (isOpen) => {
+                openButtons.forEach((button) => {
+                    button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                    const label = button.querySelector('[data-attendance-form-open-label]');
+                    if (!label) {
+                        return;
+                    }
+
+                    label.textContent = isOpen ? 'Hide Form' : (button.classList.contains('att-create-btn')
+                        ? '+ Mark Attendance'
+                        : 'Mark Attendance');
+                });
+            };
+
+            const setFormOpen = (open, { scroll = false } = {}) => {
+                formShell.classList.toggle('is-open', open);
+                syncLabels(open);
+
+                if (open && scroll) {
+                    window.setTimeout(() => {
+                        formShell.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start',
+                        });
+                    }, 120);
+                }
+            };
+
+            openButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const nextOpen = !formShell.classList.contains('is-open');
+                    setFormOpen(nextOpen, { scroll: nextOpen });
+                });
+            });
+
+            closeButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    setFormOpen(false);
+                });
+            });
+
+            setFormOpen(initialOpen);
+        })();
+    </script>
+@endpush

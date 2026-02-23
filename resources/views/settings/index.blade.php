@@ -139,106 +139,9 @@
         </section>
     @endif
 
-    @if (! $isOverviewSection)
+    @if ($isSystemSection)
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            @if ($isCompanySection)
-        <article class="ui-section">
-            <div class="flex items-center gap-2">
-                <span class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path></svg>
-                </span>
-                <h3 class="text-lg font-extrabold">Company Settings Snapshot</h3>
-            </div>
-            <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Current values configured for your organization profile.</p>
-
-            <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
-                <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="flex items-center gap-2">
-                        <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(236 72 153 / 0.16); color: #db2777;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path></svg>
-                        </span>
-                        <p class="font-semibold">Company Name</p>
-                    </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['company_name'] ?: 'Not set' }}</p>
-                </div>
-                <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="flex items-center gap-2">
-                        <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(99 102 241 / 0.16); color: #4f46e5;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18"></path><path d="M3 12h18"></path><path d="M3 19h18"></path></svg>
-                        </span>
-                        <p class="font-semibold">Company Code</p>
-                    </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['company_code'] ?: 'Not set' }}</p>
-                </div>
-                <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="flex items-center gap-2">
-                        <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(45 212 191 / 0.16); color: #0f766e;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path></svg>
-                        </span>
-                        <p class="font-semibold">Legal Entity Name</p>
-                    </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['legal_entity_name'] ?: 'Not set' }}</p>
-                </div>
-                <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="flex items-center gap-2">
-                        <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(249 115 22 / 0.16); color: #c2410c;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M9 4v16"></path><path d="M4 9h16"></path></svg>
-                        </span>
-                        <p class="font-semibold">Legal Entity Type</p>
-                    </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $selectedEntityTypeLabel }}</p>
-                </div>
-                <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="flex items-center gap-2">
-                        <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(124 58 237 / 0.16); color: #7c3aed;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="m22 6-10 7L2 6"></path></svg>
-                        </span>
-                        <p class="font-semibold">Official Email</p>
-                    </div>
-                    <p class="mt-1 text-xs break-all" style="color: var(--hr-text-muted);">{{ $companySettings['company_email'] ?: 'Not set' }}</p>
-                </div>
-                <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="flex items-center gap-2">
-                        <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(14 165 233 / 0.16); color: #0284c7;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3.46 3.46"></path><path d="M17 10a5 5 0 1 0-10 0 5 5 0 0 0 10 0z"></path></svg>
-                        </span>
-                        <p class="font-semibold">Website</p>
-                    </div>
-                    <p class="mt-1 text-xs break-all" style="color: var(--hr-text-muted);">{{ $companySettings['company_website'] ?: 'Not set' }}</p>
-                </div>
-                <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="flex items-center gap-2">
-                        <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(248 113 113 / 0.16); color: #dc2626;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6"></path><path d="M12 4v2"></path><path d="M6 12h12"></path></svg>
-                        </span>
-                        <p class="font-semibold">Registration #</p>
-                    </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['registration_number'] ?: 'Not set' }}</p>
-                </div>
-                <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="flex items-center gap-2">
-                        <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(6 182 212 / 0.16); color: #0e7490;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                        </span>
-                        <p class="font-semibold">Default Country</p>
-                    </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $selectedDefaultCountryLabel }}</p>
-                </div>
-                <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <div class="flex items-center gap-2">
-                        <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(59 130 246 / 0.16); color: #2563eb;">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18"></path><path d="M3 12h18"></path><path d="M3 19h18"></path></svg>
-                        </span>
-                        <p class="font-semibold">Locale</p>
-                    </div>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $selectedLocaleLabel }}</p>
-                </div>
-            </div>
-        </article>
-            @endif
-
-            @if ($isSystemSection)
-                <article class="ui-section">
+            <article class="ui-section">
             <div class="flex items-center gap-2">
                 <span class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
@@ -302,23 +205,108 @@
                     <dd class="font-semibold">{{ $canManageCompanyDetails ? 'Admin' : 'Read only' }}</dd>
                 </div>
             </dl>
-                </article>
-            @endif
+            </article>
         </section>
-    @else
+    @elseif ($isOverviewSection)
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <article class="ui-section">
-                <div class="flex items-center gap-2">
-                    <span class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path></svg>
-                    </span>
-                    <h3 class="text-lg font-extrabold">Company Settings</h3>
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <div class="flex items-center gap-2">
+                        <span class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path></svg>
+                        </span>
+                        <h3 class="text-lg font-extrabold">Company Settings Snapshot</h3>
+                    </div>
+                    <a href="{{ route('settings.index', ['section' => 'company']) }}" class="inline-flex items-center gap-2 text-sm font-semibold" style="color: var(--hr-accent);">
+                        Edit Company Settings
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                    </a>
                 </div>
-                <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Manage legal entity, branding, company profile, and branch directory details.</p>
-                <a href="{{ route('settings.index', ['section' => 'company']) }}" class="mt-4 inline-flex items-center gap-2 text-sm font-semibold" style="color: var(--hr-accent);">
-                    Open Company Settings
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                </a>
+                <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Current values configured for your organization profile.</p>
+
+                <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <div class="flex items-center gap-2">
+                            <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(236 72 153 / 0.16); color: #db2777;">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path></svg>
+                            </span>
+                            <p class="font-semibold">Company Name</p>
+                        </div>
+                        <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['company_name'] ?: 'Not set' }}</p>
+                    </div>
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <div class="flex items-center gap-2">
+                            <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(99 102 241 / 0.16); color: #4f46e5;">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18"></path><path d="M3 12h18"></path><path d="M3 19h18"></path></svg>
+                            </span>
+                            <p class="font-semibold">Company Code</p>
+                        </div>
+                        <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['company_code'] ?: 'Not set' }}</p>
+                    </div>
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <div class="flex items-center gap-2">
+                            <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(45 212 191 / 0.16); color: #0f766e;">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path></svg>
+                            </span>
+                            <p class="font-semibold">Legal Entity Name</p>
+                        </div>
+                        <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['legal_entity_name'] ?: 'Not set' }}</p>
+                    </div>
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <div class="flex items-center gap-2">
+                            <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(249 115 22 / 0.16); color: #c2410c;">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M9 4v16"></path><path d="M4 9h16"></path></svg>
+                            </span>
+                            <p class="font-semibold">Legal Entity Type</p>
+                        </div>
+                        <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $selectedEntityTypeLabel }}</p>
+                    </div>
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <div class="flex items-center gap-2">
+                            <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(124 58 237 / 0.16); color: #7c3aed;">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="m22 6-10 7L2 6"></path></svg>
+                            </span>
+                            <p class="font-semibold">Official Email</p>
+                        </div>
+                        <p class="mt-1 text-xs break-all" style="color: var(--hr-text-muted);">{{ $companySettings['company_email'] ?: 'Not set' }}</p>
+                    </div>
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <div class="flex items-center gap-2">
+                            <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(14 165 233 / 0.16); color: #0284c7;">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3.46 3.46"></path><path d="M17 10a5 5 0 1 0-10 0 5 5 0 0 0 10 0z"></path></svg>
+                            </span>
+                            <p class="font-semibold">Website</p>
+                        </div>
+                        <p class="mt-1 text-xs break-all" style="color: var(--hr-text-muted);">{{ $companySettings['company_website'] ?: 'Not set' }}</p>
+                    </div>
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <div class="flex items-center gap-2">
+                            <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(248 113 113 / 0.16); color: #dc2626;">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6"></path><path d="M12 4v2"></path><path d="M6 12h12"></path></svg>
+                            </span>
+                            <p class="font-semibold">Registration #</p>
+                        </div>
+                        <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $companySettings['registration_number'] ?: 'Not set' }}</p>
+                    </div>
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <div class="flex items-center gap-2">
+                            <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(6 182 212 / 0.16); color: #0e7490;">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                            </span>
+                            <p class="font-semibold">Default Country</p>
+                        </div>
+                        <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $selectedDefaultCountryLabel }}</p>
+                    </div>
+                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                        <div class="flex items-center gap-2">
+                            <span class="h-7 w-7 rounded-lg flex items-center justify-center" style="background: rgb(59 130 246 / 0.16); color: #2563eb;">
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18"></path><path d="M3 12h18"></path><path d="M3 19h18"></path></svg>
+                            </span>
+                            <p class="font-semibold">Locale</p>
+                        </div>
+                        <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $selectedLocaleLabel }}</p>
+                    </div>
+                </div>
             </article>
             <article class="ui-section">
                 <div class="flex items-center gap-2">
@@ -467,13 +455,71 @@
                         <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Set brand palette and typography for dashboards and emails.</p>
                     </div>
                 </div>
+                @php
+                    $currentPrimaryColor = strtoupper((string) old('brand_primary_color', $companySettings['brand_primary_color']));
+                    if (! preg_match('/^#[0-9A-F]{6}$/', $currentPrimaryColor)) {
+                        $currentPrimaryColor = '#7C3AED';
+                    }
+                    $currentSecondaryColor = strtoupper((string) old('brand_secondary_color', $companySettings['brand_secondary_color']));
+                    if (! preg_match('/^#[0-9A-F]{6}$/', $currentSecondaryColor)) {
+                        $currentSecondaryColor = '#5EEAD4';
+                    }
+                    $brandColorPresets = [
+                        ['name' => 'Violet + Mint', 'primary' => '#7C3AED', 'secondary' => '#5EEAD4'],
+                        ['name' => 'Royal + Aqua', 'primary' => '#2563EB', 'secondary' => '#14B8A6'],
+                        ['name' => 'Indigo + Amber', 'primary' => '#4F46E5', 'secondary' => '#F59E0B'],
+                        ['name' => 'Emerald + Slate', 'primary' => '#059669', 'secondary' => '#334155'],
+                        ['name' => 'Rose + Navy', 'primary' => '#E11D48', 'secondary' => '#1E3A8A'],
+                        ['name' => 'Orange + Charcoal', 'primary' => '#EA580C', 'secondary' => '#1F2937'],
+                    ];
+                @endphp
+                <div class="mt-4 rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                    <p class="text-xs font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Quick Color Combinations</p>
+                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">Choose a balanced preset or fine-tune with the color pickers below.</p>
+                    <div class="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                        @foreach ($brandColorPresets as $preset)
+                            <button
+                                type="button"
+                                class="rounded-xl border px-2.5 py-2 text-left text-xs font-semibold flex items-center gap-2"
+                                style="border-color: var(--hr-line); background: var(--hr-surface-strong);"
+                                data-brand-preset
+                                data-brand-preset-primary="{{ $preset['primary'] }}"
+                                data-brand-preset-secondary="{{ $preset['secondary'] }}"
+                            >
+                                <span class="inline-flex items-center gap-1 shrink-0">
+                                    <span class="h-4 w-4 rounded-full border" style="background: {{ $preset['primary'] }}; border-color: var(--hr-line);"></span>
+                                    <span class="h-4 w-4 rounded-full border" style="background: {{ $preset['secondary'] }}; border-color: var(--hr-line);"></span>
+                                </span>
+                                <span>{{ $preset['name'] }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
                 <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label for="brand_primary_color" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Primary Color</label>
                         <div class="flex items-center gap-2">
-                            <input id="brand_primary_color" name="brand_primary_color" type="text" value="{{ old('brand_primary_color', $companySettings['brand_primary_color']) }}" class="flex-1 rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);" placeholder="#7C3AED">
-                            <span class="h-9 w-9 rounded-full border" style="background: {{ old('brand_primary_color', $companySettings['brand_primary_color']) }}; border-color: var(--hr-line);"></span>
+                            <input
+                                id="brand_primary_color"
+                                name="brand_primary_color"
+                                type="text"
+                                value="{{ $currentPrimaryColor }}"
+                                class="flex-1 rounded-xl border px-3 py-2.5 bg-transparent"
+                                style="border-color: var(--hr-line);"
+                                placeholder="#7C3AED"
+                                data-brand-color-text="primary"
+                            >
+                            <input
+                                id="brand_primary_color_picker"
+                                type="color"
+                                value="{{ $currentPrimaryColor }}"
+                                class="h-10 w-12 rounded-lg border cursor-pointer p-1"
+                                style="border-color: var(--hr-line); background: var(--hr-surface);"
+                                data-brand-color-picker="primary"
+                                aria-label="Choose primary brand color"
+                            >
                         </div>
+                        <p class="mt-1 text-[11px]" style="color: var(--hr-text-muted);">Use picker for full palette (millions of colors) or paste a hex value.</p>
                         @error('brand_primary_color')
                             <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                         @enderror
@@ -481,9 +527,27 @@
                     <div>
                         <label for="brand_secondary_color" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Secondary Color</label>
                         <div class="flex items-center gap-2">
-                            <input id="brand_secondary_color" name="brand_secondary_color" type="text" value="{{ old('brand_secondary_color', $companySettings['brand_secondary_color']) }}" class="flex-1 rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);" placeholder="#5EEAD4">
-                            <span class="h-9 w-9 rounded-full border" style="background: {{ old('brand_secondary_color', $companySettings['brand_secondary_color']) }}; border-color: var(--hr-line);"></span>
+                            <input
+                                id="brand_secondary_color"
+                                name="brand_secondary_color"
+                                type="text"
+                                value="{{ $currentSecondaryColor }}"
+                                class="flex-1 rounded-xl border px-3 py-2.5 bg-transparent"
+                                style="border-color: var(--hr-line);"
+                                placeholder="#5EEAD4"
+                                data-brand-color-text="secondary"
+                            >
+                            <input
+                                id="brand_secondary_color_picker"
+                                type="color"
+                                value="{{ $currentSecondaryColor }}"
+                                class="h-10 w-12 rounded-lg border cursor-pointer p-1"
+                                style="border-color: var(--hr-line); background: var(--hr-surface);"
+                                data-brand-color-picker="secondary"
+                                aria-label="Choose secondary brand color"
+                            >
                         </div>
+                        <p class="mt-1 text-[11px]" style="color: var(--hr-text-muted);">Pick a complementary accent to keep contrast and readability balanced.</p>
                         @error('brand_secondary_color')
                             <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                         @enderror
@@ -949,6 +1013,101 @@
             });
 
             updateEmptyState();
+        })();
+
+        (() => {
+            const primaryText = document.querySelector('[data-brand-color-text="primary"]');
+            const secondaryText = document.querySelector('[data-brand-color-text="secondary"]');
+            const primaryPicker = document.querySelector('[data-brand-color-picker="primary"]');
+            const secondaryPicker = document.querySelector('[data-brand-color-picker="secondary"]');
+            const presetButtons = document.querySelectorAll('[data-brand-preset]');
+
+            if (
+                !(primaryText instanceof HTMLInputElement)
+                || !(secondaryText instanceof HTMLInputElement)
+                || !(primaryPicker instanceof HTMLInputElement)
+                || !(secondaryPicker instanceof HTMLInputElement)
+            ) {
+                return;
+            }
+
+            const hexPattern = /^#[0-9A-F]{6}$/i;
+            const normalizeHex = (value, fallback) => {
+                const normalized = String(value || '').trim().toUpperCase();
+                return hexPattern.test(normalized) ? normalized : fallback;
+            };
+
+            const applyPrimary = (value) => {
+                const color = normalizeHex(value, '#7C3AED');
+                primaryText.value = color;
+                primaryPicker.value = color;
+            };
+
+            const applySecondary = (value) => {
+                const color = normalizeHex(value, '#5EEAD4');
+                secondaryText.value = color;
+                secondaryPicker.value = color;
+            };
+
+            const setActivePreset = () => {
+                const primaryValue = normalizeHex(primaryText.value, '#7C3AED');
+                const secondaryValue = normalizeHex(secondaryText.value, '#5EEAD4');
+
+                presetButtons.forEach((button) => {
+                    if (!(button instanceof HTMLButtonElement)) {
+                        return;
+                    }
+
+                    const presetPrimary = normalizeHex(button.dataset.brandPresetPrimary, '');
+                    const presetSecondary = normalizeHex(button.dataset.brandPresetSecondary, '');
+                    const isActive = presetPrimary === primaryValue && presetSecondary === secondaryValue;
+
+                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                    button.style.outline = isActive ? '2px solid var(--hr-accent)' : '';
+                    button.style.outlineOffset = isActive ? '1px' : '';
+                });
+            };
+
+            applyPrimary(primaryText.value);
+            applySecondary(secondaryText.value);
+            setActivePreset();
+
+            primaryPicker.addEventListener('input', () => {
+                applyPrimary(primaryPicker.value);
+                setActivePreset();
+            });
+            secondaryPicker.addEventListener('input', () => {
+                applySecondary(secondaryPicker.value);
+                setActivePreset();
+            });
+
+            primaryText.addEventListener('input', () => {
+                if (hexPattern.test(primaryText.value.trim())) {
+                    applyPrimary(primaryText.value);
+                    setActivePreset();
+                }
+            });
+            secondaryText.addEventListener('input', () => {
+                if (hexPattern.test(secondaryText.value.trim())) {
+                    applySecondary(secondaryText.value);
+                    setActivePreset();
+                }
+            });
+
+            primaryText.addEventListener('blur', () => applyPrimary(primaryText.value));
+            secondaryText.addEventListener('blur', () => applySecondary(secondaryText.value));
+
+            presetButtons.forEach((button) => {
+                if (!(button instanceof HTMLButtonElement)) {
+                    return;
+                }
+
+                button.addEventListener('click', () => {
+                    applyPrimary(button.dataset.brandPresetPrimary);
+                    applySecondary(button.dataset.brandPresetSecondary);
+                    setActivePreset();
+                });
+            });
         })();
     </script>
 @endpush

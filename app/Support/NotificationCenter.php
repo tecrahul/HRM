@@ -120,6 +120,7 @@ class NotificationCenter
         }
 
         $upcomingHoliday = Holiday::query()
+            ->where('is_active', true)
             ->whereDate('holiday_date', '>=', now()->toDateString())
             ->whereDate('holiday_date', '<=', now()->addDays(10)->toDateString())
             ->orderBy('holiday_date')

@@ -39,6 +39,8 @@ class LeaveRequest extends Model
         'reason',
         'status',
         'half_day_session',
+        'attachment_path',
+        'attachment_name',
         'reviewer_id',
         'reviewed_at',
         'review_note',

@@ -1,5 +1,5 @@
-@import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -1469,6 +1469,28 @@ html.dark select optgroup {
     display: block;
     border-radius: inherit;
     background: linear-gradient(120deg, var(--color-emerald-900), var(--color-gold-500));
+}
+
+.quick-info-grid {
+    align-items: stretch;
+}
+
+.quick-info-card {
+    border-radius: 1rem;
+    box-shadow: 0 10px 24px -20px rgb(15 23 42 / 0.55);
+}
+
+.quick-info-title {
+    letter-spacing: 0.1em;
+}
+
+.quick-info-value {
+    font-weight: 800;
+}
+
+.quick-info-icon svg {
+    width: 1rem;
+    height: 1rem;
 }
 
 @keyframes riseFade {

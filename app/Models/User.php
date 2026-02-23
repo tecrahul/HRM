@@ -148,6 +148,32 @@ class User extends Authenticatable
         return false;
     }
 
+    public function hasPermission(string $permission): bool
+    {
+        $permissionMap = config('permissions.map', []);
+        $allowedRoles = $permissionMap[$permission] ?? [];
+
+        if (! is_array($allowedRoles) || $allowedRoles === []) {
+            return false;
+        }
+
+        return $this->hasAnyRole(array_values(array_filter($allowedRoles, 'is_string')));
+    }
+
+    /**
+     * @param list<string> $permissions
+     */
+    public function hasAnyPermission(array $permissions): bool
+    {
+        foreach ($permissions as $permission) {
+            if ($this->hasPermission($permission)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @return list<string>
      */

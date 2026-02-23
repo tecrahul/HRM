@@ -3,177 +3,399 @@
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
-use App\Models\Branch;
-use App\Models\Department;
 use App\Models\LeaveRequest;
 use App\Models\User;
-use App\Models\UserProfile;
 use App\Support\ActivityLogger;
-use App\Support\NotificationCenter;
+use App\Support\FinancialYear;
 use App\Support\HolidayCalendar;
+use App\Support\NotificationCenter;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class LeaveController extends Controller
 {
-    public function index(Request $request): View
+    private const ANNUAL_ALLOWANCE = 24.0;
+
+    public function index(Request $request): View|JsonResponse
     {
         $viewer = $request->user();
-
-        if ($viewer?->hasRole(UserRole::EMPLOYEE->value)) {
-            return $this->employeePage($request, $viewer);
-        }
-
-        return $this->managementPage($request);
-    }
-
-    public function store(Request $request): RedirectResponse
-    {
-        $viewer = $request->user();
-
-        if (! $viewer) {
+        if (! $viewer instanceof User) {
             abort(403);
         }
 
-        $isEmployee = $viewer->hasRole(UserRole::EMPLOYEE->value);
-        $isManagement = $viewer->hasAnyRole([UserRole::ADMIN->value, UserRole::HR->value]);
+        $capabilities = $this->resolveCapabilities($viewer);
+        [$defaultDateFrom, $defaultDateTo] = $this->defaultLeaveFilterDateRange();
+        $filters = $this->extractFilters(
+            $request,
+            $capabilities['isEmployee'],
+            $capabilities['canFilterByEmployee'],
+            $defaultDateFrom,
+            $defaultDateTo
+        );
+        $perPage = max(5, min(50, (int) $request->integer('per_page', 12)));
+        $paginator = $this->paginateLeaves(
+            $viewer,
+            $capabilities,
+            $filters,
+            max(1, (int) $request->integer('page', 1)),
+            $perPage
+        );
+        $leavesPayload = $this->serializePaginator($paginator, $viewer, $capabilities, $filters);
+        $stats = $this->leaveStats($viewer, $capabilities);
 
-        if (! $isEmployee && ! $isManagement) {
+        if ($request->expectsJson()) {
+            return response()->json([
+                ...$leavesPayload,
+                'stats' => $stats,
+            ]);
+        }
+
+        return view('modules.leave.index', [
+            'pagePayload' => [
+                'csrfToken' => csrf_token(),
+                'routes' => [
+                    'list' => route('modules.leave.index'),
+                    'create' => route('modules.leave.store'),
+                    'updateTemplate' => $this->leaveRouteTemplate('modules.leave.update'),
+                    'cancelTemplate' => $this->leaveRouteTemplate('modules.leave.cancel'),
+                    'reviewTemplate' => $this->leaveRouteTemplate('modules.leave.review'),
+                    'employeeSearch' => route('api.employees.search'),
+                ],
+                'capabilities' => $capabilities,
+                'options' => [
+                    'leaveTypes' => $this->optionList(LeaveRequest::leaveTypes()),
+                    'dayTypes' => $this->optionList(LeaveRequest::dayTypes()),
+                    'halfDaySessions' => $this->optionList(LeaveRequest::halfDaySessions()),
+                    'statuses' => $this->optionList(LeaveRequest::statuses()),
+                    'createStatuses' => $this->optionList([
+                        LeaveRequest::STATUS_PENDING,
+                        LeaveRequest::STATUS_APPROVED,
+                        LeaveRequest::STATUS_REJECTED,
+                    ]),
+                ],
+                'filters' => $filters,
+                'defaults' => [
+                    'leaveFilters' => [
+                        'date_from' => $defaultDateFrom,
+                        'date_to' => $defaultDateTo,
+                    ],
+                ],
+                'leaves' => $leavesPayload,
+                'stats' => $stats,
+                'currentUser' => [
+                    'id' => (int) $viewer->id,
+                    'name' => (string) $viewer->name,
+                    'email' => (string) $viewer->email,
+                ],
+                'flash' => [
+                    'status' => (string) session('status', ''),
+                    'error' => (string) session('error', ''),
+                ],
+            ],
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse|JsonResponse
+    {
+        $viewer = $request->user();
+        if (! $viewer instanceof User) {
+            abort(403);
+        }
+
+        $capabilities = $this->resolveCapabilities($viewer);
+        if (! $capabilities['isEmployee'] && ! $capabilities['canAssign']) {
             abort(403, 'You do not have access to this resource.');
         }
 
-        $rules = [
-            'leave_type' => ['required', Rule::in(LeaveRequest::leaveTypes())],
-            'day_type' => ['nullable', Rule::in(LeaveRequest::dayTypes())],
-            'start_date' => ['required', 'date'],
-            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
-            'half_day_session' => ['nullable', Rule::in(LeaveRequest::halfDaySessions())],
-            'reason' => ['required', 'string', 'max:1000'],
-        ];
-
-        if ($isManagement) {
-            $rules['user_id'] = [
-                'required',
-                'integer',
-                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
-                    $query->where('is_employee', true);
-                }),
-            ];
-            $rules['assign_note'] = ['nullable', 'string', 'max:1000'];
-        } else {
-            $rules['user_id'] = ['prohibited'];
-            $rules['assign_note'] = ['prohibited'];
-        }
-
-        $validated = $request->validate($rules);
+        $validated = $request->validate($this->storeRules($capabilities['canAssign']));
         $dayType = (string) ($validated['day_type'] ?? LeaveRequest::DAY_TYPE_FULL);
         $isHalfDay = $dayType === LeaveRequest::DAY_TYPE_HALF;
 
         if ($isHalfDay && blank($validated['half_day_session'] ?? null)) {
-            return redirect()
-                ->route('modules.leave.index')
-                ->withErrors(['half_day_session' => 'Please select first half or second half.'])
-                ->withInput();
+            return $this->validationFailure($request, [
+                'half_day_session' => ['Please select first half or second half.'],
+            ]);
         }
 
         if ($isHalfDay && $validated['start_date'] !== $validated['end_date']) {
-            return redirect()
-                ->route('modules.leave.index')
-                ->withErrors(['end_date' => 'Half-day leave must be for a single day.'])
-                ->withInput();
+            return $this->validationFailure($request, [
+                'end_date' => ['Half-day leave must be for a single day.'],
+            ]);
         }
 
-        $targetUserId = $isManagement ? (int) $validated['user_id'] : (int) $viewer->id;
-        $targetUser = User::query()->with('profile')->find($targetUserId);
-        $branchName = $targetUser?->profile?->branch;
+        $targetUserId = $capabilities['canAssign']
+            ? (int) ($validated['user_id'] ?? 0)
+            : (int) $viewer->id;
+        $targetUser = User::query()->with('profile:user_id,branch')->find($targetUserId);
+
+        if (! $targetUser instanceof User) {
+            return $this->validationFailure($request, [
+                'user_id' => ['Selected employee is invalid.'],
+            ]);
+        }
+
         $totalDays = $this->calculateTotalDays(
-            $validated['start_date'],
-            $validated['end_date'],
+            (string) $validated['start_date'],
+            (string) $validated['end_date'],
             $dayType,
-            $branchName,
+            (string) ($targetUser->profile?->branch ?? '')
         );
 
         if ($totalDays <= 0) {
-            return redirect()
-                ->route('modules.leave.index')
-                ->withErrors(['start_date' => 'Selected dates fall on configured holidays. Choose a working day range.'])
-                ->withInput();
+            return $this->validationFailure($request, [
+                'start_date' => ['Selected dates fall on configured holidays. Choose a working day range.'],
+            ]);
+        }
+
+        $requestedLeaveType = (string) $validated['leave_type'];
+        if (
+            ! $capabilities['canAssign']
+            && $requestedLeaveType !== LeaveRequest::TYPE_UNPAID
+            && $totalDays > $this->remainingLeaveBalance($targetUser)
+        ) {
+            return $this->validationFailure($request, [
+                'end_date' => ['Requested days exceed available leave balance for the current year.'],
+            ]);
+        }
+
+        $status = $capabilities['canAssign']
+            ? (string) ($validated['status'] ?? LeaveRequest::STATUS_APPROVED)
+            : LeaveRequest::STATUS_PENDING;
+        $assignNote = trim((string) ($validated['assign_note'] ?? ''));
+
+        if ($status === LeaveRequest::STATUS_REJECTED && $capabilities['canAssign'] && $assignNote === '') {
+            return $this->validationFailure($request, [
+                'assign_note' => ['Assignment note is required when creating a rejected request.'],
+            ]);
+        }
+
+        $attachmentPath = null;
+        $attachmentName = null;
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+            if ($file !== null) {
+                $attachmentPath = $file->store('leave-attachments', 'public');
+                $attachmentName = $file->getClientOriginalName();
+            }
         }
 
         $leaveRequest = LeaveRequest::query()->create([
             'user_id' => $targetUserId,
-            'leave_type' => $validated['leave_type'],
+            'leave_type' => $requestedLeaveType,
             'day_type' => $dayType,
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
             'total_days' => $totalDays,
-            'reason' => $validated['reason'],
-            'status' => $isManagement ? LeaveRequest::STATUS_APPROVED : LeaveRequest::STATUS_PENDING,
-            'half_day_session' => $isHalfDay
-                ? ($validated['half_day_session'] ?? null)
+            'reason' => (string) $validated['reason'],
+            'status' => $status,
+            'half_day_session' => $isHalfDay ? (string) ($validated['half_day_session'] ?? '') : null,
+            'reviewer_id' => $capabilities['canAssign'] ? $viewer->id : null,
+            'reviewed_at' => $capabilities['canAssign'] ? now() : null,
+            'review_note' => $capabilities['canAssign']
+                ? ($assignNote === '' ? "Assigned by {$viewer->name}." : $assignNote)
                 : null,
-            'reviewer_id' => $isManagement ? $viewer->id : null,
-            'reviewed_at' => $isManagement ? now() : null,
-            'review_note' => $isManagement
-                ? (blank($validated['assign_note'] ?? null) ? "Assigned by {$viewer->name}." : $validated['assign_note'])
-                : null,
+            'attachment_path' => $attachmentPath,
+            'attachment_name' => $attachmentName,
         ]);
 
-        $leaveRequest->loadMissing('user');
-        $targetName = $leaveRequest->user?->name ?? $viewer->name;
-        $dayTypeLabel = str($dayType)->replace('_', ' ')->title();
-        $title = $isManagement ? 'Leave assigned' : 'Leave requested';
-        $eventKey = $isManagement ? 'leave.assigned' : 'leave.requested';
+        $leaveRequest->loadMissing(['user.profile', 'reviewer']);
 
+        $targetName = $leaveRequest->user?->name ?? $viewer->name;
+        $dayTypeLabel = Str::of($dayType)->replace('_', ' ')->title()->toString();
         ActivityLogger::log(
             $viewer,
-            $eventKey,
-            $title,
+            $capabilities['canAssign'] ? 'leave.assigned' : 'leave.requested',
+            $capabilities['canAssign'] ? 'Leave assigned' : 'Leave requested',
             "{$targetName} • {$dayTypeLabel} • {$leaveRequest->start_date?->format('M d, Y')}",
             '#f59e0b',
-            $leaveRequest,
-            [
-                'leave_type' => (string) $leaveRequest->leave_type,
-                'status' => (string) $leaveRequest->status,
-            ]
+            $leaveRequest
         );
 
-        if ($isManagement && $targetUser instanceof User) {
+        if ($capabilities['canAssign']) {
             NotificationCenter::notifyUser(
                 $targetUser,
                 "leave.assigned.{$leaveRequest->id}",
                 'Leave assigned',
-                "A leave request was assigned and approved for {$leaveRequest->start_date?->format('M d, Y')}.",
+                "A leave request was assigned for {$leaveRequest->start_date?->format('M d, Y')}.",
                 route('modules.leave.index'),
-                'success',
+                $status === LeaveRequest::STATUS_APPROVED ? 'success' : 'warning',
                 0
             );
-        }
-
-        if (! $isManagement) {
+        } else {
             NotificationCenter::notifyRoles(
-                [UserRole::ADMIN->value, UserRole::HR->value],
+                [UserRole::ADMIN->value, UserRole::HR->value, UserRole::SUPER_ADMIN->value],
                 "leave.requested.{$leaveRequest->id}",
                 'New leave request',
                 "{$targetName} submitted a leave request for review.",
-                route('modules.leave.review.form', $leaveRequest),
+                route('modules.leave.index'),
                 'warning',
                 0
             );
         }
 
+        $message = $capabilities['canAssign']
+            ? 'Leave assigned successfully.'
+            : 'Leave request submitted successfully.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+                'data' => $this->transformLeave($leaveRequest, $viewer, $capabilities),
+            ], 201);
+        }
+
         return redirect()
             ->route('modules.leave.index')
-            ->with('status', $isManagement ? 'Leave assigned successfully.' : 'Leave request submitted successfully.');
+            ->with('status', $message);
     }
 
-    public function review(Request $request, LeaveRequest $leaveRequest): RedirectResponse
+    public function update(Request $request, LeaveRequest $leaveRequest): RedirectResponse|JsonResponse
+    {
+        $viewer = $request->user();
+        if (! $viewer instanceof User) {
+            abort(403);
+        }
+
+        $capabilities = $this->resolveCapabilities($viewer);
+        $isOwner = (int) $leaveRequest->user_id === (int) $viewer->id;
+
+        if (! $isOwner && ! $capabilities['canAssign']) {
+            abort(403, 'You do not have permission to update this leave request.');
+        }
+
+        if ($leaveRequest->status !== LeaveRequest::STATUS_PENDING) {
+            return $this->actionFailure($request, 'Only pending leave requests can be updated.');
+        }
+
+        $validated = $request->validate($this->storeRules($capabilities['canAssign']));
+        $dayType = (string) ($validated['day_type'] ?? LeaveRequest::DAY_TYPE_FULL);
+        $isHalfDay = $dayType === LeaveRequest::DAY_TYPE_HALF;
+
+        if ($isHalfDay && blank($validated['half_day_session'] ?? null)) {
+            return $this->validationFailure($request, [
+                'half_day_session' => ['Please select first half or second half.'],
+            ]);
+        }
+
+        if ($isHalfDay && $validated['start_date'] !== $validated['end_date']) {
+            return $this->validationFailure($request, [
+                'end_date' => ['Half-day leave must be for a single day.'],
+            ]);
+        }
+
+        $targetUserId = $capabilities['canAssign']
+            ? (int) ($validated['user_id'] ?? 0)
+            : (int) $viewer->id;
+        $targetUser = User::query()->with('profile:user_id,branch')->find($targetUserId);
+
+        if (! $targetUser instanceof User) {
+            return $this->validationFailure($request, [
+                'user_id' => ['Selected employee is invalid.'],
+            ]);
+        }
+
+        $totalDays = $this->calculateTotalDays(
+            (string) $validated['start_date'],
+            (string) $validated['end_date'],
+            $dayType,
+            (string) ($targetUser->profile?->branch ?? '')
+        );
+
+        if ($totalDays <= 0) {
+            return $this->validationFailure($request, [
+                'start_date' => ['Selected dates fall on configured holidays. Choose a working day range.'],
+            ]);
+        }
+
+        $requestedLeaveType = (string) $validated['leave_type'];
+        if (
+            ! $capabilities['canAssign']
+            && $requestedLeaveType !== LeaveRequest::TYPE_UNPAID
+            && $totalDays > $this->remainingLeaveBalance($targetUser, $leaveRequest)
+        ) {
+            return $this->validationFailure($request, [
+                'end_date' => ['Requested days exceed available leave balance for the current year.'],
+            ]);
+        }
+
+        $status = $capabilities['canAssign']
+            ? (string) ($validated['status'] ?? LeaveRequest::STATUS_PENDING)
+            : LeaveRequest::STATUS_PENDING;
+        $assignNote = trim((string) ($validated['assign_note'] ?? ''));
+
+        if ($status === LeaveRequest::STATUS_REJECTED && $capabilities['canAssign'] && $assignNote === '') {
+            return $this->validationFailure($request, [
+                'assign_note' => ['Assignment note is required when setting rejected status.'],
+            ]);
+        }
+
+        $attachmentPath = $leaveRequest->attachment_path;
+        $attachmentName = $leaveRequest->attachment_name;
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+            if ($file !== null) {
+                if (is_string($attachmentPath) && $attachmentPath !== '') {
+                    Storage::disk('public')->delete($attachmentPath);
+                }
+                $attachmentPath = $file->store('leave-attachments', 'public');
+                $attachmentName = $file->getClientOriginalName();
+            }
+        }
+
+        $leaveRequest->update([
+            'user_id' => $targetUserId,
+            'leave_type' => $requestedLeaveType,
+            'day_type' => $dayType,
+            'start_date' => $validated['start_date'],
+            'end_date' => $validated['end_date'],
+            'total_days' => $totalDays,
+            'reason' => (string) $validated['reason'],
+            'status' => $status,
+            'half_day_session' => $isHalfDay ? (string) ($validated['half_day_session'] ?? '') : null,
+            'reviewer_id' => $status === LeaveRequest::STATUS_PENDING ? null : $viewer->id,
+            'reviewed_at' => $status === LeaveRequest::STATUS_PENDING ? null : now(),
+            'review_note' => $status === LeaveRequest::STATUS_PENDING
+                ? null
+                : ($assignNote === '' ? "Updated by {$viewer->name}." : $assignNote),
+            'attachment_path' => $attachmentPath,
+            'attachment_name' => $attachmentName,
+        ]);
+
+        $leaveRequest->loadMissing(['user.profile', 'reviewer']);
+
+        ActivityLogger::log(
+            $viewer,
+            'leave.updated',
+            'Leave updated',
+            "{$leaveRequest->user?->name} • {$leaveRequest->start_date?->format('M d, Y')}",
+            '#f59e0b',
+            $leaveRequest
+        );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Leave request updated successfully.',
+                'data' => $this->transformLeave($leaveRequest, $viewer, $capabilities),
+            ]);
+        }
+
+        return redirect()
+            ->route('modules.leave.index')
+            ->with('status', 'Leave request updated successfully.');
+    }
+
+    public function review(Request $request, LeaveRequest $leaveRequest): RedirectResponse|JsonResponse
     {
         $viewer = $this->ensureManagementAccess($request);
+        $capabilities = $this->resolveCapabilities($viewer);
 
         $validated = $request->validate([
             'status' => ['required', Rule::in([LeaveRequest::STATUS_APPROVED, LeaveRequest::STATUS_REJECTED])],
@@ -181,27 +403,25 @@ class LeaveController extends Controller
         ]);
 
         if ($leaveRequest->status !== LeaveRequest::STATUS_PENDING) {
-            return redirect()
-                ->route('modules.leave.review.form', $leaveRequest)
-                ->with('error', 'Only pending leave requests can be reviewed.');
+            return $this->actionFailure($request, 'Only pending leave requests can be reviewed.');
         }
 
         if ($validated['status'] === LeaveRequest::STATUS_REJECTED && blank($validated['review_note'] ?? null)) {
-            return redirect()
-                ->route('modules.leave.review.form', $leaveRequest)
-                ->withErrors(['review_note' => 'Review note is required when rejecting a leave request.'])
-                ->withInput();
+            return $this->validationFailure($request, [
+                'review_note' => ['Review note is required when rejecting a leave request.'],
+            ]);
         }
 
         $leaveRequest->update([
-            'status' => $validated['status'],
+            'status' => (string) $validated['status'],
             'reviewer_id' => $viewer->id,
             'reviewed_at' => now(),
-            'review_note' => $validated['review_note'] ?: null,
+            'review_note' => blank($validated['review_note'] ?? null) ? null : (string) $validated['review_note'],
         ]);
 
-        $leaveRequest->loadMissing('user');
-        $statusLabel = str((string) $leaveRequest->status)->replace('_', ' ')->title();
+        $leaveRequest->loadMissing(['user.profile', 'reviewer']);
+
+        $statusLabel = Str::of((string) $leaveRequest->status)->replace('_', ' ')->title()->toString();
         $targetName = $leaveRequest->user?->name ?? 'Unknown employee';
         ActivityLogger::log(
             $viewer,
@@ -212,10 +432,9 @@ class LeaveController extends Controller
             $leaveRequest
         );
 
-        $reviewedUser = $leaveRequest->user;
-        if ($reviewedUser instanceof User) {
+        if ($leaveRequest->user instanceof User) {
             NotificationCenter::notifyUser(
-                $reviewedUser,
+                $leaveRequest->user,
                 "leave.reviewed.{$leaveRequest->id}.{$leaveRequest->status}",
                 "Leave {$statusLabel}",
                 "Your leave request has been {$statusLabel}.",
@@ -223,6 +442,13 @@ class LeaveController extends Controller
                 $leaveRequest->status === LeaveRequest::STATUS_APPROVED ? 'success' : 'warning',
                 0
             );
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Leave request reviewed successfully.',
+                'data' => $this->transformLeave($leaveRequest, $viewer, $capabilities),
+            ]);
         }
 
         return redirect()
@@ -247,232 +473,349 @@ class LeaveController extends Controller
         ]);
     }
 
-    public function cancel(Request $request, LeaveRequest $leaveRequest): RedirectResponse
+    public function cancel(Request $request, LeaveRequest $leaveRequest): RedirectResponse|JsonResponse
     {
         $viewer = $request->user();
-
-        if (! $viewer) {
+        if (! $viewer instanceof User) {
             abort(403);
         }
 
-        if (! $viewer->hasRole(UserRole::EMPLOYEE->value)) {
-            abort(403, 'Only employees can cancel leave requests.');
-        }
+        $capabilities = $this->resolveCapabilities($viewer);
+        $isOwner = (int) $leaveRequest->user_id === (int) $viewer->id;
 
-        if ((int) $leaveRequest->user_id !== (int) $viewer->id) {
+        if (! $isOwner && ! $capabilities['canReview']) {
             abort(403, 'You can only cancel your own leave request.');
         }
 
         if ($leaveRequest->status !== LeaveRequest::STATUS_PENDING) {
-            return redirect()
-                ->route('modules.leave.index')
-                ->with('error', 'Only pending leave requests can be cancelled.');
+            return $this->actionFailure($request, 'Only pending leave requests can be cancelled.');
         }
 
         $leaveRequest->update([
             'status' => LeaveRequest::STATUS_CANCELLED,
             'reviewer_id' => $viewer->id,
             'reviewed_at' => now(),
-            'review_note' => 'Cancelled by employee.',
+            'review_note' => $isOwner ? 'Cancelled by employee.' : 'Cancelled by management.',
         ]);
+
+        $leaveRequest->loadMissing(['user.profile', 'reviewer']);
 
         ActivityLogger::log(
             $viewer,
             'leave.cancelled',
             'Leave cancelled',
-            "{$viewer->name} cancelled a pending leave",
+            "{$viewer->name} cancelled a pending leave request",
             '#f59e0b',
             $leaveRequest
         );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Leave request cancelled successfully.',
+                'data' => $this->transformLeave($leaveRequest, $viewer, $capabilities),
+            ]);
+        }
 
         return redirect()
             ->route('modules.leave.index')
             ->with('status', 'Leave request cancelled successfully.');
     }
 
-    private function managementPage(Request $request): View
+    /**
+     * @return array{isEmployee:bool,canAssign:bool,canReview:bool,canSetStatus:bool,canCreate:bool,canFilterByEmployee:bool}
+     */
+    private function resolveCapabilities(User $viewer): array
     {
-        $search = (string) $request->string('q');
-        $status = (string) $request->string('status');
-        $leaveType = (string) $request->string('leave_type');
-        $department = (string) $request->string('department');
-        $branch = (string) $request->string('branch');
-        $employeeId = (int) $request->integer('employee_id');
-        $dateFrom = (string) $request->string('date_from');
-        $dateTo = (string) $request->string('date_to');
-        $onDate = (string) $request->string('on_date');
+        $isEmployee = $viewer->hasRole(UserRole::EMPLOYEE->value);
+        $canReview = $viewer->hasAnyRole([
+            UserRole::SUPER_ADMIN->value,
+            UserRole::ADMIN->value,
+            UserRole::HR->value,
+        ]);
+        $canAssign = $canReview;
+        $canFilterByEmployee = $canReview;
 
-        $statusOptions = LeaveRequest::statuses();
-        $leaveTypeOptions = LeaveRequest::leaveTypes();
-        $dayTypeOptions = LeaveRequest::dayTypes();
+        return [
+            'isEmployee' => $isEmployee,
+            'canAssign' => $canAssign,
+            'canReview' => $canReview,
+            'canSetStatus' => $canAssign,
+            'canCreate' => $isEmployee || $canAssign,
+            'canFilterByEmployee' => $canFilterByEmployee,
+        ];
+    }
 
-        $requests = LeaveRequest::query()
-            ->with(['user.profile', 'reviewer'])
-            ->whereHas('user', function (Builder $query): void {
-                $query->workforce();
-            })
-            ->when($search !== '', function (Builder $query) use ($search): void {
-                $query->where(function (Builder $innerQuery) use ($search): void {
-                    $innerQuery
-                        ->where('reason', 'like', "%{$search}%")
-                        ->orWhereHas('user', function (Builder $userQuery) use ($search): void {
-                            $userQuery
-                                ->where('name', 'like', "%{$search}%")
-                                ->orWhere('email', 'like', "%{$search}%")
-                                ->orWhereHas('profile', function (Builder $profileQuery) use ($search): void {
-                                    $profileQuery
-                                        ->where('department', 'like', "%{$search}%")
-                                        ->orWhere('branch', 'like', "%{$search}%");
-                                });
-                        });
-                });
-            })
-            ->when($status !== '' && in_array($status, $statusOptions, true), function (Builder $query) use ($status): void {
-                $query->where('status', $status);
-            })
-            ->when($leaveType !== '' && in_array($leaveType, $leaveTypeOptions, true), function (Builder $query) use ($leaveType): void {
-                $query->where('leave_type', $leaveType);
-            })
-            ->when($employeeId > 0, function (Builder $query) use ($employeeId): void {
-                $query->where('user_id', $employeeId);
-            })
-            ->when($department !== '', function (Builder $query) use ($department): void {
-                $query->whereHas('user.profile', function (Builder $profileQuery) use ($department): void {
-                    $profileQuery->where('department', $department);
-                });
-            })
-            ->when($branch !== '', function (Builder $query) use ($branch): void {
-                $query->whereHas('user.profile', function (Builder $profileQuery) use ($branch): void {
-                    $profileQuery->where('branch', $branch);
-                });
-            })
-            ->when($dateFrom !== '', function (Builder $query) use ($dateFrom): void {
-                $query->whereDate('start_date', '>=', $dateFrom);
-            })
-            ->when($dateTo !== '', function (Builder $query) use ($dateTo): void {
-                $query->whereDate('end_date', '<=', $dateTo);
-            })
-            ->when($onDate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $onDate) === 1, function (Builder $query) use ($onDate): void {
-                $query
-                    ->whereDate('start_date', '<=', $onDate)
-                    ->whereDate('end_date', '>=', $onDate);
-            })
-            ->orderByDesc('created_at')
-            ->paginate(12)
+    /**
+     * @return array{q:string,status:string,date_from:string,date_to:string,employee_id:string,range_mode:string,range_preset:string}
+     */
+    private function extractFilters(
+        Request $request,
+        bool $isEmployee,
+        bool $canFilterByEmployee,
+        ?string $defaultDateFrom = null,
+        ?string $defaultDateTo = null
+    ): array
+    {
+        if ($defaultDateFrom === null || $defaultDateTo === null) {
+            [$defaultDateFrom, $defaultDateTo] = $this->defaultLeaveFilterDateRange();
+        }
+
+        $status = Str::lower(trim((string) $request->query('status', 'all')));
+        if (! in_array($status, array_merge(['all'], LeaveRequest::statuses()), true)) {
+            $status = 'all';
+        }
+
+        $employeeId = (! $isEmployee && $canFilterByEmployee && (int) $request->integer('employee_id', 0) > 0)
+            ? (string) $request->integer('employee_id')
+            : '';
+        $q = trim((string) $request->query('q', ''));
+        $dateFrom = $this->normalizeDateFilter((string) $request->query('date_from', ''));
+        $dateTo = $this->normalizeDateFilter((string) $request->query('date_to', ''));
+
+        if ($dateFrom === '' && $dateTo === '') {
+            $dateFrom = $defaultDateFrom;
+            $dateTo = $defaultDateTo;
+        } elseif ($dateFrom !== '' && $dateTo !== '' && $dateFrom > $dateTo) {
+            $dateTo = $dateFrom;
+        }
+
+        return [
+            'q' => $q,
+            'status' => $status,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'employee_id' => $employeeId,
+            'range_mode' => trim((string) $request->query('range_mode', 'absolute')) ?: 'absolute',
+            'range_preset' => trim((string) $request->query('range_preset', '')),
+        ];
+    }
+
+    /**
+     * @param array{isEmployee:bool,canAssign:bool,canReview:bool,canSetStatus:bool,canCreate:bool,canFilterByEmployee:bool} $capabilities
+     * @param array{q:string,status:string,date_from:string,date_to:string,employee_id:string,range_mode:string,range_preset:string} $filters
+     */
+    private function paginateLeaves(
+        User $viewer,
+        array $capabilities,
+        array $filters,
+        int $page,
+        int $perPage
+    ): LengthAwarePaginator {
+        return $this->leaveListQuery($viewer, $capabilities, $filters)
+            ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
+    }
 
-        $employeeIds = User::query()
-            ->workforce()
-            ->pluck('id');
+    /**
+     * @param array{isEmployee:bool,canAssign:bool,canReview:bool,canSetStatus:bool,canCreate:bool,canFilterByEmployee:bool} $capabilities
+     * @param array{q:string,status:string,date_from:string,date_to:string,employee_id:string,range_mode:string,range_preset:string} $filters
+     */
+    private function leaveListQuery(User $viewer, array $capabilities, array $filters): Builder
+    {
+        $query = LeaveRequest::query()
+            ->with(['user.profile', 'reviewer'])
+            ->orderByDesc('created_at');
 
+        if ($capabilities['isEmployee']) {
+            $query->where('user_id', $viewer->id);
+        } else {
+            $query->whereHas('user', function (Builder $userQuery): void {
+                $userQuery->workforce();
+            });
+
+            $employeeId = (int) $filters['employee_id'];
+            if ($capabilities['canFilterByEmployee'] && $employeeId > 0) {
+                $query->where('user_id', $employeeId);
+            }
+        }
+
+        if ($filters['status'] !== 'all') {
+            $query->where('status', $filters['status']);
+        }
+
+        if ($filters['date_from'] !== '') {
+            $query->whereDate('start_date', '>=', $filters['date_from']);
+        }
+
+        if ($filters['date_to'] !== '') {
+            $query->whereDate('end_date', '<=', $filters['date_to']);
+        }
+
+        if ($filters['q'] !== '') {
+            $keyword = $filters['q'];
+            $query->where(function (Builder $innerQuery) use ($keyword): void {
+                $innerQuery
+                    ->where('reason', 'like', "%{$keyword}%")
+                    ->orWhere('leave_type', 'like', "%{$keyword}%");
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param array{isEmployee:bool,canAssign:bool,canReview:bool,canSetStatus:bool,canCreate:bool,canFilterByEmployee:bool} $capabilities
+     * @param array{q:string,status:string,date_from:string,date_to:string,employee_id:string,range_mode:string,range_preset:string} $filters
+     * @return array{data:list<array<string,mixed>>,meta:array<string,mixed>,filters:array<string,mixed>}
+     */
+    private function serializePaginator(
+        LengthAwarePaginator $paginator,
+        User $viewer,
+        array $capabilities,
+        array $filters
+    ): array {
+        return [
+            'data' => collect($paginator->items())
+                ->map(fn (LeaveRequest $leave): array => $this->transformLeave($leave, $viewer, $capabilities))
+                ->values()
+                ->all(),
+            'meta' => [
+                'currentPage' => $paginator->currentPage(),
+                'lastPage' => $paginator->lastPage(),
+                'perPage' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
+            ],
+            'filters' => $filters,
+        ];
+    }
+
+    /**
+     * @param array{isEmployee:bool,canAssign:bool,canReview:bool,canSetStatus:bool,canCreate:bool,canFilterByEmployee:bool} $capabilities
+     * @return array<string,mixed>
+     */
+    private function transformLeave(LeaveRequest $leaveRequest, User $viewer, array $capabilities): array
+    {
+        $isPending = $leaveRequest->status === LeaveRequest::STATUS_PENDING;
+        $isOwner = (int) $leaveRequest->user_id === (int) $viewer->id;
+        $isHalfDay = ($leaveRequest->day_type ?? LeaveRequest::DAY_TYPE_FULL) === LeaveRequest::DAY_TYPE_HALF;
+
+        return [
+            'id' => (int) $leaveRequest->id,
+            'employee' => [
+                'id' => (int) ($leaveRequest->user?->id ?? 0),
+                'name' => (string) ($leaveRequest->user?->name ?? 'N/A'),
+                'email' => (string) ($leaveRequest->user?->email ?? 'N/A'),
+                'department' => (string) ($leaveRequest->user?->profile?->department ?? 'N/A'),
+                'branch' => (string) ($leaveRequest->user?->profile?->branch ?? 'N/A'),
+                'employeeCode' => (string) ($leaveRequest->user?->profile?->employee_code
+                    ?: User::makeEmployeeCode((int) ($leaveRequest->user?->id ?? 0))),
+            ],
+            'leaveType' => (string) $leaveRequest->leave_type,
+            'leaveTypeLabel' => $this->label((string) $leaveRequest->leave_type),
+            'dayType' => (string) ($leaveRequest->day_type ?? LeaveRequest::DAY_TYPE_FULL),
+            'dayTypeLabel' => $this->label((string) ($leaveRequest->day_type ?? LeaveRequest::DAY_TYPE_FULL)),
+            'halfDaySession' => (string) ($leaveRequest->half_day_session ?? ''),
+            'halfDaySessionLabel' => $leaveRequest->half_day_session
+                ? $this->label((string) $leaveRequest->half_day_session)
+                : '',
+            'isHalfDay' => $isHalfDay,
+            'startDateIso' => $leaveRequest->start_date?->toDateString(),
+            'endDateIso' => $leaveRequest->end_date?->toDateString(),
+            'dateRangeLabel' => sprintf(
+                '%s to %s',
+                $leaveRequest->start_date?->format('M d, Y') ?? 'N/A',
+                $leaveRequest->end_date?->format('M d, Y') ?? 'N/A'
+            ),
+            'totalDays' => (float) $leaveRequest->total_days,
+            'status' => (string) $leaveRequest->status,
+            'statusLabel' => $this->label((string) $leaveRequest->status),
+            'reason' => (string) $leaveRequest->reason,
+            'reviewNote' => (string) ($leaveRequest->review_note ?? ''),
+            'reviewerName' => (string) ($leaveRequest->reviewer?->name ?? ''),
+            'reviewedAtLabel' => $leaveRequest->reviewed_at?->format('M d, Y h:i A'),
+            'createdAtLabel' => $leaveRequest->created_at?->format('M d, Y h:i A'),
+            'attachmentName' => (string) ($leaveRequest->attachment_name ?? ''),
+            'attachmentUrl' => $leaveRequest->attachment_path
+                ? Storage::disk('public')->url((string) $leaveRequest->attachment_path)
+                : '',
+            'canReview' => $capabilities['canReview'] && $isPending,
+            'canDelete' => $isPending && ($isOwner || $capabilities['canReview']),
+            'canEdit' => $isPending && ($isOwner || $capabilities['canAssign']),
+        ];
+    }
+
+    /**
+     * @param array{isEmployee:bool,canAssign:bool,canReview:bool,canSetStatus:bool,canCreate:bool,canFilterByEmployee:bool} $capabilities
+     * @return array<string,mixed>
+     */
+    private function leaveStats(User $viewer, array $capabilities): array
+    {
+        if ($capabilities['isEmployee']) {
+            $baseQuery = LeaveRequest::query()->where('user_id', $viewer->id);
+            $year = (int) now()->format('Y');
+            $approvedDays = (float) (clone $baseQuery)
+                ->whereYear('start_date', $year)
+                ->where('status', LeaveRequest::STATUS_APPROVED)
+                ->sum('total_days');
+
+            return [
+                'total' => (int) (clone $baseQuery)->count(),
+                'pending' => (int) (clone $baseQuery)->where('status', LeaveRequest::STATUS_PENDING)->count(),
+                'approved' => (int) (clone $baseQuery)->where('status', LeaveRequest::STATUS_APPROVED)->count(),
+                'rejected' => (int) (clone $baseQuery)->where('status', LeaveRequest::STATUS_REJECTED)->count(),
+                'approvedDays' => $approvedDays,
+                'remainingDays' => max(0.0, self::ANNUAL_ALLOWANCE - $approvedDays),
+                'annualAllowance' => self::ANNUAL_ALLOWANCE,
+            ];
+        }
+
+        $employeeIds = User::query()->workforce()->pluck('id');
         $baseQuery = LeaveRequest::query()->whereIn('user_id', $employeeIds);
         $monthStart = now()->startOfMonth()->toDateString();
         $monthEnd = now()->endOfMonth()->toDateString();
 
-        $pendingApprovals = LeaveRequest::query()
-            ->with(['user.profile'])
-            ->whereIn('user_id', $employeeIds)
-            ->where('status', LeaveRequest::STATUS_PENDING)
-            ->orderBy('start_date')
-            ->limit(5)
-            ->get();
-
-        return view('modules.leave.admin', [
-            'requests' => $requests,
-            'pendingApprovals' => $pendingApprovals,
-            'selectedAssignEmployee' => $this->employeeAutocompleteSelection((int) session()->getOldInput('user_id', 0)),
-            'selectedFilterEmployee' => $this->employeeAutocompleteSelection($employeeId > 0 ? $employeeId : null),
-            'departmentOptions' => $this->departmentOptions($employeeIds),
-            'branchOptions' => $this->branchOptions($employeeIds),
-            'statusOptions' => $statusOptions,
-            'leaveTypeOptions' => $leaveTypeOptions,
-            'dayTypeOptions' => $dayTypeOptions,
-            'stats' => [
-                'total' => (clone $baseQuery)->count(),
-                'pending' => (clone $baseQuery)->where('status', LeaveRequest::STATUS_PENDING)->count(),
-                'approved' => (clone $baseQuery)->where('status', LeaveRequest::STATUS_APPROVED)->count(),
-                'rejected' => (clone $baseQuery)->where('status', LeaveRequest::STATUS_REJECTED)->count(),
-                'approvedDaysThisMonth' => (float) ((clone $baseQuery)
-                    ->where('status', LeaveRequest::STATUS_APPROVED)
-                    ->whereBetween('start_date', [$monthStart, $monthEnd])
-                    ->sum('total_days')),
-            ],
-            'filters' => [
-                'q' => $search,
-                'status' => $status,
-                'leave_type' => $leaveType,
-                'department' => $department,
-                'branch' => $branch,
-                'employee_id' => $employeeId > 0 ? (string) $employeeId : '',
-                'date_from' => $dateFrom,
-                'date_to' => $dateTo,
-                'on_date' => $onDate,
-            ],
-        ]);
+        return [
+            'total' => (int) (clone $baseQuery)->count(),
+            'pending' => (int) (clone $baseQuery)->where('status', LeaveRequest::STATUS_PENDING)->count(),
+            'approved' => (int) (clone $baseQuery)->where('status', LeaveRequest::STATUS_APPROVED)->count(),
+            'rejected' => (int) (clone $baseQuery)->where('status', LeaveRequest::STATUS_REJECTED)->count(),
+            'approvedDaysThisMonth' => (float) ((clone $baseQuery)
+                ->where('status', LeaveRequest::STATUS_APPROVED)
+                ->whereBetween('start_date', [$monthStart, $monthEnd])
+                ->sum('total_days')),
+        ];
     }
 
-    private function employeePage(Request $request, User $viewer): View
+    /**
+     * @return array<string,mixed>
+     */
+    private function storeRules(bool $canAssign): array
     {
-        $status = (string) $request->string('status');
-        $year = (int) $request->integer('year', (int) now()->format('Y'));
-        if ($year < 2000 || $year > 2100) {
-            $year = (int) now()->format('Y');
+        $rules = [
+            'leave_type' => ['required', Rule::in(LeaveRequest::leaveTypes())],
+            'day_type' => ['required', Rule::in(LeaveRequest::dayTypes())],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'half_day_session' => ['nullable', Rule::in(LeaveRequest::halfDaySessions())],
+            'reason' => ['required', 'string', 'max:1000'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,png,jpg,jpeg,doc,docx', 'max:5120'],
+        ];
+
+        if ($canAssign) {
+            $rules['user_id'] = [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where(function ($query): void {
+                    $query->whereIn('role', [
+                        UserRole::EMPLOYEE->value,
+                    ]);
+                }),
+            ];
+            $rules['assign_note'] = ['nullable', 'string', 'max:1000'];
+            $rules['status'] = ['nullable', Rule::in([
+                LeaveRequest::STATUS_PENDING,
+                LeaveRequest::STATUS_APPROVED,
+                LeaveRequest::STATUS_REJECTED,
+            ])];
+        } else {
+            $rules['user_id'] = ['prohibited'];
+            $rules['assign_note'] = ['prohibited'];
+            $rules['status'] = ['prohibited'];
         }
 
-        $statusOptions = LeaveRequest::statuses();
-        $leaveTypeOptions = LeaveRequest::leaveTypes();
-        $dayTypeOptions = LeaveRequest::dayTypes();
-
-        $requests = LeaveRequest::query()
-            ->where('user_id', $viewer->id)
-            ->whereYear('start_date', $year)
-            ->when($status !== '' && in_array($status, $statusOptions, true), function (Builder $query) use ($status): void {
-                $query->where('status', $status);
-            })
-            ->orderByDesc('created_at')
-            ->paginate(10)
-            ->withQueryString();
-
-        $yearBaseQuery = LeaveRequest::query()
-            ->where('user_id', $viewer->id)
-            ->whereYear('start_date', $year);
-
-        $approvedDays = (float) ((clone $yearBaseQuery)
-            ->where('status', LeaveRequest::STATUS_APPROVED)
-            ->sum('total_days'));
-
-        $annualAllowance = 24.0;
-        $remainingDays = max(0.0, $annualAllowance - $approvedDays);
-
-        $upcomingApproved = LeaveRequest::query()
-            ->where('user_id', $viewer->id)
-            ->where('status', LeaveRequest::STATUS_APPROVED)
-            ->whereDate('start_date', '>=', now()->toDateString())
-            ->orderBy('start_date')
-            ->limit(5)
-            ->get();
-
-        return view('modules.leave.employee', [
-            'viewer' => $viewer,
-            'requests' => $requests,
-            'upcomingApproved' => $upcomingApproved,
-            'statusOptions' => $statusOptions,
-            'leaveTypeOptions' => $leaveTypeOptions,
-            'dayTypeOptions' => $dayTypeOptions,
-            'stats' => [
-                'total' => (clone $yearBaseQuery)->count(),
-                'pending' => (clone $yearBaseQuery)->where('status', LeaveRequest::STATUS_PENDING)->count(),
-                'approved' => (clone $yearBaseQuery)->where('status', LeaveRequest::STATUS_APPROVED)->count(),
-                'rejected' => (clone $yearBaseQuery)->where('status', LeaveRequest::STATUS_REJECTED)->count(),
-                'approvedDays' => $approvedDays,
-                'remainingDays' => $remainingDays,
-                'annualAllowance' => $annualAllowance,
-            ],
-            'filters' => [
-                'status' => $status,
-                'year' => (string) $year,
-            ],
-        ]);
+        return $rules;
     }
 
     private function ensureManagementAccess(Request $request): User
@@ -516,79 +859,106 @@ class LeaveController extends Controller
         return round($totalDays, 2);
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function employeeAutocompleteSelection(?int $employeeId): ?array
+    private function remainingLeaveBalance(User $employee, ?LeaveRequest $updatingLeave = null): float
     {
-        if (($employeeId ?? 0) <= 0) {
-            return null;
+        $query = LeaveRequest::query()
+            ->where('user_id', $employee->id)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereYear('start_date', (int) now()->format('Y'));
+
+        if ($updatingLeave instanceof LeaveRequest) {
+            $query->where('id', '!=', $updatingLeave->id);
         }
 
-        $employee = User::query()
-            ->workforce()
-            ->with('profile:user_id,department')
-            ->whereKey((int) $employeeId)
-            ->first();
+        $approvedDays = (float) $query->sum('total_days');
 
-        if (! $employee instanceof User) {
-            return null;
-        }
+        return round(max(0.0, self::ANNUAL_ALLOWANCE - $approvedDays), 2);
+    }
+
+    /**
+     * @return array{0:string,1:string}
+     */
+    private function defaultLeaveFilterDateRange(): array
+    {
+        $range = FinancialYear::rangeForStartYear(FinancialYear::currentStartYear());
 
         return [
-            'id' => $employee->id,
-            'name' => $employee->name,
-            'email' => $employee->email,
-            'department' => $employee->profile?->department ?? '',
-            'employee_code' => $employee->profile?->employee_code ?: User::makeEmployeeCode($employee->id),
+            $range['start']->toDateString(),
+            $range['end']->toDateString(),
         ];
     }
 
-    /**
-     * @param \Illuminate\Support\Collection<int, int> $employeeIds
-     * @return \Illuminate\Support\Collection<int, string>
-     */
-    private function departmentOptions($employeeIds)
+    private function normalizeDateFilter(string $value): string
     {
-        return UserProfile::query()
-            ->whereIn('user_id', $employeeIds)
-            ->whereNotNull('department')
-            ->where('department', '!=', '')
-            ->pluck('department')
-            ->merge(
-                Department::query()
-                    ->whereNotNull('name')
-                    ->where('name', '!=', '')
-                    ->pluck('name')
-            )
-            ->filter(fn ($department): bool => ! blank($department))
-            ->map(fn ($department): string => trim((string) $department))
-            ->unique()
-            ->sort()
-            ->values();
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($trimmed)->toDateString();
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int, int> $employeeIds
-     * @return \Illuminate\Support\Collection<int, string>
+     * @param list<string> $values
+     * @return list<array{value:string,label:string}>
      */
-    private function branchOptions($employeeIds)
+    private function optionList(array $values): array
     {
-        return UserProfile::query()
-            ->whereIn('user_id', $employeeIds)
-            ->whereNotNull('branch')
-            ->where('branch', '!=', '')
-            ->pluck('branch')
-            ->merge(
-                Branch::query()
-                    ->whereNotNull('name')
-                    ->where('name', '!=', '')
-                    ->pluck('name')
-            )
-            ->filter(fn ($branch): bool => ! blank($branch))
-            ->map(fn ($branch): string => trim((string) $branch))
-            ->unique()
-            ->sort()
-            ->values();
+        return collect($values)
+            ->map(fn (string $value): array => [
+                'value' => $value,
+                'label' => $this->label($value),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function label(string $value): string
+    {
+        return Str::of($value)->replace('_', ' ')->title()->toString();
+    }
+
+    private function leaveRouteTemplate(string $routeName): string
+    {
+        $placeholder = 987654321;
+
+        return str_replace((string) $placeholder, '__LEAVE__', route($routeName, ['leaveRequest' => $placeholder]));
+    }
+
+    /**
+     * @param array<string,list<string>> $errors
+     */
+    private function validationFailure(Request $request, array $errors): RedirectResponse|JsonResponse
+    {
+        $first = (string) collect($errors)->flatten(1)->first();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $first !== '' ? $first : 'Validation failed.',
+                'errors' => $errors,
+            ], 422);
+        }
+
+        return redirect()
+            ->route('modules.leave.index')
+            ->withErrors($errors)
+            ->withInput();
+    }
+
+    private function actionFailure(Request $request, string $message): RedirectResponse|JsonResponse
+    {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+            ], 422);
+        }
+
+        return redirect()
+            ->route('modules.leave.index')
+            ->with('error', $message);
     }
 }

@@ -19,8 +19,9 @@ class HolidayCalendar
     ): array {
         $branchId = self::resolveBranchId($branchName);
 
-        $dates = Holiday::query()
+        $holidayRanges = Holiday::query()
             ->withinDateRange($startDate->toDateString(), $endDate->toDateString())
+            ->where('is_active', true)
             ->when(! $includeOptional, function ($query): void {
                 $query->where('is_optional', false);
             })
@@ -31,8 +32,29 @@ class HolidayCalendar
                     $query->orWhere('branch_id', $branchId);
                 }
             })
-            ->pluck('holiday_date')
-            ->map(fn ($value): string => Carbon::parse((string) $value)->toDateString())
+            ->get(['holiday_date', 'end_date']);
+
+        $dates = $holidayRanges
+            ->flatMap(function (Holiday $holiday): array {
+                $start = $holiday->holiday_date?->copy();
+                if ($start === null) {
+                    return [];
+                }
+
+                $end = $holiday->end_date?->copy();
+                if ($end === null || $end->lt($start)) {
+                    $end = $start->copy();
+                }
+
+                $days = [];
+                $cursor = $start->copy();
+                while ($cursor->lte($end)) {
+                    $days[] = $cursor->toDateString();
+                    $cursor->addDay();
+                }
+
+                return $days;
+            })
             ->unique()
             ->values()
             ->all();

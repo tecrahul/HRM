@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { payrollApi } from '../api';
 import { InfoCard, SectionHeader, StatusBadge, formatCount, formatDateTime, formatMoney, useDebouncedValue } from '../shared/ui';
+import { QuickInfoGrid } from '../../common/QuickInfoGrid';
 
 const toFilters = (filters) => ({
     branch_id: filters.branchId || '',
@@ -72,7 +73,7 @@ export function DashboardPage({ urls, routes, filters }) {
 
                 {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <QuickInfoGrid className="mt-4">
                     <InfoCard
                         label="Total Employees"
                         value={loading ? '...' : formatCount(summary?.totalEmployees ?? 0)}
@@ -95,6 +96,10 @@ export function DashboardPage({ urls, routes, filters }) {
                         value={loading ? '...' : formatCount(summary?.pendingApprovals ?? 0)}
                         tone="warning"
                         icon="clock"
+                        comparisonValue={summary?.pendingApprovalsChange}
+                        comparisonType={Number(summary?.pendingApprovalsChange ?? 0) >= 0 ? 'increase' : 'decrease'}
+                        showChart={Array.isArray(summary?.pendingApprovalsTrend)}
+                        chartData={summary?.pendingApprovalsTrend ?? []}
                     />
                     <InfoCard
                         label="Total Net Payroll"
@@ -107,7 +112,7 @@ export function DashboardPage({ urls, routes, filters }) {
                         value={loading ? '...' : String(summary?.lastProcessedMonth ?? 'N/A')}
                         icon="calendar"
                     />
-                </div>
+                </QuickInfoGrid>
             </section>
 
             <section className="ui-section">

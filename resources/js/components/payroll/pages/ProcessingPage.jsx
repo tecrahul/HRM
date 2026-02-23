@@ -13,6 +13,7 @@ import {
     formatMoney,
     useDebouncedValue,
 } from '../shared/ui';
+import { QuickInfoGrid } from '../../common/QuickInfoGrid';
 
 const STEPS = [
     { id: 1, title: 'Select Month' },
@@ -499,14 +500,14 @@ export function ProcessingPage({
             {showPayrollHeader ? (
                 <section className="ui-section">
                     <SectionHeader title="Payroll Header" subtitle="Workflow summary after payroll generation." />
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                    <QuickInfoGrid className="mt-4">
                         <InfoCard label="Payroll Month" value={overview?.header?.payrollMonth || payrollMonth} icon="calendar" />
                         <InfoCard label="Status" value={<StatusBadge status={overview?.header?.status || 'generated'} />} icon="status" />
                         <InfoCard label="Total Employees" value={formatCount(overview?.header?.totalEmployees || 0)} icon="users" />
                         <InfoCard label="Total Net Pay" value={formatMoney(overview?.header?.totalNetPay || 0)} tone="success" icon="money" />
                         <InfoCard label="Last Updated" value={formatDateTime(overview?.header?.lastUpdatedAt)} icon="clock" />
                         <InfoCard label="Locked" value={isLocked ? 'Yes' : 'No'} tone={isLocked ? 'danger' : 'default'} icon="shield" />
-                    </div>
+                    </QuickInfoGrid>
                 </section>
             ) : null}
 
@@ -606,14 +607,14 @@ export function ProcessingPage({
 
                         {preview ? (
                             <>
-                                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                <QuickInfoGrid className="mt-4">
                                     <InfoCard label="Total Employees" value={formatCount(preview?.summary?.totalEmployees ?? 0)} icon="users" />
                                     <InfoCard label="Gross Total" value={formatMoney(preview?.summary?.grossTotal ?? 0)} icon="money" />
                                     <InfoCard label="Deduction Total" value={formatMoney(preview?.summary?.deductionTotal ?? 0)} icon="bank" />
                                     <InfoCard label="Net Total" value={formatMoney(preview?.summary?.netTotal ?? 0)} tone="success" icon="chart" />
                                     <InfoCard label="Employees with Errors" value={formatCount(preview?.summary?.employeesWithErrors ?? 0)} tone="danger" icon="warning" />
                                     <InfoCard label="Missing Salary Structure" value={formatCount(preview?.summary?.missingSalaryStructure ?? 0)} tone="warning" icon="shield" />
-                                </div>
+                                </QuickInfoGrid>
 
                                 <div className="ui-table-wrap mt-4">
                                     <table className="ui-table">

@@ -4,47 +4,15 @@ import {
     buildDashboardSummaryQuery,
     fetchAdminDashboardSummary,
 } from '../services/adminDashboardApi';
+import { QuickInfoCard } from './common/QuickInfoCard';
+import { QuickInfoGrid } from './common/QuickInfoGrid';
 
 const numberFormatter = new Intl.NumberFormat();
 
 const toCount = (value) => numberFormatter.format(Number(value ?? 0));
 const toPercent = (value) => `${Number(value ?? 0).toFixed(1)}%`;
 
-const toneStyles = {
-    emerald: {
-        borderColor: 'rgb(16 185 129 / 0.35)',
-        background: 'linear-gradient(150deg, rgb(16 185 129 / 0.2), rgb(16 185 129 / 0.04))',
-        iconBackground: 'rgb(16 185 129 / 0.18)',
-        iconColor: '#047857',
-    },
-    sky: {
-        borderColor: 'rgb(14 165 233 / 0.35)',
-        background: 'linear-gradient(150deg, rgb(14 165 233 / 0.2), rgb(14 165 233 / 0.04))',
-        iconBackground: 'rgb(14 165 233 / 0.18)',
-        iconColor: '#0369a1',
-    },
-    amber: {
-        borderColor: 'rgb(245 158 11 / 0.35)',
-        background: 'linear-gradient(150deg, rgb(245 158 11 / 0.22), rgb(245 158 11 / 0.04))',
-        iconBackground: 'rgb(245 158 11 / 0.2)',
-        iconColor: '#b45309',
-    },
-    violet: {
-        borderColor: 'rgb(139 92 246 / 0.35)',
-        background: 'linear-gradient(150deg, rgb(139 92 246 / 0.22), rgb(139 92 246 / 0.04))',
-        iconBackground: 'rgb(139 92 246 / 0.2)',
-        iconColor: '#6d28d9',
-    },
-    slate: {
-        borderColor: 'rgb(100 116 139 / 0.35)',
-        background: 'linear-gradient(150deg, rgb(100 116 139 / 0.22), rgb(100 116 139 / 0.04))',
-        iconBackground: 'rgb(100 116 139 / 0.2)',
-        iconColor: '#475569',
-    },
-};
-
-function SummaryIcon({ icon, tone = 'slate' }) {
-    const toneStyle = toneStyles[tone] ?? toneStyles.slate;
+function DashboardIcon({ icon }) {
     const iconMap = {
         users: (
             <path d="M17 21v-2.2a3.8 3.8 0 0 0-3-3.7M7 21v-2.2a3.8 3.8 0 0 1 3-3.7M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M20 8v6M23 11h-6" />
@@ -95,54 +63,19 @@ function SummaryIcon({ icon, tone = 'slate' }) {
     };
 
     return (
-        <span
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl"
-            style={{ background: toneStyle.iconBackground, color: toneStyle.iconColor }}
-            aria-hidden="true"
-        >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {iconMap[icon] ?? iconMap.users}
-            </svg>
-        </span>
-    );
-}
-
-function SummaryCard({ title, value, subtitle, tone = 'slate', icon = 'users' }) {
-    const toneStyle = toneStyles[tone] ?? toneStyles.slate;
-
-    return (
-        <article className="rounded-2xl border p-4 shadow-sm">
-            <div
-                className="rounded-xl border p-4"
-                style={{
-                    borderColor: toneStyle.borderColor,
-                    background: toneStyle.background,
-                }}
-            >
-                <div className="flex items-start justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
-                        {title}
-                    </p>
-                    <SummaryIcon tone={tone} icon={icon} />
-                </div>
-                <p className="mt-3 text-2xl font-extrabold leading-tight" style={{ color: 'var(--hr-text-main)' }}>
-                    {value}
-                </p>
-                <p className="mt-2 text-xs font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
-                    {subtitle}
-                </p>
-            </div>
-        </article>
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {iconMap[icon] ?? iconMap.users}
+        </svg>
     );
 }
 
 function SummarySkeleton() {
     return (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 animate-pulse">
+        <QuickInfoGrid>
             {Array.from({ length: 7 }).map((_, index) => (
                 <div
                     key={index}
-                    className="rounded-2xl border p-4"
+                    className="rounded-2xl border p-4 h-full animate-pulse"
                     style={{ backgroundColor: 'var(--hr-surface-strong)', borderColor: 'var(--hr-line)' }}
                 >
                     <div className="h-3 w-32 rounded bg-slate-300/40" />
@@ -150,7 +83,7 @@ function SummarySkeleton() {
                     <div className="mt-3 h-3 w-40 rounded bg-slate-300/30" />
                 </div>
             ))}
-        </div>
+        </QuickInfoGrid>
     );
 }
 
@@ -199,56 +132,56 @@ function AdminDashboardSummaryCards({ endpointUrl, initialBranchId = '', initial
                 key: 'active-employees',
                 title: 'Total Active Employees',
                 value: toCount(summary.totalActiveEmployees),
-                subtitle: 'Employees with active status',
-                tone: 'emerald',
+                secondaryInfo: 'Employees with active status',
+                color: 'success',
                 icon: 'users',
             },
             {
                 key: 'present-today',
                 title: 'Present Today',
                 value: toCount(summary.presentToday?.count),
-                subtitle: `${toPercent(summary.presentToday?.percentage)} of active employees`,
-                tone: 'sky',
+                secondaryInfo: `${toPercent(summary.presentToday?.percentage)} of active employees`,
+                color: 'primary',
                 icon: 'attendance',
             },
             {
                 key: 'currently-on-leave',
                 title: 'Employees On Leave',
                 value: toCount(summary.employeesOnLeave),
-                subtitle: 'Approved leave overlapping today',
-                tone: 'amber',
+                secondaryInfo: 'Approved leave overlapping today',
+                color: 'warning',
                 icon: 'leave',
             },
             {
                 key: 'pending-approvals',
                 title: 'Pending Approvals',
                 value: toCount(summary.pendingApprovals?.total),
-                subtitle: `Leave ${toCount(summary.pendingApprovals?.leave)} + Other ${toCount(summary.pendingApprovals?.other)}`,
-                tone: 'violet',
+                secondaryInfo: `Leave ${toCount(summary.pendingApprovals?.leave)} + Other ${toCount(summary.pendingApprovals?.other)}`,
+                color: 'warning',
                 icon: 'approvals',
             },
             {
                 key: 'payroll-status',
                 title: 'Payroll Status',
                 value: `${toCount(summary.payrollStatus?.completed)} / ${toCount(summary.payrollStatus?.pending)}`,
-                subtitle: `${summary.payrollStatus?.state ?? 'Pending'} (Completed / Pending)`,
-                tone: 'slate',
+                secondaryInfo: `${summary.payrollStatus?.state ?? 'Pending'} (Completed / Pending)`,
+                color: 'neutral',
                 icon: 'payroll',
             },
             {
                 key: 'new-joiners',
                 title: 'New Joiners This Month',
                 value: toCount(summary.newJoinersThisMonth),
-                subtitle: 'Based on joined-on date',
-                tone: 'emerald',
+                secondaryInfo: 'Based on joined-on date',
+                color: 'success',
                 icon: 'joiners',
             },
             {
                 key: 'exits',
                 title: 'Exits This Month',
                 value: toCount(summary.exitsThisMonth),
-                subtitle: 'Inactive or suspended updates',
-                tone: 'amber',
+                secondaryInfo: 'Inactive or suspended updates',
+                color: 'error',
                 icon: 'exits',
             },
         ];
@@ -281,25 +214,25 @@ function AdminDashboardSummaryCards({ endpointUrl, initialBranchId = '', initial
                 </div>
             </div>
 
-            {error && (
+            {error ? (
                 <p className="mb-3 text-xs font-semibold text-red-600">{error}</p>
-            )}
+            ) : null}
 
             {loading && !summary ? (
                 <SummarySkeleton />
             ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <QuickInfoGrid>
                     {cards.map((card) => (
-                        <SummaryCard
+                        <QuickInfoCard
                             key={card.key}
                             title={card.title}
                             value={card.value}
-                            subtitle={card.subtitle}
-                            tone={card.tone}
-                            icon={card.icon}
+                            secondaryInfo={card.secondaryInfo}
+                            color={card.color}
+                            icon={<DashboardIcon icon={card.icon} />}
                         />
                     ))}
-                </div>
+                </QuickInfoGrid>
             )}
         </section>
     );

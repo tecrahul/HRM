@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { payrollApi } from '../api';
 import { InfoCard, SectionHeader, formatCount, formatMoney, useDebouncedValue } from '../shared/ui';
+import { QuickInfoGrid } from '../../common/QuickInfoGrid';
 
 const PAGE_META = {
     payslips: {
@@ -55,12 +56,12 @@ export function UtilityPage({ page, urls, routes, filters }) {
             <section className="ui-section">
                 <SectionHeader title={meta.title} subtitle={meta.subtitle} />
                 {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <QuickInfoGrid className="mt-4">
                     <InfoCard label="Total Employees" value={loading ? '...' : formatCount(summary?.totalEmployees ?? 0)} icon="users" />
                     <InfoCard label="Pending Approvals" value={loading ? '...' : formatCount(summary?.pendingApprovals ?? 0)} tone="warning" icon="clock" />
                     <InfoCard label="Missing Structure" value={loading ? '...' : formatCount(summary?.missingSalaryStructure ?? 0)} tone="warning" icon="warning" />
                     <InfoCard label="Net Payroll" value={loading ? '...' : formatMoney(summary?.totalNetPayroll ?? 0)} tone="success" icon="money" />
-                </div>
+                </QuickInfoGrid>
             </section>
 
             <section className="ui-section">

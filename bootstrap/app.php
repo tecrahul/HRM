@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\EnsureUserHasPermission;
 use App\Http\Middleware\EnsureCanManageSmtp;
 use App\Http\Middleware\EnsureAuthFeatureEnabled;
 use Illuminate\Foundation\Application;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
+            'permission' => EnsureUserHasPermission::class,
             'auth-feature' => EnsureAuthFeatureEnabled::class,
             'smtp-admin' => EnsureCanManageSmtp::class,
         ]);

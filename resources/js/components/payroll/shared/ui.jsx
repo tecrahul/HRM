@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { EmployeeAutocomplete } from '../../EmployeeAutocomplete';
 import { payrollApi } from '../api';
 import { AppModalPortal } from '../../shared/AppModalPortal';
+import { QuickInfoCard } from '../../common/QuickInfoCard';
 
 export const moneyFormatter = new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 2,
@@ -51,17 +52,17 @@ export function SectionHeader({ title, subtitle, actions = null }) {
     );
 }
 
-export function InfoCard({ label, value, meta, tone = 'default', icon = 'status' }) {
-    const toneStyles = {
-        default: { borderColor: 'var(--hr-line)', background: 'var(--hr-surface)' },
-        success: { borderColor: 'rgb(34 197 94 / 0.32)', background: 'rgb(34 197 94 / 0.08)' },
-        warning: { borderColor: 'rgb(245 158 11 / 0.32)', background: 'rgb(245 158 11 / 0.09)' },
-        danger: { borderColor: 'rgb(239 68 68 / 0.32)', background: 'rgb(239 68 68 / 0.08)' },
-        info: { borderColor: 'rgb(59 130 246 / 0.32)', background: 'rgb(59 130 246 / 0.08)' },
-    };
-
-    const style = toneStyles[tone] ?? toneStyles.default;
-
+export function InfoCard({
+    label,
+    value,
+    meta,
+    tone = 'default',
+    icon = 'status',
+    comparisonValue,
+    comparisonType,
+    showChart = false,
+    chartData = [],
+}) {
     const iconMap = {
         users: (
             <path d="M17 21v-2.2a3.8 3.8 0 0 0-3-3.7M7 21v-2.2a3.8 3.8 0 0 1 3-3.7M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M20 8v6M23 11h-6" />
@@ -123,34 +124,31 @@ export function InfoCard({ label, value, meta, tone = 'default', icon = 'status'
             </>
         ),
     };
-
-    const toneIconColors = {
-        default: { background: 'rgb(100 116 139 / 0.14)', color: '#475569' },
-        success: { background: 'rgb(34 197 94 / 0.14)', color: '#15803d' },
-        warning: { background: 'rgb(245 158 11 / 0.16)', color: '#b45309' },
-        danger: { background: 'rgb(239 68 68 / 0.16)', color: '#b91c1c' },
-        info: { background: 'rgb(59 130 246 / 0.16)', color: '#1d4ed8' },
-    };
-    const iconStyle = toneIconColors[tone] ?? toneIconColors.default;
     const resolvedIcon = iconMap[icon] ?? iconMap.status;
+    const colorMap = {
+        default: 'neutral',
+        success: 'success',
+        warning: 'warning',
+        danger: 'error',
+        info: 'primary',
+    };
 
     return (
-        <article className="rounded-2xl border p-4" style={style}>
-            <div className="flex items-start justify-between gap-2">
-                <p className="text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--hr-text-muted)' }}>{label}</p>
-                <span
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
-                    style={iconStyle}
-                    aria-hidden="true"
-                >
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        {resolvedIcon}
-                    </svg>
-                </span>
-            </div>
-            <p className="mt-2 text-2xl font-extrabold" style={{ color: 'var(--hr-text-main)' }}>{value}</p>
-            {meta ? <p className="mt-1 text-xs" style={{ color: 'var(--hr-text-muted)' }}>{meta}</p> : null}
-        </article>
+        <QuickInfoCard
+            title={label}
+            value={value}
+            color={colorMap[tone] ?? 'neutral'}
+            secondaryInfo={meta}
+            comparisonValue={comparisonValue}
+            comparisonType={comparisonType}
+            showChart={showChart}
+            chartData={chartData}
+            icon={(
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    {resolvedIcon}
+                </svg>
+            )}
+        />
     );
 }
 

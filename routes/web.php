@@ -159,34 +159,58 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
             ->middleware('role:super_admin,admin')
             ->name('branches.destroy');
         Route::get('/holidays', [HolidayController::class, 'index'])
+            ->middleware('permission:holiday.view')
             ->name('holidays.index');
         Route::post('/holidays', [HolidayController::class, 'store'])
-            ->middleware('role:super_admin,admin,hr')
+            ->middleware('permission:holiday.create')
             ->name('holidays.store');
         Route::get('/holidays/{holiday}/edit', [HolidayController::class, 'edit'])
-            ->middleware('role:super_admin,admin,hr')
+            ->middleware('permission:holiday.edit')
             ->name('holidays.edit');
         Route::put('/holidays/{holiday}', [HolidayController::class, 'update'])
-            ->middleware('role:super_admin,admin,hr')
+            ->middleware('permission:holiday.edit')
             ->name('holidays.update');
         Route::delete('/holidays/{holiday}', [HolidayController::class, 'destroy'])
-            ->middleware('role:super_admin,admin,hr')
+            ->middleware('permission:holiday.delete')
             ->name('holidays.destroy');
-        Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+        Route::get('/attendance', [AttendanceController::class, 'index'])
+            ->middleware('permission:attendance.view.self,attendance.view.department,attendance.view.all')
+            ->name('attendance.index');
+        Route::get('/attendance/employee-search', [AttendanceController::class, 'searchEmployees'])
+            ->middleware('permission:attendance.view.self,attendance.view.department,attendance.view.all')
+            ->name('attendance.employee-search');
         Route::post('/attendance', [AttendanceController::class, 'store'])
-            ->middleware('role:super_admin,admin,hr')
+            ->middleware('permission:attendance.create')
             ->name('attendance.store');
-        Route::get('/attendance/{attendance}/edit', [AttendanceController::class, 'edit'])
-            ->middleware('role:super_admin,admin,hr')
-            ->name('attendance.edit');
         Route::put('/attendance/{attendance}', [AttendanceController::class, 'update'])
-            ->middleware('role:super_admin,admin,hr')
+            ->middleware('permission:attendance.edit')
             ->name('attendance.update');
+        Route::delete('/attendance/{attendance}', [AttendanceController::class, 'destroy'])
+            ->middleware('permission:attendance.delete')
+            ->name('attendance.destroy');
+        Route::put('/attendance/{attendance}/approve', [AttendanceController::class, 'approve'])
+            ->middleware('permission:attendance.approve')
+            ->name('attendance.approve');
+        Route::put('/attendance/{attendance}/reject', [AttendanceController::class, 'reject'])
+            ->middleware('permission:attendance.reject')
+            ->name('attendance.reject');
+        Route::post('/attendance/{attendance}/correction-request', [AttendanceController::class, 'requestCorrection'])
+            ->middleware('permission:attendance.create')
+            ->name('attendance.correction');
+        Route::post('/attendance/month-lock', [AttendanceController::class, 'lockMonth'])
+            ->middleware('permission:attendance.lock.month')
+            ->name('attendance.lock-month');
+        Route::post('/attendance/month-unlock', [AttendanceController::class, 'unlockMonth'])
+            ->middleware('permission:attendance.unlock.month')
+            ->name('attendance.unlock-month');
+        Route::get('/attendance/export-csv', [AttendanceController::class, 'exportCsv'])
+            ->middleware('permission:attendance.export')
+            ->name('attendance.export-csv');
         Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])
-            ->middleware('role:employee')
+            ->middleware('permission:attendance.create')
             ->name('attendance.check-in');
         Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut'])
-            ->middleware('role:employee')
+            ->middleware('permission:attendance.create')
             ->name('attendance.check-out');
         Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll.index');
         Route::prefix('/payroll')->name('payroll.')->middleware('role:super_admin,admin,hr,finance')->group(function (): void {
@@ -274,6 +298,7 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
             ->name('payroll.status.update');
         Route::get('/leave', [LeaveController::class, 'index'])->name('leave.index');
         Route::post('/leave', [LeaveController::class, 'store'])->name('leave.store');
+        Route::put('/leave/{leaveRequest}', [LeaveController::class, 'update'])->name('leave.update');
         Route::get('/leave/{leaveRequest}/review', [LeaveController::class, 'reviewPage'])
             ->middleware('role:super_admin,admin,hr')
             ->name('leave.review.form');

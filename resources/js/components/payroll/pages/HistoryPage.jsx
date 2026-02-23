@@ -10,6 +10,7 @@ import {
     formatMoney,
     useDebouncedValue,
 } from '../shared/ui';
+import { QuickInfoGrid } from '../../common/QuickInfoGrid';
 
 export function HistoryPage({ urls, routes, filters, initialStatus = '' }) {
     const [loading, setLoading] = useState(true);
@@ -72,11 +73,11 @@ export function HistoryPage({ urls, routes, filters, initialStatus = '' }) {
         <div className="space-y-5">
             <section className="ui-section">
                 <SectionHeader title="Payroll History Summary" subtitle="Monthly payroll output and cost trends." />
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <QuickInfoGrid className="mt-4">
                     <InfoCard label="Total Months Processed" value={loading ? '...' : formatCount(summary?.totalMonthsProcessed ?? 0)} icon="calendar" />
                     <InfoCard label="YTD Payroll Cost" value={loading ? '...' : formatMoney(summary?.ytdPayrollCost ?? 0)} tone="success" icon="chart" />
                     <InfoCard label="Last Processed Month" value={loading ? '...' : String(summary?.lastProcessedMonth ?? 'N/A')} icon="clock" />
-                </div>
+                </QuickInfoGrid>
             </section>
 
             <section className="ui-section">

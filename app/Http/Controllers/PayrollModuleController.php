@@ -102,43 +102,21 @@ class PayrollModuleController extends Controller
         ]);
 
         $branchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
-        $branchName = $this->resolveBranchName($branchId);
-
-        $employeeDepartmentNames = User::query()
-            ->workforce()
-            ->when($branchName !== null, function (Builder $query) use ($branchName): void {
-                $query->whereHas('profile', function (Builder $profileQuery) use ($branchName): void {
-                    $this->applyProfileStringMatch($profileQuery, 'branch', $branchName);
-                });
-            })
-            ->whereHas('profile', function (Builder $profileQuery): void {
-                $profileQuery->whereNotNull('department')->where('department', '!=', '');
-            })
-            ->with('profile:user_id,department')
-            ->get()
-            ->map(static fn (User $user): string => trim((string) ($user->profile?->department ?? '')))
-            ->filter(static fn (string $department): bool => $department !== '')
-            ->unique(static fn (string $department): string => mb_strtolower($department))
-            ->values();
 
         $departments = Department::query()
             ->where('is_active', true)
-            ->when($branchName !== null, function (Builder $query) use ($employeeDepartmentNames): void {
-                $names = $employeeDepartmentNames->all();
-                if ($names === []) {
-                    $query->whereRaw('1 = 0');
-
-                    return;
-                }
-
-                $query->whereIn('name', $names);
+            ->when($branchId !== null, function (Builder $query) use ($branchId): void {
+                $query->where(function (Builder $nested) use ($branchId): void {
+                    $nested->where('branch_id', $branchId)->orWhereNull('branch_id');
+                });
             })
             ->orderBy('name')
-            ->get(['id', 'name', 'code'])
+            ->get(['id', 'name', 'code', 'branch_id'])
             ->map(static fn (Department $department): array => [
                 'id' => (int) $department->id,
                 'name' => (string) $department->name,
                 'code' => (string) ($department->code ?? ''),
+                'branch_id' => $department->branch_id !== null ? (int) $department->branch_id : null,
             ])
             ->values()
             ->all();
