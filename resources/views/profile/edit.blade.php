@@ -769,7 +769,10 @@
                         <label for="avatarZoomRange" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">
                             Zoom
                         </label>
-                        <input id="avatarZoomRange" type="range" min="1" max="3" step="0.01" value="1" class="w-full">
+                        <div class="hrm-slider">
+                            <input id="avatarZoomRange" type="range" min="1" max="3" step="0.01" value="1" class="w-full">
+                            <span id="avatarZoomRangeValue" class="hrm-slider__value" role="status" aria-live="polite">1.00x</span>
+                        </div>
                     </div>
 
                     <p class="text-xs" style="color: var(--hr-text-muted);">
@@ -1009,6 +1012,7 @@
             const cropModal = document.getElementById('avatarCropModal');
             const cropCanvas = document.getElementById('avatarCropCanvas');
             const zoomRange = document.getElementById('avatarZoomRange');
+            const zoomRangeValue = document.getElementById('avatarZoomRangeValue');
             const cropApply = document.getElementById('avatarCropApply');
             const cropCancel = document.getElementById('avatarCropCancel');
             const cropClose = document.getElementById('avatarCropClose');
@@ -1016,6 +1020,13 @@
             if (!avatarInput || !avatarPreview || !cropModal || !cropCanvas || !zoomRange || !cropApply || !cropCancel || !cropClose) {
                 return;
             }
+
+            const defaultZoomSettings = {
+                min: zoomRange.min,
+                max: zoomRange.max,
+                value: zoomRange.value,
+                step: zoomRange.step || '0.01',
+            };
 
             const context = cropCanvas.getContext('2d');
             if (!context) {
@@ -1032,6 +1043,29 @@
                 dragStartX: 0,
                 dragStartY: 0,
             };
+
+            const updateZoomSliderVisuals = () => {
+                if (!zoomRange) {
+                    return;
+                }
+
+                const min = Number.parseFloat(zoomRange.min);
+                const max = Number.parseFloat(zoomRange.max);
+                const value = Number.parseFloat(zoomRange.value);
+                if (Number.isNaN(min) || Number.isNaN(max) || Number.isNaN(value)) {
+                    return;
+                }
+
+                const rangeSize = Math.max(max - min, 0.0001);
+                const percent = ((value - min) / rangeSize) * 100;
+                const clampedPercent = Math.min(100, Math.max(0, percent));
+                zoomRange.style.setProperty('--hr-slider-fill', `${clampedPercent}%`);
+
+                if (zoomRangeValue instanceof HTMLElement) {
+                    zoomRangeValue.textContent = `${value.toFixed(2)}x`;
+                }
+            };
+            updateZoomSliderVisuals();
 
             let selectedSourceFile = null;
             let previewObjectUrl = null;
@@ -1095,6 +1129,11 @@
                 state.image = null;
                 state.dragActive = false;
                 avatarInput.value = '';
+                zoomRange.min = defaultZoomSettings.min;
+                zoomRange.max = defaultZoomSettings.max;
+                zoomRange.step = defaultZoomSettings.step;
+                zoomRange.value = defaultZoomSettings.value;
+                updateZoomSliderVisuals();
                 setModalOpen(false);
                 renderCropCanvas();
             };
@@ -1129,6 +1168,7 @@
                     zoomRange.max = maxScale.toFixed(2);
                     zoomRange.step = '0.01';
                     zoomRange.value = state.scale.toFixed(2);
+                    updateZoomSliderVisuals();
 
                     renderCropCanvas();
                     setModalOpen(true);
@@ -1194,6 +1234,7 @@
                 }
 
                 positionForScale(nextScale);
+                updateZoomSliderVisuals();
             });
 
             cropCanvas.addEventListener('pointerdown', (event) => {

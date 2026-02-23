@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\EnsureCanManageSmtp;
 use App\Http\Middleware\EnsureAuthFeatureEnabled;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
             'auth-feature' => EnsureAuthFeatureEnabled::class,
+            'smtp-admin' => EnsureCanManageSmtp::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

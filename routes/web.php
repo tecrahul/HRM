@@ -18,6 +18,7 @@ use App\Http\Controllers\PayrollModuleController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\Settings\SmtpSettingsController;
 use App\Http\Middleware\SyncRoleNotifications;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
@@ -76,6 +77,18 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
         ->name('settings.company.update');
     Route::get('/settings/company-logo', [SettingsController::class, 'companyLogo'])
         ->name('settings.company.logo');
+    Route::get('/settings/smtp', [SmtpSettingsController::class, 'index'])
+        ->middleware('role:super_admin,admin,hr')
+        ->name('settings.smtp.index');
+    Route::post('/settings/smtp/custom', [SmtpSettingsController::class, 'storeCustom'])
+        ->middleware('smtp-admin')
+        ->name('settings.smtp.custom');
+    Route::post('/settings/smtp/system', [SmtpSettingsController::class, 'activateSystem'])
+        ->middleware('smtp-admin')
+        ->name('settings.smtp.system');
+    Route::post('/settings/smtp/test-email', [SmtpSettingsController::class, 'sendTestEmail'])
+        ->middleware('smtp-admin')
+        ->name('settings.smtp.test');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');

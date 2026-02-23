@@ -1,5 +1,14 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+@php
+    $companyProfile = \App\Support\CompanyProfile::get();
+    $brandFontStack = \App\Support\CompanyProfile::fontStack($companyProfile['brand_font_family'] ?? null);
+    $brandAccent = \App\Support\CompanyProfile::accentColor();
+    $brandAccentSoft = \App\Support\CompanyProfile::accentSoftColor();
+    $brandAccentBorder = \App\Support\CompanyProfile::accentBorderColor();
+    $brandSecondary = \App\Support\CompanyProfile::secondaryColor();
+    $brandSecondarySoft = \App\Support\CompanyProfile::secondaryAccentSoftColor();
+@endphp
+<html lang="{{ str_replace('_', '-', $companyProfile['locale'] ?? 'en-US') }}" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +16,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         :root {
@@ -19,9 +28,10 @@
             --hr-line: rgb(231 226 244 / 0.95);
             --hr-text-main: #1f1a2e;
             --hr-text-muted: #6f668a;
-            --hr-accent: #7c3aed;
-            --hr-accent-soft: rgb(124 58 237 / 0.13);
-            --hr-accent-border: rgb(124 58 237 / 0.36);
+            --hr-accent: {{ $brandAccent }};
+            --hr-accent-soft: {{ $brandAccentSoft }};
+            --hr-accent-border: {{ $brandAccentBorder }};
+            --hr-font-family: <?php echo $brandFontStack; ?>;
             --hr-shadow-soft: 0 24px 46px -30px rgb(57 26 94 / 0.38);
         }
 
@@ -34,15 +44,15 @@
             --hr-line: rgb(125 150 185 / 0.24);
             --hr-text-main: #d7e6ff;
             --hr-text-muted: #8ea5c7;
-            --hr-accent: #5eead4;
-            --hr-accent-soft: rgb(94 234 212 / 0.16);
+            --hr-accent: {{ $brandSecondary }};
+            --hr-accent-soft: {{ $brandSecondarySoft }};
             --hr-shadow-soft: 0 18px 40px -24px rgb(2 8 23 / 0.78);
         }
 
         body.hrm-modern-body {
             margin: 0;
             min-height: 100vh;
-            font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+            font-family: var(--hr-font-family, "Manrope", ui-sans-serif, system-ui, sans-serif);
             background:
                 radial-gradient(1100px 600px at -10% -10%, var(--hr-bg-grad-a), transparent 55%),
                 radial-gradient(900px 600px at 110% 0%, var(--hr-bg-grad-b), transparent 55%),
@@ -741,16 +751,16 @@
         $resolvedAvatar = asset((string) $resolvedAvatar);
     }
     $canManageUsers = $user?->hasAnyRole([
+        \App\Enums\UserRole::SUPER_ADMIN->value,
         \App\Enums\UserRole::ADMIN->value,
         \App\Enums\UserRole::HR->value,
     ]) ?? false;
     $isAdmin = $user?->hasRole(\App\Enums\UserRole::ADMIN->value) ?? false;
     $isEmployee = $user?->hasRole(\App\Enums\UserRole::EMPLOYEE->value) ?? false;
     $dashboardRoute = $user?->dashboardRouteName() ?? 'dashboard';
-    $companySetting = \App\Models\CompanySetting::query()->first(['company_name', 'company_logo_path']);
-    $brandCompanyName = (string) ($companySetting?->company_name ?: config('app.name'));
+    $brandCompanyName = (string) ($companyProfile['company_name'] ?? config('app.name'));
     $brandLogoUrl = null;
-    $brandLogoPath = (string) ($companySetting?->company_logo_path ?? '');
+    $brandLogoPath = (string) ($companyProfile['company_logo_path'] ?? '');
     if (
         $brandLogoPath !== ''
         && \Illuminate\Support\Facades\Storage::disk('public')->exists($brandLogoPath)
@@ -798,6 +808,9 @@
             <div class="hrm-brand-copy mt-3 text-center">
                 <p class="text-[11px] uppercase tracking-[0.16em] font-bold" style="color: var(--hr-text-muted);">HR Suite</p>
                 <h1 class="text-lg font-extrabold tracking-tight">{{ $brandCompanyName }}</h1>
+                @if (! empty($companyProfile['brand_tagline']))
+                    <p class="text-xs mt-1" style="color: var(--hr-text-muted);">{{ $companyProfile['brand_tagline'] }}</p>
+                @endif
             </div>
 
             <div class="hrm-brand-copy mt-3 border-t" style="border-color: var(--hr-line);"></div>
@@ -987,12 +1000,45 @@
                 </div>
             </div>
             @if ($canManageUsers)
-                <a href="{{ route('settings.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
-                    <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15.08 4.6h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.22.48.34 1.01.34 1.55s-.12 1.07-.34 1.55z"></path>
-                    </svg>
-                    <span class="hrm-nav-label">Settings</span>
-                </a>
+                @php
+                    $settingsMenuOpen = request()->routeIs('settings.*');
+                    $settingsSection = strtolower((string) request()->query('section', ''));
+                @endphp
+                <div id="hrmSettingsSubmenu" class="hrm-submenu flex flex-col gap-1 {{ $settingsMenuOpen ? 'is-open' : '' }}">
+                    <button
+                        id="hrmSettingsToggle"
+                        type="button"
+                        class="hrm-modern-nav-link hrm-submenu-toggle {{ $settingsMenuOpen ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3"
+                        aria-controls="hrmSettingsLinks"
+                        aria-expanded="{{ $settingsMenuOpen ? 'true' : 'false' }}"
+                    >
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15.08 4.6h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.22.48.34 1.01.34 1.55s-.12 1.07-.34 1.55z"></path>
+                        </svg>
+                        <span class="hrm-nav-label">Settings</span>
+                        <svg class="h-4 w-4 shrink-0 hrm-submenu-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m6 9 6 6 6-6"></path>
+                        </svg>
+                    </button>
+                    <div id="hrmSettingsLinks" class="hrm-submenu-links flex flex-col gap-1 {{ $settingsMenuOpen ? '' : 'hidden' }}">
+                        <a href="{{ route('settings.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.index') && $settingsSection === '' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Overview</span>
+                        </a>
+                        <a href="{{ route('settings.index', ['section' => 'system']) }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.index') && $settingsSection === 'system' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">System Setting</span>
+                        </a>
+                        <a href="{{ route('settings.index', ['section' => 'company']) }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.index') && $settingsSection === 'company' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Company Setting</span>
+                        </a>
+                        <a href="{{ route('settings.smtp.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.smtp.*') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">SMTP Settings</span>
+                        </a>
+                    </div>
+                </div>
             @endif
         </nav>
 
@@ -1216,6 +1262,9 @@
         const payrollSubmenu = document.getElementById("hrmPayrollSubmenu");
         const payrollToggle = document.getElementById("hrmPayrollToggle");
         const payrollLinks = document.getElementById("hrmPayrollLinks");
+        const settingsSubmenu = document.getElementById("hrmSettingsSubmenu");
+        const settingsToggle = document.getElementById("hrmSettingsToggle");
+        const settingsLinks = document.getElementById("hrmSettingsLinks");
 
         const getInitialTheme = () => {
             const storedTheme = localStorage.getItem("hrm-modern-theme");
@@ -1282,6 +1331,16 @@
             payrollSubmenu.classList.toggle("is-open", open);
             payrollLinks.classList.toggle("hidden", !open);
             payrollToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        };
+
+        const setSettingsSubmenuOpen = (open) => {
+            if (!settingsSubmenu || !settingsToggle || !settingsLinks) {
+                return;
+            }
+
+            settingsSubmenu.classList.toggle("is-open", open);
+            settingsLinks.classList.toggle("hidden", !open);
+            settingsToggle.setAttribute("aria-expanded", open ? "true" : "false");
         };
 
         const initPasswordToggles = () => {
@@ -1382,6 +1441,18 @@
                 }
                 const isOpen = payrollSubmenu?.classList.contains("is-open") ?? false;
                 setPayrollSubmenuOpen(!isOpen);
+            });
+        }
+
+        if (settingsToggle) {
+            settingsToggle.addEventListener("click", (event) => {
+                event.preventDefault();
+                if (shell?.classList.contains("is-collapsed")) {
+                    shell.classList.remove("is-collapsed");
+                    syncSidebarToggleState();
+                }
+                const isOpen = settingsSubmenu?.classList.contains("is-open") ?? false;
+                setSettingsSubmenuOpen(!isOpen);
             });
         }
 
