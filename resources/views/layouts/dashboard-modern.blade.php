@@ -33,6 +33,9 @@
             --hr-accent-border: {{ $brandAccentBorder }};
             --hr-font-family: <?php echo $brandFontStack; ?>;
             --hr-shadow-soft: 0 24px 46px -30px rgb(57 26 94 / 0.38);
+            /* Slightly darker header/sidebar in light mode for better content contrast */
+            --hr-header-bg: linear-gradient(180deg, rgb(2 8 23 / 0.06), rgb(2 8 23 / 0.02)), var(--hr-surface);
+            --hr-sidebar-bg: linear-gradient(180deg, rgb(2 8 23 / 0.05), rgb(2 8 23 / 0.02)), var(--hr-surface);
         }
 
         html.dark {
@@ -47,6 +50,9 @@
             --hr-accent: {{ $brandSecondary }};
             --hr-accent-soft: {{ $brandSecondarySoft }};
             --hr-shadow-soft: 0 18px 40px -24px rgb(2 8 23 / 0.78);
+            /* Keep header/sidebar parity in dark mode */
+            --hr-header-bg: var(--hr-surface);
+            --hr-sidebar-bg: var(--hr-surface);
         }
 
         body.hrm-modern-body {
@@ -70,8 +76,19 @@
         }
 
         .hrm-modern-shell.is-collapsed {
-            grid-template-columns: 88px minmax(0, 1fr);
+            grid-template-columns: 80px minmax(0, 1fr);
         }
+
+        /* Hide legacy sidebar when React sidebar is mounted */
+        #hrmModernSidebar.js-sidebar-mounted > :not(#sidebar-root) {
+            display: none !important;
+        }
+
+        /* Thin, hover-visible scrollbar */
+        .hrm-sidebar-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .hrm-sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .hrm-sidebar-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 6px; }
+        .hrm-sidebar-scroll:hover::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.45); }
 
         .hrm-modern-surface {
             background: var(--hr-surface);
@@ -85,6 +102,7 @@
             border-right: 1px solid var(--hr-line);
             height: 100vh;
             overflow: hidden;
+            background: var(--hr-sidebar-bg);
         }
 
         .hrm-sidebar-scroll {
@@ -155,8 +173,9 @@
         }
 
         .hrm-brand-logo-wrap {
-            width: 100%;
-            height: 5rem;
+            width: 12rem;
+            height: 3rem;
+            margin: 0 auto;
             border-radius: 1rem;
             border: 0;
             background: transparent;
@@ -187,7 +206,7 @@
         }
 
         .hrm-modern-shell.is-collapsed .hrm-brand-logo-wrap {
-            height: 3.25rem;
+            height: 3rem;
             border: 0;
             background: transparent;
             border-radius: 0;
@@ -756,6 +775,7 @@
         \App\Enums\UserRole::HR->value,
     ]) ?? false;
     $isAdmin = $user?->hasRole(\App\Enums\UserRole::ADMIN->value) ?? false;
+    $isSuperAdmin = $user?->hasRole(\App\Enums\UserRole::SUPER_ADMIN->value) ?? false;
     $isEmployee = $user?->hasRole(\App\Enums\UserRole::EMPLOYEE->value) ?? false;
     $dashboardRoute = $user?->dashboardRouteName() ?? 'dashboard';
     $brandCompanyName = (string) ($companyProfile['company_name'] ?? config('app.name'));
@@ -789,6 +809,64 @@
 @endphp
 <div id="hrmModernShell" class="hrm-modern-shell">
     <aside id="hrmModernSidebar" class="hrm-modern-sidebar hrm-modern-surface px-4 py-5 flex flex-col gap-6">
+        @php
+            $canSeePayroll = $user?->hasAnyRole([\App\Enums\UserRole::SUPER_ADMIN->value, \App\Enums\UserRole::ADMIN->value, \App\Enums\UserRole::HR->value, \App\Enums\UserRole::FINANCE->value]) ?? false;
+            $sidebarItems = [];
+            $sidebarItems[] = [ 'key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'url' => route($dashboardRoute), 'active' => request()->routeIs($dashboardRoute) ];
+            if ($canManageUsers) {
+                $sidebarItems[] = [ 'key' => 'users', 'label' => 'Users', 'icon' => 'users', 'url' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*') ];
+                $sidebarItems[] = [ 'key' => 'departments', 'label' => 'Departments', 'icon' => 'departments', 'url' => route('modules.departments.index'), 'active' => request()->routeIs('modules.departments.*') ];
+                if ($isAdmin) {
+                    $sidebarItems[] = [ 'key' => 'branches', 'label' => 'Branches', 'icon' => 'branches', 'url' => route('modules.branches.index'), 'active' => request()->routeIs('modules.branches.*') ];
+                }
+            }
+            $sidebarItems[] = [ 'key' => 'holidays', 'label' => 'Holidays', 'icon' => 'calendar', 'url' => route('modules.holidays.index'), 'active' => request()->routeIs('modules.holidays.*') ];
+            $sidebarItems[] = [ 'key' => 'employees', 'label' => $isEmployee ? 'Profile' : 'Employees', 'icon' => 'employees', 'url' => route('modules.employees.index'), 'active' => request()->routeIs('modules.employees.*') ];
+            // Attendance submenu items
+            $attendanceChildren = [
+                [ 'key' => 'attendance-overview', 'label' => 'Overview', 'url' => route('modules.attendance.overview'), 'active' => request()->routeIs('modules.attendance.overview') && strtolower((string) request()->query('action', '')) === '' ],
+            ];
+            if (($user?->can('attendance.create') ?? false) && ! ($isAdmin || $isSuperAdmin)) {
+                $attendanceChildren[] = [ 'key' => 'attendance-punch', 'label' => 'Punch In/Out', 'url' => route('modules.attendance.punch'), 'active' => request()->routeIs('modules.attendance.punch') || request()->routeIs('modules.attendance.punch-in') || request()->routeIs('modules.attendance.punch-out') ];
+            }
+            if ($isAdmin || $isSuperAdmin) {
+                $attendanceChildren[] = [ 'key' => 'attendance-mark', 'label' => 'Mark Attendance', 'url' => route('modules.attendance.overview', ['action' => 'create']), 'active' => request()->routeIs('modules.attendance.overview') && strtolower((string) request()->query('action', '')) === 'create' ];
+            }
+            $sidebarItems[] = [ 'key' => 'attendance', 'label' => 'Attendance', 'icon' => 'attendance', 'url' => route('modules.attendance.overview'), 'active' => request()->routeIs('modules.attendance.*'), 'children' => $attendanceChildren ];
+            $sidebarItems[] = [ 'key' => 'leave', 'label' => 'Leave', 'icon' => 'leave', 'url' => route('modules.leave.index'), 'active' => request()->routeIs('modules.leave.*') ];
+            if ($canSeePayroll) {
+                $payrollChildren = [
+                    [ 'key' => 'salary-structures', 'label' => 'Salary Structures', 'url' => route('modules.payroll.salary-structures'), 'active' => request()->routeIs('modules.payroll.salary-structures') ],
+                    [ 'key' => 'processing', 'label' => 'Payroll Processing', 'url' => route('modules.payroll.processing'), 'active' => request()->routeIs('modules.payroll.processing') ],
+                    [ 'key' => 'history', 'label' => 'Payroll History', 'url' => route('modules.payroll.history'), 'active' => request()->routeIs('modules.payroll.history') ],
+                    [ 'key' => 'payslips', 'label' => 'Payslips', 'url' => route('modules.payroll.payslips'), 'active' => request()->routeIs('modules.payroll.payslips') ],
+                    [ 'key' => 'payroll-reports', 'label' => 'Reports', 'url' => route('modules.payroll.reports'), 'active' => request()->routeIs('modules.payroll.reports') ],
+                    [ 'key' => 'payroll-settings', 'label' => 'Settings', 'url' => route('modules.payroll.settings'), 'active' => request()->routeIs('modules.payroll.settings') ],
+                ];
+                $sidebarItems[] = [ 'key' => 'payroll', 'label' => 'Payroll', 'icon' => 'payroll', 'url' => route('modules.payroll.index'), 'active' => str_starts_with((string) request()->route()?->getName(), 'modules.payroll.'), 'children' => $payrollChildren ];
+            }
+            $sidebarItems[] = [ 'key' => 'communication', 'label' => 'Communication', 'icon' => 'communication', 'url' => route('modules.communication.index'), 'active' => request()->routeIs('modules.communication.*'), 'badge' => $unreadCommunicationCount ];
+            $sidebarItems[] = [ 'key' => 'notifications', 'label' => 'Notifications', 'icon' => 'notifications', 'url' => route('notifications.index'), 'active' => request()->routeIs('notifications.*'), 'badge' => $unreadNotificationsCount ];
+            $reportsChildren = [
+                [ 'key' => 'reports-overview', 'label' => 'Overview', 'url' => route('modules.reports.index'), 'active' => request()->routeIs('modules.reports.index') ],
+                [ 'key' => 'reports-activity', 'label' => 'Activity', 'url' => route('modules.reports.activity'), 'active' => request()->routeIs('modules.reports.activity') ],
+            ];
+            $sidebarItems[] = [ 'key' => 'reports', 'label' => 'Reports', 'icon' => 'reports', 'url' => route('modules.reports.index'), 'active' => request()->routeIs('modules.reports.*'), 'children' => $reportsChildren ];
+            if ($canManageUsers) {
+                $settingsChildren = [
+                    [ 'key' => 'settings-overview', 'label' => 'Overview', 'url' => route('settings.index'), 'active' => request()->routeIs('settings.index') && strtolower((string) request()->query('section', '')) === '' ],
+                    [ 'key' => 'settings-system', 'label' => 'System Setting', 'url' => route('settings.index', ['section' => 'system']), 'active' => request()->routeIs('settings.index') && strtolower((string) request()->query('section', '')) === 'system' ],
+                    [ 'key' => 'settings-company', 'label' => 'Company Setting', 'url' => route('settings.index', ['section' => 'company']), 'active' => request()->routeIs('settings.index') && strtolower((string) request()->query('section', '')) === 'company' ],
+                    [ 'key' => 'settings-smtp', 'label' => 'SMTP Settings', 'url' => route('settings.smtp.index'), 'active' => request()->routeIs('settings.smtp.*') ],
+                ];
+                $sidebarItems[] = [ 'key' => 'settings', 'label' => 'Settings', 'icon' => 'settings', 'url' => route('settings.index'), 'active' => request()->routeIs('settings.*'), 'children' => $settingsChildren, 'section' => 'Administration' ];
+            }
+            $sidebarPayload = [
+                'brand' => [ 'name' => $brandCompanyName, 'logo' => $brandLogoUrl, 'tagline' => (string) ($companyProfile['brand_tagline'] ?? '') ],
+                'items' => array_map(function ($item) { $item['badge'] = (int) ($item['badge'] ?? 0); return $item; }, $sidebarItems),
+            ];
+        @endphp
+        <div id="sidebar-root" data-payload='@json($sidebarPayload)'></div>
         <div class="w-full">
             <div class="hrm-brand-logo-wrap">
                 @if ($brandLogoUrl)
@@ -873,12 +951,45 @@
                 </svg>
                 <span class="hrm-nav-label">{{ $isEmployee ? 'Profile' : 'Employees' }}</span>
             </a>
-            <a href="{{ route('modules.attendance.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.attendance.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
-                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.2 2"></path>
-                </svg>
-                <span class="hrm-nav-label">Attendance</span>
-            </a>
+            @php
+                $attendanceMenuOpen = request()->routeIs('modules.attendance.*');
+                $attendanceAction = strtolower((string) request()->query('action', ''));
+            @endphp
+            <div id="hrmAttendanceSubmenu" class="hrm-submenu flex flex-col gap-1 {{ $attendanceMenuOpen ? 'is-open' : '' }}">
+                <button
+                    id="hrmAttendanceToggle"
+                    type="button"
+                    class="hrm-modern-nav-link hrm-submenu-toggle {{ $attendanceMenuOpen ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3"
+                    aria-controls="hrmAttendanceLinks"
+                    aria-expanded="{{ $attendanceMenuOpen ? 'true' : 'false' }}"
+                >
+                    <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.2 2"></path>
+                    </svg>
+                    <span class="hrm-nav-label">Attendance</span>
+                    <svg class="h-4 w-4 shrink-0 hrm-submenu-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m6 9 6 6 6-6"></path>
+                    </svg>
+                </button>
+                <div id="hrmAttendanceLinks" class="hrm-submenu-links flex flex-col gap-1 {{ $attendanceMenuOpen ? '' : 'hidden' }}">
+                    <a href="{{ route('modules.attendance.overview') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.attendance.overview') && $attendanceAction === '' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                        <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                        <span class="hrm-nav-label">Overview</span>
+                    </a>
+                    @if ($user?->can('attendance.create') && ! ($isAdmin || $isSuperAdmin))
+                        <a href="{{ route('modules.attendance.punch') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.attendance.punch') || request()->routeIs('modules.attendance.punch-in') || request()->routeIs('modules.attendance.punch-out') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Punch In/Out</span>
+                        </a>
+                    @endif
+                    @if ($isAdmin || $isSuperAdmin)
+                        <a href="{{ route('modules.attendance.overview', ['action' => 'create']) }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.attendance.overview') && $attendanceAction === 'create' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Mark Attendance</span>
+                        </a>
+                    @endif
+                </div>
+            </div>
             <a href="{{ route('modules.leave.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.leave.*') ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
                 <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="5" width="18" height="16" rx="2"></rect>
@@ -1050,7 +1161,7 @@
     </aside>
 
     <div class="hrm-main-pane min-w-0 flex flex-col">
-        <header class="sticky top-0 z-40 border-b backdrop-blur px-4 py-3 md:px-6" style="background: var(--hr-surface); border-color: var(--hr-line); z-index: var(--z-header, 1000);">
+        <header class="sticky top-0 z-40 border-b backdrop-blur px-4 py-3 md:px-6" style="background: var(--hr-header-bg); border-color: var(--hr-line); z-index: var(--z-header, 1000);">
             <div class="flex items-center gap-3">
                 <button id="hrmSidebarMobileToggle" type="button" class="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border" style="border-color: var(--hr-line);">
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1259,6 +1370,9 @@
         const reportsSubmenu = document.getElementById("hrmReportsSubmenu");
         const reportsToggle = document.getElementById("hrmReportsToggle");
         const reportsLinks = document.getElementById("hrmReportsLinks");
+        const attendanceSubmenu = document.getElementById("hrmAttendanceSubmenu");
+        const attendanceToggle = document.getElementById("hrmAttendanceToggle");
+        const attendanceLinks = document.getElementById("hrmAttendanceLinks");
         const payrollSubmenu = document.getElementById("hrmPayrollSubmenu");
         const payrollToggle = document.getElementById("hrmPayrollToggle");
         const payrollLinks = document.getElementById("hrmPayrollLinks");
@@ -1321,6 +1435,16 @@
             reportsSubmenu.classList.toggle("is-open", open);
             reportsLinks.classList.toggle("hidden", !open);
             reportsToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        };
+
+        const setAttendanceSubmenuOpen = (open) => {
+            if (!attendanceSubmenu || !attendanceToggle || !attendanceLinks) {
+                return;
+            }
+
+            attendanceSubmenu.classList.toggle("is-open", open);
+            attendanceLinks.classList.toggle("hidden", !open);
+            attendanceToggle.setAttribute("aria-expanded", open ? "true" : "false");
         };
 
         const setPayrollSubmenuOpen = (open) => {
@@ -1390,6 +1514,14 @@
             sidebarCollapse.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
         };
 
+        // Apply persisted sidebar collapsed state on load
+        const storedCollapsed = localStorage.getItem("hrm-modern-sidebar-collapsed");
+        if (storedCollapsed === "1") {
+            shell?.classList.add("is-collapsed");
+        } else if (storedCollapsed === "0") {
+            shell?.classList.remove("is-collapsed");
+        }
+
         if (profileMenuButton) {
             profileMenuButton.addEventListener("click", (event) => {
                 event.preventDefault();
@@ -1426,9 +1558,23 @@
                 if (shell?.classList.contains("is-collapsed")) {
                     shell.classList.remove("is-collapsed");
                     syncSidebarToggleState();
+                    localStorage.setItem("hrm-modern-sidebar-collapsed", "0");
                 }
                 const isOpen = reportsSubmenu?.classList.contains("is-open") ?? false;
                 setReportsSubmenuOpen(!isOpen);
+            });
+        }
+
+        if (attendanceToggle) {
+            attendanceToggle.addEventListener("click", (event) => {
+                event.preventDefault();
+                if (shell?.classList.contains("is-collapsed")) {
+                    shell.classList.remove("is-collapsed");
+                    syncSidebarToggleState();
+                    localStorage.setItem("hrm-modern-sidebar-collapsed", "0");
+                }
+                const isOpen = attendanceSubmenu?.classList.contains("is-open") ?? false;
+                setAttendanceSubmenuOpen(!isOpen);
             });
         }
 
@@ -1438,6 +1584,7 @@
                 if (shell?.classList.contains("is-collapsed")) {
                     shell.classList.remove("is-collapsed");
                     syncSidebarToggleState();
+                    localStorage.setItem("hrm-modern-sidebar-collapsed", "0");
                 }
                 const isOpen = payrollSubmenu?.classList.contains("is-open") ?? false;
                 setPayrollSubmenuOpen(!isOpen);
@@ -1450,6 +1597,7 @@
                 if (shell?.classList.contains("is-collapsed")) {
                     shell.classList.remove("is-collapsed");
                     syncSidebarToggleState();
+                    localStorage.setItem("hrm-modern-sidebar-collapsed", "0");
                 }
                 const isOpen = settingsSubmenu?.classList.contains("is-open") ?? false;
                 setSettingsSubmenuOpen(!isOpen);
@@ -1467,6 +1615,8 @@
             sidebarCollapse.addEventListener("click", () => {
                 shell.classList.toggle("is-collapsed");
                 syncSidebarToggleState();
+                const collapsed = shell.classList.contains("is-collapsed");
+                localStorage.setItem("hrm-modern-sidebar-collapsed", collapsed ? "1" : "0");
             });
         }
 
@@ -1480,8 +1630,14 @@
             const target = event.target instanceof Element ? event.target : null;
             const clickedInsideSidebar = target ? target.closest("#hrmModernSidebar") : null;
             const clickedMobileToggle = target ? target.closest("#hrmSidebarMobileToggle") : null;
+            const clickedSidebarLink = target ? target.closest("#hrmModernSidebar a[href]") : null;
 
             if (window.innerWidth <= 1024 && !clickedInsideSidebar && !clickedMobileToggle) {
+                sidebar.classList.remove("is-open");
+            }
+
+            // Auto-hide sidebar on mobile when a nav link is clicked
+            if (window.innerWidth <= 1024 && clickedSidebarLink) {
                 sidebar.classList.remove("is-open");
             }
 

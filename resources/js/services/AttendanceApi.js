@@ -163,6 +163,19 @@ export class AttendanceApi {
         return this.request(this.client.post(this.routes.checkOut, { notes }));
     }
 
+    punch(type, reason = '') {
+        if (!this.routes.punch) {
+            throw {
+                status: 400,
+                message: 'Punch route is not configured.',
+                errors: {},
+            };
+        }
+
+        const payload = { type: type === 'out' ? 'out' : 'in', reason };
+        return this.request(this.client.post(this.routes.punch, payload));
+    }
+
     searchEmployees(query, filters = {}) {
         if (!this.routes.employeeSearch || query.trim().length < 2) {
             return Promise.resolve([]);

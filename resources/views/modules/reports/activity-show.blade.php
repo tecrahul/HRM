@@ -5,10 +5,6 @@
 
 @section('content')
     @php
-        $payload = is_array($activity->payload) ? $activity->payload : [];
-        $payloadJson = empty($payload)
-            ? '{}'
-            : json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         $subjectType = (string) ($activity->subject_type ?? '');
         $subjectTypeLabel = $subjectType !== '' ? class_basename($subjectType) : 'N/A';
         $actorRole = $activity->actor?->role;

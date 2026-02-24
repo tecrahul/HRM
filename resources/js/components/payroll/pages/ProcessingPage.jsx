@@ -22,7 +22,6 @@ const STEPS = [
     { id: 4, title: 'Pay & Lock' },
 ];
 
-const APPROVED_STATUSES = ['processed', 'paid'];
 const MONTH_OPTIONS = [
     { value: '01', label: 'January' },
     { value: '02', label: 'February' },
@@ -89,10 +88,12 @@ export function ProcessingPage({
         return mapped[String(initialAlert)] || '';
     });
     const [selectedIds, setSelectedIds] = useState([]);
+    const [approvalPage, setApprovalPage] = useState(1);
 
     const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
     const [paymentReference, setPaymentReference] = useState('');
-    const [notes, setNotes] = useState('');
+    const [generationNotes, setGenerationNotes] = useState('');
+    const [paymentNotes, setPaymentNotes] = useState('');
     const [confirmLock, setConfirmLock] = useState(false);
 
     const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
@@ -134,6 +135,7 @@ export function ProcessingPage({
     }, [payrollMonth]);
 
     const workflowFilters = useMemo(() => toWorkflowPayload(filters, payrollMonth), [filters, payrollMonth]);
+    const hasScopeFilters = Boolean(workflowFilters.branch_id || workflowFilters.department_id || workflowFilters.employee_id);
     const workflowStatus = String(overview?.header?.status || 'draft').toLowerCase();
     const stepInstructions = {
         1: 'Select payroll month to start the workflow.',
@@ -154,7 +156,13 @@ export function ProcessingPage({
         setLoadingOverview(true);
         setError('');
 
-        return payrollApi.getWorkflowOverview(urls.workflowOverview, workflowFilters)
+        return payrollApi.getWorkflowOverview(urls.workflowOverview, {
+            ...workflowFilters,
+            q: debouncedSearch,
+            status: statusFilter,
+            page: approvalPage,
+            per_page: 25,
+        })
             .then((data) => {
                 setOverview(data ?? null);
 
@@ -162,9 +170,10 @@ export function ProcessingPage({
                     return data;
                 }
 
-                const records = Array.isArray(data?.records) ? data.records : [];
-                const allApprovedRecords = records.length > 0 && records.every((item) => APPROVED_STATUSES.includes(String(item.status)));
-                const anyGenerated = records.length > 0;
+                const generatedCount = Number(data?.summary?.generatedCount ?? 0);
+                const approvedCount = Number(data?.summary?.approvedCount ?? 0);
+                const allApprovedRecords = generatedCount > 0 && approvedCount === generatedCount;
+                const anyGenerated = generatedCount > 0;
 
                 if (data?.header?.locked) {
                     setCompletedStep(4);
@@ -202,11 +211,15 @@ export function ProcessingPage({
     useEffect(() => {
         loadOverview({ syncWorkflow: false });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [workflowFilters.branch_id, workflowFilters.department_id, workflowFilters.employee_id, workflowFilters.payroll_month]);
+    }, [workflowFilters.branch_id, workflowFilters.department_id, workflowFilters.employee_id, workflowFilters.payroll_month, debouncedSearch, statusFilter, approvalPage]);
 
     useEffect(() => {
         setPreview(null);
     }, [workflowFilters.branch_id, workflowFilters.department_id, workflowFilters.employee_id]);
+
+    useEffect(() => {
+        setApprovalPage(1);
+    }, [workflowFilters.branch_id, workflowFilters.department_id, workflowFilters.employee_id, workflowFilters.payroll_month]);
 
     useEffect(() => {
         if (monthConfirmed && String(initialAlert) === 'not_generated') {
@@ -221,8 +234,11 @@ export function ProcessingPage({
         setMonthConfirmed(false);
         setPreview(null);
         setSelectedIds([]);
+        setApprovalPage(1);
         setConfirmLock(false);
         setSearch('');
+        setGenerationNotes('');
+        setPaymentNotes('');
     }, [payrollMonth]);
 
     const onContinueStep1 = async () => {
@@ -279,7 +295,7 @@ export function ProcessingPage({
         setError('');
         setSuccess('');
 
-        payrollApi.generateWorkflow(urls.workflowGenerateBatch, { ...workflowFilters, notes }, csrfToken)
+        payrollApi.generateWorkflow(urls.workflowGenerateBatch, { ...workflowFilters, notes: generationNotes }, csrfToken)
             .then((data) => {
                 setSuccess(String(data?.message || 'Payroll generated successfully.'));
                 setCompletedStep((prev) => Math.max(prev, 2));
@@ -295,30 +311,16 @@ export function ProcessingPage({
             });
     };
 
-    const filteredRecords = useMemo(() => {
-        const records = Array.isArray(overview?.records) ? overview.records : [];
-
-        return records.filter((item) => {
-            if (statusFilter && String(item.uiStatus || item.status) !== statusFilter) {
-                return false;
-            }
-
-            if (debouncedSearch) {
-                const haystack = `${item.employeeName || ''} ${item.department || ''}`.toLowerCase();
-                if (!haystack.includes(debouncedSearch.toLowerCase())) {
-                    return false;
-                }
-            }
-
-            return true;
-        });
-    }, [overview?.records, statusFilter, debouncedSearch]);
+    const filteredRecords = useMemo(
+        () => (Array.isArray(overview?.records) ? overview.records : []),
+        [overview?.records],
+    );
 
     const tableTotals = useMemo(() => ({
-        gross: filteredRecords.reduce((acc, row) => acc + Number(row.gross || 0), 0),
-        deductions: filteredRecords.reduce((acc, row) => acc + Number(row.deductions || 0), 0),
-        net: filteredRecords.reduce((acc, row) => acc + Number(row.net || 0), 0),
-    }), [filteredRecords]);
+        gross: Number(overview?.tableTotals?.gross ?? 0),
+        deductions: Number(overview?.tableTotals?.deductions ?? 0),
+        net: Number(overview?.tableTotals?.net ?? 0),
+    }), [overview?.tableTotals]);
 
     const approveCandidates = useMemo(
         () => filteredRecords.filter((item) => canApproveStatus(item.status)),
@@ -326,10 +328,11 @@ export function ProcessingPage({
     );
 
     const allApproved = useMemo(() => {
-        const records = Array.isArray(overview?.records) ? overview.records : [];
+        const generatedCount = Number(overview?.summary?.generatedCount ?? 0);
+        const approvedCount = Number(overview?.summary?.approvedCount ?? 0);
 
-        return records.length > 0 && records.every((item) => APPROVED_STATUSES.includes(String(item.status)));
-    }, [overview?.records]);
+        return generatedCount > 0 && approvedCount === generatedCount;
+    }, [overview?.summary?.approvedCount, overview?.summary?.generatedCount]);
 
     const isLocked = Boolean(overview?.header?.locked);
 
@@ -338,6 +341,14 @@ export function ProcessingPage({
             setCompletedStep((prev) => Math.max(prev, 3));
         }
     }, [allApproved, isLocked, monthConfirmed]);
+
+    useEffect(() => {
+        const visibleIds = new Set(filteredRecords.map((item) => item.id));
+        setSelectedIds((prev) => {
+            const next = prev.filter((id) => visibleIds.has(id));
+            return next.length === prev.length && next.every((id, index) => id === prev[index]) ? prev : next;
+        });
+    }, [filteredRecords]);
 
     const toggleSelect = (id) => {
         setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
@@ -390,6 +401,11 @@ export function ProcessingPage({
             return;
         }
 
+        if (hasScopeFilters) {
+            setError('Clear branch, department, and employee filters before closing payroll month.');
+            return;
+        }
+
         if (!allApproved) {
             setError('All payroll records must be approved before payment.');
             return;
@@ -408,7 +424,7 @@ export function ProcessingPage({
             ...workflowFilters,
             payment_method: paymentMethod,
             payment_reference: paymentReference,
-            notes,
+            notes: paymentNotes,
             confirm_lock: true,
         }, csrfToken)
             .then((data) => {
@@ -463,6 +479,12 @@ export function ProcessingPage({
         if (filters.employeeId) {
             params.set('employee_id', filters.employeeId);
         }
+        if (filters.branchId) {
+            params.set('branch_id', filters.branchId);
+        }
+        if (filters.departmentId) {
+            params.set('department_id', filters.departmentId);
+        }
         if (statusFilter) {
             params.set('status', statusFilter);
         }
@@ -471,7 +493,15 @@ export function ProcessingPage({
         }
 
         return `${urls.directoryExportCsv}?${params.toString()}`;
-    }, [urls.directoryExportCsv, payrollMonth, filters.employeeId, statusFilter, debouncedSearch]);
+    }, [urls.directoryExportCsv, payrollMonth, filters.employeeId, filters.branchId, filters.departmentId, statusFilter, debouncedSearch]);
+    const approvalPagination = overview?.pagination ?? { currentPage: 1, lastPage: 1, total: 0 };
+
+    useEffect(() => {
+        const lastPage = Math.max(1, Number(approvalPagination.lastPage || 1));
+        if (approvalPage > lastPage) {
+            setApprovalPage(lastPage);
+        }
+    }, [approvalPage, approvalPagination.lastPage]);
 
     return (
         <div className="space-y-6">
@@ -604,6 +634,17 @@ export function ProcessingPage({
                                 {submitting ? 'Generating...' : 'Generate Payroll'}
                             </button>
                         </div>
+                        <label className="mt-3 block text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
+                            Generation Notes
+                            <textarea
+                                className="ui-textarea mt-1"
+                                rows={3}
+                                value={generationNotes}
+                                onChange={(event) => setGenerationNotes(event.target.value)}
+                                placeholder="Optional note for this payroll generation run"
+                                disabled={submitting || isLocked}
+                            />
+                        </label>
 
                         {preview ? (
                             <>
@@ -657,22 +698,47 @@ export function ProcessingPage({
             {activeStep === 3 ? (
                 <section className="ui-section hrm-step-content">
                     <SectionHeader title="Step 3: Approve Payroll" subtitle="Approve generated payroll in bulk with status filters." />
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-nowrap items-center gap-2 overflow-x-auto">
                         <input
                             type="search"
                             className="ui-input"
                             placeholder="Search employee or department"
                             value={search}
-                            onChange={(event) => setSearch(event.target.value)}
+                            onChange={(event) => {
+                                setApprovalPage(1);
+                                setSearch(event.target.value);
+                            }}
+                            style={{ flex: '1 1 300px', minWidth: '260px' }}
                         />
-                        <select className="ui-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                        <select
+                            className="ui-select"
+                            value={statusFilter}
+                            onChange={(event) => {
+                                setApprovalPage(1);
+                                setStatusFilter(event.target.value);
+                            }}
+                            style={{ flex: '0 0 180px', minWidth: '180px' }}
+                        >
                             <option value="">All Status</option>
                             <option value="generated">Generated</option>
                             <option value="approved">Approved</option>
                             <option value="paid">Paid</option>
                             <option value="failed">Failed</option>
                         </select>
-                        <a className="ui-btn ui-btn-ghost" href={exportCsvUrl}>Export CSV</a>
+                        <a
+                            className="ui-btn"
+                            href={exportCsvUrl}
+                            style={{
+                                flex: '0 0 auto',
+                                color: '#fff',
+                                borderColor: '#0f766e',
+                                background: 'linear-gradient(120deg, #0f766e, #0ea5e9)',
+                                boxShadow: '0 12px 22px -18px rgba(14, 165, 233, 0.9)',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            Export CSV
+                        </a>
                     </div>
 
                     <div className="ui-table-wrap mt-4">
@@ -730,6 +796,29 @@ export function ProcessingPage({
                             ) : null}
                         </table>
                     </div>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                        <p className="text-sm" style={{ color: 'var(--hr-text-muted)' }}>
+                            Page {approvalPagination.currentPage} of {approvalPagination.lastPage} ({formatCount(approvalPagination.total)} records)
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                className="ui-btn ui-btn-ghost"
+                                disabled={approvalPagination.currentPage <= 1}
+                                onClick={() => setApprovalPage((prev) => Math.max(1, prev - 1))}
+                            >
+                                Previous
+                            </button>
+                            <button
+                                type="button"
+                                className="ui-btn ui-btn-ghost"
+                                disabled={approvalPagination.currentPage >= approvalPagination.lastPage}
+                                onClick={() => setApprovalPage((prev) => Math.min(approvalPagination.lastPage, prev + 1))}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                         <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setActiveStep(2)}>Back</button>
@@ -774,6 +863,17 @@ export function ProcessingPage({
                             <input className="ui-input mt-1" value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} disabled={isLocked} />
                         </label>
                     </div>
+                    <label className="mt-3 block text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
+                        Payment Notes
+                        <textarea
+                            className="ui-textarea mt-1"
+                            rows={3}
+                            value={paymentNotes}
+                            onChange={(event) => setPaymentNotes(event.target.value)}
+                            placeholder="Optional note for payout and closure"
+                            disabled={isLocked || submitting}
+                        />
+                    </label>
                     <label className="mt-3 inline-flex items-center gap-2 text-sm">
                         <input type="checkbox" checked={confirmLock} onChange={(event) => setConfirmLock(event.target.checked)} disabled={isLocked} />
                         I confirm payroll payment and accept that this month will be locked.
@@ -783,12 +883,17 @@ export function ProcessingPage({
                         <button
                             type="button"
                             className="ui-btn ui-btn-primary"
-                            disabled={!allApproved || isLocked || submitting || !permissions.canMarkPaid}
+                            disabled={!allApproved || isLocked || submitting || !permissions.canMarkPaid || hasScopeFilters}
                             onClick={() => setPayConfirmOpen(true)}
                         >
                             Mark as Paid
                         </button>
                     </div>
+                    {hasScopeFilters ? (
+                        <p className="mt-2 text-sm font-semibold text-amber-700">
+                            Clear global branch/department/employee filters before month close.
+                        </p>
+                    ) : null}
                     {isLocked ? (
                         <p className="mt-3 text-sm font-semibold text-red-700">Payroll is locked after payment. Editing is disabled.</p>
                     ) : null}

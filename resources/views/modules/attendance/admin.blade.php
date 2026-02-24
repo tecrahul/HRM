@@ -620,7 +620,7 @@
                 </p>
             </div>
 
-            <form method="GET" action="{{ route('modules.attendance.index') }}" class="att-filter-grid mt-3">
+            <form method="GET" action="{{ route('modules.attendance.overview') }}" class="att-filter-grid mt-3">
                 <div class="att-filter-col-3">
                     <label for="attendance_filter_q" class="att-filter-label">Search</label>
                     <input
@@ -687,7 +687,7 @@
 
                 <div class="att-filter-col-2 att-filter-actions">
                     <button type="submit" class="ui-btn ui-btn-primary">Apply Filters</button>
-                    <a href="{{ route('modules.attendance.index') }}" class="ui-btn ui-btn-ghost">Reset</a>
+                    <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">Reset</a>
                 </div>
             </form>
 

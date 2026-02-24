@@ -65,9 +65,18 @@ export function HistoryPage({ urls, routes, filters, initialStatus = '' }) {
         params.set('payroll_month', filters.payrollMonth || '');
         params.set('q', debouncedSearch || '');
         params.set('status', status || '');
+        if (filters.branchId) {
+            params.set('branch_id', filters.branchId);
+        }
+        if (filters.departmentId) {
+            params.set('department_id', filters.departmentId);
+        }
+        if (filters.employeeId) {
+            params.set('employee_id', filters.employeeId);
+        }
 
         return `${urls.directoryExportCsv}?${params.toString()}`;
-    }, [urls.directoryExportCsv, filters.payrollMonth, debouncedSearch, status]);
+    }, [urls.directoryExportCsv, filters.payrollMonth, filters.branchId, filters.departmentId, filters.employeeId, debouncedSearch, status]);
 
     return (
         <div className="space-y-5">

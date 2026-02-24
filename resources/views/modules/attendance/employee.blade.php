@@ -185,7 +185,7 @@
             </div>
         </div>
 
-        <form method="GET" action="{{ route('modules.attendance.index') }}" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <form method="GET" action="{{ route('modules.attendance.overview') }}" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
             <input
                 type="month"
                 name="month"
@@ -202,7 +202,7 @@
             </select>
             <div class="flex items-center gap-2">
                 <button type="submit" class="ui-btn ui-btn-primary">Filter</button>
-                <a href="{{ route('modules.attendance.index') }}" class="ui-btn ui-btn-ghost">Reset</a>
+                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">Reset</a>
             </div>
         </form>
 

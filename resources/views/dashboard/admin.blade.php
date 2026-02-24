@@ -197,7 +197,7 @@
         <div
             id="admin-dashboard-attendance-overview-root"
             data-endpoint="{{ route('api.dashboard.admin.attendance-overview') }}"
-            data-absent-url="{{ route('modules.attendance.index', ['status' => 'absent', 'attendance_date' => now()->toDateString()]) }}"
+            data-absent-url="{{ route('modules.attendance.overview', ['status' => 'absent', 'attendance_date' => now()->toDateString()]) }}"
             data-branch-id="{{ $selectedBranchId }}"
             data-department-id="{{ $selectedDepartmentId }}"
         >

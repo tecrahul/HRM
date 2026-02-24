@@ -13,6 +13,10 @@ import { mountDepartmentsPageApp } from './components/departments/DepartmentsPag
 import { mountLeaveManagementPage } from './pages/LeaveManagement/LeaveManagementPage';
 import { mountAttendancePage } from './pages/Attendance/AttendancePage';
 import { mountHolidaysPage } from './pages/Holidays/HolidaysPage';
+import { mountReportsAnalytics } from './components/reports/ReportsAnalyticsApp';
+import { createRoot } from 'react-dom/client';
+import React from 'react';
+import Sidebar from './components/layout/Sidebar';
 
 const syncLegacyModalScrollLock = () => {
     const hasOpenLegacyModal = Boolean(document.querySelector('.modal-backdrop.is-open'));
@@ -102,3 +106,16 @@ mountDepartmentsPageApp();
 mountLeaveManagementPage();
 mountAttendancePage();
 mountHolidaysPage();
+mountReportsAnalytics();
+
+// Mount Sidebar (React) if payload exists
+(() => {
+  const root = document.getElementById('sidebar-root');
+  if (!root) return;
+  const raw = root.dataset.payload || '{}';
+  let payload = {};
+  try { payload = JSON.parse(raw); } catch { payload = {}; }
+  createRoot(root).render(React.createElement(Sidebar, { payload }));
+  const aside = document.getElementById('hrmModernSidebar');
+  if (aside) aside.classList.add('js-sidebar-mounted');
+})();

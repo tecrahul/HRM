@@ -18,7 +18,7 @@ class BaseController extends Controller
             [
                 'title' => 'Attendance',
                 'description' => 'Tracking of check-ins, shifts, and working hours.',
-                'route' => 'modules.attendance.index',
+                'route' => 'modules.attendance.overview',
             ],
             [
                 'title' => 'Payroll',

@@ -9,6 +9,8 @@ import { AttendanceTable } from '../../components/attendance/AttendanceTable';
 import { AttendanceForm } from '../../components/attendance/AttendanceForm';
 import { AttendanceApprovalModal } from '../../components/attendance/AttendanceApprovalModal';
 import { AttendanceCorrectionModal } from '../../components/attendance/AttendanceCorrectionModal';
+import { PunchPanel } from '../../components/attendance/PunchPanel';
+import { usePunchAttendance } from '../../components/attendance/usePunchAttendance';
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -174,6 +176,18 @@ function AttendancePage({ payload }) {
         setFormOpen(true);
     };
 
+    // Open create form when navigated with action=create or action=mark
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const action = String(params.get('action') || '');
+            if (Boolean(capabilities?.canCreate) && (action === 'create' || action === 'mark')) {
+                openCreateForm();
+            }
+        } catch (_e) {}
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [capabilities?.canCreate]);
+
     const openEditForm = (record) => {
         setEditingRecord(record);
         setFormOpen(true);
@@ -337,19 +351,43 @@ function AttendancePage({ payload }) {
         }
     };
 
+    // Punch panel state for non-admin users
+    const [punchOpen, setPunchOpen] = useState(false);
+    const punchCtrl = usePunchAttendance({
+        api,
+        punch,
+        onSuccess: async (msg) => {
+            // Refresh data and show a toast
+            try {
+                await fetchAttendance({}, meta.currentPage || 1);
+            } catch (_) {}
+            if (msg) {
+                pushToast(msg);
+            }
+        },
+        onClose: () => setPunchOpen(false),
+    });
+
     return (
         <div className="space-y-5">
             <ToastStack toasts={toasts} onDismiss={dismissToast} />
 
             <AttendanceHeader
                 canCreate={Boolean(capabilities.canCreate)}
+                canEdit={Boolean(capabilities.canEdit)}
                 canApprove={Boolean(capabilities.canApprove)}
                 pendingApprovals={stats.pendingApprovals ?? 0}
                 punch={punch}
                 onOpenForm={openCreateForm}
+                onOpenPunchPanel={() => setPunchOpen(true)}
                 onPunchIn={handlePunchIn}
                 onPunchOut={handlePunchOut}
                 submitting={submitting}
+                punchLink={(punch?.nextAction === 'check_in')
+                    ? (payload.routes?.punchInPage || '#')
+                    : (punch?.nextAction === 'check_out')
+                        ? (payload.routes?.punchOutPage || '#')
+                        : (payload.routes?.smartPunchPage || '#')}
             />
 
             <AttendanceInfoCards
@@ -519,6 +557,19 @@ function AttendancePage({ payload }) {
                     </div>
                 ) : null}
             </AttendanceApprovalModal>
+
+            {/* Soft punch panel for self users without edit/create admin perms */}
+            <PunchPanel
+                open={punchOpen}
+                punch={punch}
+                submitting={punchCtrl.submitting}
+                successMessage={punchCtrl.successMessage}
+                errorMessage={punchCtrl.error}
+                reason={punchCtrl.reason}
+                onReasonChange={punchCtrl.setReason}
+                onSubmit={punchCtrl.submit}
+                onClose={() => setPunchOpen(false)}
+            />
         </div>
     );
 }

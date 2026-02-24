@@ -35,7 +35,7 @@ class EmployeeOnboardingController extends Controller
                 'salaryStructure' => route('modules.payroll.salary-structures', ['employee_id' => $employee->id]),
                 'payrollProcessing' => route('modules.payroll.processing', ['employee_id' => $employee->id]),
                 'leavePolicy' => route('modules.leave.index', ['employee_id' => $employee->id]),
-                'attendancePolicy' => route('modules.attendance.index', ['employee_id' => $employee->id]),
+                'attendancePolicy' => route('modules.attendance.overview', ['employee_id' => $employee->id]),
                 'bankDetails' => route('admin.users.edit', $employee),
                 'documents' => route('admin.users.edit', $employee).'#documents',
             ],

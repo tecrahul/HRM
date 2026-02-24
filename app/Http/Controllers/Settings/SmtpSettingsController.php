@@ -24,13 +24,15 @@ class SmtpSettingsController extends Controller
         $active = $mailConfigurationManager->activeConfiguration();
         $systemConfig = $mailConfigurationManager->systemConfiguration();
         $record = $active['record'];
-        $latestRecord = $record ?? SmtpSetting::query()->latest('updated_at')->latest('id')->first();
+        $latestRecord = $record ?? SmtpSetting::query()->with('updatedBy:id,name')->latest('updated_at')->latest('id')->first();
         $viewer = $request->user();
 
         $payload = [
             'mode' => $active['source'],
             'systemConfig' => $this->presentConfig($systemConfig),
-            'customConfig' => $latestRecord ? $this->presentConfig($latestRecord->toArray(), true) : null,
+            'customConfig' => $latestRecord ? $this->presentConfig(array_merge($latestRecord->toArray(), [
+                'configured_by' => (string) ($latestRecord->updatedBy?->name ?? ''),
+            ]), true) : null,
             'routes' => [
                 'saveCustom' => route('settings.smtp.custom'),
                 'useSystem' => route('settings.smtp.system'),
@@ -208,6 +210,7 @@ class SmtpSettingsController extends Controller
             'from_name' => (string) ($config['from_name'] ?? ''),
             'has_password' => filled($config['mail_password'] ?? null),
             'updated_at' => $isRecord && isset($config['updated_at']) ? (string) $config['updated_at'] : null,
+            'configured_by' => $isRecord && isset($config['configured_by']) ? (string) $config['configured_by'] : null,
         ];
     }
 
@@ -232,7 +235,7 @@ class SmtpSettingsController extends Controller
     private function validateCustomPayload(Request $request): array
     {
         return $request->validate([
-            'mail_driver' => ['required', 'string', 'max:40'],
+            'mail_driver' => ['required', 'string', 'in:smtp,sendmail', 'max:40'],
             'mail_host' => ['required', 'string', 'max:120'],
             'mail_port' => ['required', 'integer', 'between:1,65535'],
             'mail_username' => ['nullable', 'string', 'max:120'],

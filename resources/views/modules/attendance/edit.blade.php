@@ -10,7 +10,7 @@
                 <h3 class="ui-section-title">Update Attendance Record</h3>
                 <p class="ui-section-subtitle">Correct employee attendance details and mark status.</p>
             </div>
-            <a href="{{ route('modules.attendance.index') }}" class="ui-btn ui-btn-ghost">Back</a>
+            <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">Back</a>
         </div>
 
         <form method="POST" action="{{ route('modules.attendance.update', $attendance) }}" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -81,7 +81,7 @@
 
             <div class="md:col-span-2 flex items-center gap-2">
                 <button type="submit" class="ui-btn ui-btn-primary">Update Attendance</button>
-                <a href="{{ route('modules.attendance.index') }}" class="ui-btn ui-btn-ghost">Cancel</a>
+                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">Cancel</a>
             </div>
         </form>
     </section>

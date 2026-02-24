@@ -217,7 +217,7 @@
                 <span class="ui-icon-chip ui-icon-green"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle></svg></span>
                 <div><p class="font-semibold">Employees</p><p class="ui-section-subtitle mt-1">Directory and profiles</p></div>
             </a>
-            <a href="{{ route('modules.attendance.index') }}" class="ui-tile-link">
+                <a href="{{ route('modules.attendance.overview') }}" class="ui-tile-link">
                 <span class="ui-icon-chip ui-icon-sky"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
                 <div><p class="font-semibold">Attendance</p><p class="ui-section-subtitle mt-1">Mark and audit records</p></div>
             </a>

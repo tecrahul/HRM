@@ -3,17 +3,22 @@ import { PermissionGuard } from './PermissionGuard';
 
 export function AttendanceHeader({
     canCreate,
+    canEdit,
     canApprove,
     pendingApprovals = 0,
     punch = {},
     onOpenForm,
+    onOpenPunchPanel,
     onPunchIn,
     onPunchOut,
     submitting = false,
+    punchLink = '#',
 }) {
     const showPunchIn = Boolean(punch?.canPunchSelf) && punch?.nextAction === 'check_in';
     const showPunchOut = Boolean(punch?.canPunchSelf) && punch?.nextAction === 'check_out';
     const showPunchDone = Boolean(punch?.canPunchSelf) && punch?.nextAction === 'none';
+    // Determine if user is a non-admin self puncher (no edit/create admin permissions)
+    const isNonAdminSelfPuncher = Boolean(punch?.canPunchSelf) && !canCreate && !canEdit;
 
     return (
         <section className="flex items-center justify-between gap-3 flex-wrap">
@@ -31,6 +36,7 @@ export function AttendanceHeader({
                     </span>
                 </PermissionGuard>
 
+                {/* Admin/HR management action: open full create form */}
                 <PermissionGuard allowed={canCreate}>
                     <button
                         type="button"
@@ -47,7 +53,20 @@ export function AttendanceHeader({
                     </button>
                 </PermissionGuard>
 
-                {showPunchIn ? (
+                {/* For non-admin self users, show controlled Mark Attendance panel trigger */}
+                {isNonAdminSelfPuncher ? (
+                    <a
+                        href={punchLink}
+                        className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+                        style={{ background: 'linear-gradient(120deg, #0ea5a4, #22c55e)', color: '#0b1f1b' }}
+                        aria-disabled={submitting ? 'true' : 'false'}
+                    >
+                        Mark Attendance
+                    </a>
+                ) : null}
+
+                {/* Keep direct punch buttons only for admins/HR or roles with edit/create admin perms */}
+                {!isNonAdminSelfPuncher && showPunchIn ? (
                     <button
                         type="button"
                         className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
@@ -59,7 +78,7 @@ export function AttendanceHeader({
                     </button>
                 ) : null}
 
-                {showPunchOut ? (
+                {!isNonAdminSelfPuncher && showPunchOut ? (
                     <button
                         type="button"
                         className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"

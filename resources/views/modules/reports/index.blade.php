@@ -252,7 +252,60 @@
 
     </section>
 
+    @php
+        // Build analytics payload for the React charts
+        $attendanceItems = collect($attendanceStatusBreakdown ?? [])->map(function ($item) {
+            return [
+                'key' => (string) $item->status,
+                'label' => (string) str($item->status)->replace('_', ' ')->title(),
+                'count' => max(0, (int) $item->record_count),
+            ];
+        })->values()->all();
+
+        $leaveStatusItems = collect($leaveStatusBreakdown ?? [])->map(function ($item) {
+            return [
+                'key' => (string) $item->status,
+                'label' => (string) str($item->status)->replace('_', ' ')->title(),
+                'count' => max(0, (int) $item->request_count),
+            ];
+        })->values()->all();
+
+        $leaveTypeItems = collect($leaveTypeBreakdown ?? [])->map(function ($item) {
+            return [
+                'key' => (string) $item->leave_type,
+                'label' => (string) str($item->leave_type)->replace('_', ' ')->title(),
+                'count' => max(0, (int) $item->request_count),
+            ];
+        })->values()->all();
+
+        $payrollItems = collect($payrollStatusBreakdown ?? [])->map(function ($item) {
+            return [
+                'key' => (string) $item->status,
+                'label' => (string) str($item->status)->replace('_', ' ')->title(),
+                'count' => max(0, (int) $item->entry_count),
+            ];
+        })->values()->all();
+
+        $reportsClientPayload = [
+            'sections' => [
+                'attendance' => (bool) $showAttendance,
+                'leave' => (bool) $showLeave,
+                'payroll' => (bool) $showPayroll,
+            ],
+            'attendance' => ['items' => $attendanceItems],
+            'leaveStatus' => ['items' => $leaveStatusItems],
+            'leaveType' => ['items' => $leaveTypeItems],
+            'payroll' => ['items' => $payrollItems],
+            'financials' => [
+                'net' => (float) ($stats['payrollNet'] ?? 0),
+                'deductions' => (float) ($stats['payrollDeductions'] ?? 0),
+            ],
+        ];
+    @endphp
     @if ($showAttendance || $showLeave || $showPayroll)
+        <section id="reports-analytics-root" class="mt-5" data-payload='@json($reportsClientPayload)'></section>
+    @endif
+    @if (false && ($showAttendance || $showLeave || $showPayroll))
         <section class="grid grid-cols-1 {{ $breakdownGridClass }} gap-5 mt-5">
             @if ($showAttendance)
             @php

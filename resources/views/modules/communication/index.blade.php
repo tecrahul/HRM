@@ -95,6 +95,34 @@
                 width: 100%;
             }
         }
+
+        /* Inline attachment preview */
+        .comm-attachment-preview {
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height 260ms ease, opacity 220ms ease;
+        }
+
+        .comm-attachment-preview.is-open {
+            opacity: 1;
+        }
+
+        .comm-attachment-surface {
+            border: 1px solid var(--hr-line);
+            background: var(--hr-surface-strong);
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .comm-attachment-image {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 10px;
+            border: 1px solid var(--hr-line);
+            background: var(--hr-surface);
+        }
     </style>
 @endpush
 
@@ -522,9 +550,17 @@
                         </div>
                         <p class="text-sm mt-2" style="white-space: pre-line;">{{ $messageRow->message }}</p>
                         @if (is_array($messageRow->attachments) && $messageRow->attachments !== [])
-                            <div class="mt-2 flex flex-wrap gap-2">
+                            <div class="mt-2 flex flex-col gap-2">
                                 @foreach($messageRow->attachments as $attachmentPath)
-                                    <a href="{{ str_starts_with((string) $attachmentPath, 'http') ? $attachmentPath : asset((string) $attachmentPath) }}" target="_blank" rel="noopener" class="ui-btn ui-btn-ghost">Attachment</a>
+                                    @php
+                                        $attachmentUrl = str_starts_with((string) $attachmentPath, 'http') ? (string) $attachmentPath : asset((string) $attachmentPath);
+                                    @endphp
+                                    <div>
+                                        <button type="button" class="ui-btn ui-btn-ghost comm-attachment-trigger" data-attachment-url="{{ $attachmentUrl }}">
+                                            Attachment
+                                        </button>
+                                        <div class="comm-attachment-preview mt-2" aria-hidden="true"></div>
+                                    </div>
                                 @endforeach
                             </div>
                         @endif
@@ -564,9 +600,17 @@
                         </div>
                         <p class="text-sm mt-2" style="white-space: pre-line;">{{ $messageRow->message }}</p>
                         @if (is_array($messageRow->attachments) && $messageRow->attachments !== [])
-                            <div class="mt-2 flex flex-wrap gap-2">
+                            <div class="mt-2 flex flex-col gap-2">
                                 @foreach($messageRow->attachments as $attachmentPath)
-                                    <a href="{{ str_starts_with((string) $attachmentPath, 'http') ? $attachmentPath : asset((string) $attachmentPath) }}" target="_blank" rel="noopener" class="ui-btn ui-btn-ghost">Attachment</a>
+                                    @php
+                                        $attachmentUrl = str_starts_with((string) $attachmentPath, 'http') ? (string) $attachmentPath : asset((string) $attachmentPath);
+                                    @endphp
+                                    <div>
+                                        <button type="button" class="ui-btn ui-btn-ghost comm-attachment-trigger" data-attachment-url="{{ $attachmentUrl }}">
+                                            Attachment
+                                        </button>
+                                        <div class="comm-attachment-preview mt-2" aria-hidden="true"></div>
+                                    </div>
                                 @endforeach
                             </div>
                         @endif
@@ -788,6 +832,89 @@
 
             renderTeamOptions();
             renderEmployeeOptions();
+        })();
+
+        // Inline attachment preview toggles (no popups/new tabs)
+        (() => {
+            const isImage = (url) => /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(url);
+            const isPdf = (url) => /\.(pdf)(\?.*)?$/i.test(url);
+
+            const renderPreviewContent = (container, url) => {
+                container.innerHTML = "";
+                const surface = document.createElement("div");
+                surface.className = "comm-attachment-surface";
+
+                if (isImage(url)) {
+                    const img = document.createElement("img");
+                    img.src = url;
+                    img.alt = "Attachment preview";
+                    img.className = "comm-attachment-image";
+                    img.addEventListener("load", () => {
+                        // Adjust height smoothly after image loads
+                        container.style.maxHeight = container.scrollHeight + "px";
+                    }, { once: true });
+                    surface.appendChild(img);
+                } else if (isPdf(url)) {
+                    const frame = document.createElement("iframe");
+                    frame.src = url;
+                    frame.width = "100%";
+                    frame.height = "420";
+                    frame.style.border = "1px solid var(--hr-line)";
+                    frame.style.borderRadius = "10px";
+                    frame.loading = "lazy";
+                    frame.addEventListener("load", () => {
+                        container.style.maxHeight = container.scrollHeight + "px";
+                    }, { once: true });
+                    surface.appendChild(frame);
+                } else {
+                    const p = document.createElement("p");
+                    p.className = "text-sm";
+                    p.style.color = "var(--hr-text-muted)";
+                    p.textContent = "Preview not available. You can download the file:";
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.textContent = " Download";
+                    link.className = "ml-1 underline";
+                    link.setAttribute("download", "");
+                    link.rel = "noopener";
+                    p.appendChild(link);
+                    surface.appendChild(p);
+                }
+
+                container.appendChild(surface);
+            };
+
+            const togglePreview = (container, url) => {
+                const isOpen = container.classList.contains("is-open");
+                if (!isOpen) {
+                    renderPreviewContent(container, url);
+                    // Measure and open smoothly
+                    container.classList.add("is-open");
+                    container.style.maxHeight = container.scrollHeight + "px";
+                    container.setAttribute("aria-hidden", "false");
+                } else {
+                    // Close smoothly
+                    container.style.maxHeight = container.scrollHeight + "px";
+                    // Force reflow to ensure transition
+                    void container.offsetHeight;
+                    container.style.maxHeight = "0px";
+                    container.setAttribute("aria-hidden", "true");
+                    container.addEventListener("transitionend", () => {
+                        container.classList.remove("is-open");
+                        container.innerHTML = "";
+                    }, { once: true });
+                }
+            };
+
+            document.addEventListener("click", (event) => {
+                const button = event.target instanceof Element ? event.target.closest(".comm-attachment-trigger") : null;
+                if (!button) return;
+                event.preventDefault();
+                const url = button.getAttribute("data-attachment-url") ?? "";
+                const preview = button.parentElement?.querySelector(".comm-attachment-preview");
+                if (!preview) return;
+                togglePreview(preview, url);
+            });
         })();
     </script>
 @endpush

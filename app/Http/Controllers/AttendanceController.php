@@ -47,6 +47,51 @@ class AttendanceController extends Controller
         ]);
     }
 
+    public function punchInPage(Request $request): View
+    {
+        $viewer = $request->user();
+
+        if (! $viewer instanceof User) {
+            abort(Response::HTTP_FORBIDDEN);
+        }
+
+        // Basic guard: middleware already enforces permission
+        return view('modules.attendance.punch-in');
+    }
+
+    public function punchOutPage(Request $request): View
+    {
+        $viewer = $request->user();
+
+        if (! $viewer instanceof User) {
+            abort(Response::HTTP_FORBIDDEN);
+        }
+
+        // Basic guard: middleware already enforces permission
+        return view('modules.attendance.punch-out');
+    }
+
+    public function punchPage(Request $request): RedirectResponse
+    {
+        $viewer = $request->user();
+
+        if (! $viewer instanceof User) {
+            abort(Response::HTTP_FORBIDDEN);
+        }
+
+        $state = $this->resolvePunchState($viewer);
+        if (($state['nextAction'] ?? 'none') === 'check_in') {
+            return redirect()->route('modules.attendance.punch-in');
+        }
+
+        if (($state['nextAction'] ?? 'none') === 'check_out') {
+            return redirect()->route('modules.attendance.punch-out');
+        }
+
+        return redirect()->route('modules.attendance.overview')
+            ->with('status', 'Attendance is already completed for today.');
+    }
+
     public function store(Request $request): RedirectResponse|JsonResponse
     {
         $viewer = $request->user();
@@ -808,7 +853,12 @@ class AttendanceController extends Controller
             $record,
             'attendance.check_in',
             $beforeValues,
-            $record->only(['status', 'check_in_at', 'check_out_at', 'work_minutes', 'approval_status', 'notes'])
+            $record->only(['status', 'check_in_at', 'check_out_at', 'work_minutes', 'approval_status', 'notes']),
+            [
+                'ip' => (string) $request->ip(),
+                'user_agent' => (string) ($request->userAgent() ?? ''),
+                'via' => 'ui',
+            ]
         );
 
         return $this->actionSuccess($request, 'Checked in successfully. Attendance is pending approval.');
@@ -871,10 +921,48 @@ class AttendanceController extends Controller
             $record,
             'attendance.check_out',
             $beforeValues,
-            $record->only(['status', 'check_in_at', 'check_out_at', 'work_minutes', 'approval_status', 'notes'])
+            $record->only(['status', 'check_in_at', 'check_out_at', 'work_minutes', 'approval_status', 'notes']),
+            [
+                'ip' => (string) $request->ip(),
+                'user_agent' => (string) ($request->userAgent() ?? ''),
+                'via' => 'ui',
+            ]
         );
-
+        
         return $this->actionSuccess($request, 'Checked out successfully. Attendance is pending approval.');
+    }
+
+    public function punch(Request $request): JsonResponse|RedirectResponse
+    {
+        $viewer = $request->user();
+
+        if (! $viewer instanceof User || ! $viewer->can('attendance.create')) {
+            abort(Response::HTTP_FORBIDDEN, 'You do not have permission to mark attendance.');
+        }
+
+        // We only accept server-side timestamps
+        $validated = $request->validate([
+            'type' => ['required', Rule::in(['in', 'out'])],
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        // Normalize payload to existing methods
+        $request->merge(['notes' => $validated['reason'] ?? '']);
+
+        if ($validated['type'] === 'in') {
+            $response = $this->checkIn($request);
+            if ($request->expectsJson()) {
+                // Override message for consistent UX wording
+                return response()->json(['message' => 'Punch In recorded successfully']);
+            }
+            return $response;
+        }
+
+        $response = $this->checkOut($request);
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Punch Out recorded successfully']);
+        }
+        return $response;
     }
 
     private function buildIndexPayload(Request $request, User $viewer): array
@@ -935,7 +1023,7 @@ class AttendanceController extends Controller
                 'selectedMonthLocked' => $this->isMonthLockedForDate($this->selectedFilterDate($filters)),
             ],
             'routes' => [
-                'list' => route('modules.attendance.index'),
+                'list' => route('modules.attendance.overview'),
                 'store' => route('modules.attendance.store'),
                 'updateTemplate' => route('modules.attendance.update', ['attendance' => '__ATTENDANCE__']),
                 'deleteTemplate' => route('modules.attendance.destroy', ['attendance' => '__ATTENDANCE__']),
@@ -948,6 +1036,10 @@ class AttendanceController extends Controller
                 'employeeSearch' => route('modules.attendance.employee-search'),
                 'checkIn' => route('modules.attendance.check-in'),
                 'checkOut' => route('modules.attendance.check-out'),
+                'punchInPage' => route('modules.attendance.punch-in'),
+                'punchOutPage' => route('modules.attendance.punch-out'),
+                'smartPunchPage' => route('modules.attendance.punch'),
+                'punch' => route('api.attendance.punch'),
             ],
             'currentUser' => [
                 'id' => $viewer->id,
@@ -1564,7 +1656,7 @@ class AttendanceController extends Controller
         }
 
         return redirect()
-            ->route('modules.attendance.index')
+            ->route('modules.attendance.overview')
             ->with('status', $message);
     }
 
@@ -1575,7 +1667,7 @@ class AttendanceController extends Controller
         }
 
         return redirect()
-            ->route('modules.attendance.index')
+            ->route('modules.attendance.overview')
             ->with('error', $message);
     }
 

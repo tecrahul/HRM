@@ -34,11 +34,16 @@ Route::get('/branding/company-logo', [SettingsController::class, 'companyLogo'])
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
+    // Throttle login attempts to mitigate brute-force attacks
+    Route::post('/login', [AuthController::class, 'login'])
+        ->middleware('throttle:login')
+        ->name('login.attempt');
     Route::middleware('auth-feature:two-factor')->group(function (): void {
         Route::get('/two-factor-challenge', [AuthController::class, 'showTwoFactorChallengeForm'])
             ->name('two-factor.challenge');
+        // Throttle 2FA verifications to reduce code-guessing risk
         Route::post('/two-factor-challenge', [AuthController::class, 'completeTwoFactorChallenge'])
+            ->middleware('throttle:two-factor')
             ->name('two-factor.challenge.attempt');
     });
 
@@ -78,7 +83,7 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
     Route::get('/settings/company-logo', [SettingsController::class, 'companyLogo'])
         ->name('settings.company.logo');
     Route::get('/settings/smtp', [SmtpSettingsController::class, 'index'])
-        ->middleware('role:super_admin,admin,hr')
+        ->middleware('role:super_admin,admin')
         ->name('settings.smtp.index');
     Route::post('/settings/smtp/custom', [SmtpSettingsController::class, 'storeCustom'])
         ->middleware('smtp-admin')
@@ -173,9 +178,15 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
         Route::delete('/holidays/{holiday}', [HolidayController::class, 'destroy'])
             ->middleware('permission:holiday.delete')
             ->name('holidays.destroy');
-        Route::get('/attendance', [AttendanceController::class, 'index'])
+        // Attendance overview (moved from /attendance to /attendance/overview)
+        Route::get('/attendance/overview', [AttendanceController::class, 'index'])
             ->middleware('permission:attendance.view.self,attendance.view.department,attendance.view.all')
-            ->name('attendance.index');
+            ->name('attendance.overview');
+
+        // Backward compatible redirect from legacy /attendance
+        Route::get('/attendance', function (): RedirectResponse {
+            return redirect()->route('modules.attendance.overview');
+        })->name('attendance.index');
         Route::get('/attendance/employee-search', [AttendanceController::class, 'searchEmployees'])
             ->middleware('permission:attendance.view.self,attendance.view.department,attendance.view.all')
             ->name('attendance.employee-search');
@@ -206,6 +217,17 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
         Route::get('/attendance/export-csv', [AttendanceController::class, 'exportCsv'])
             ->middleware('permission:attendance.export')
             ->name('attendance.export-csv');
+        // Punch pages (separate pages for in/out)
+        Route::get('/attendance/punch-in', [AttendanceController::class, 'punchInPage'])
+            ->middleware('permission:attendance.create')
+            ->name('attendance.punch-in');
+        Route::get('/attendance/punch-out', [AttendanceController::class, 'punchOutPage'])
+            ->middleware('permission:attendance.create')
+            ->name('attendance.punch-out');
+        Route::get('/attendance/punch', [AttendanceController::class, 'punchPage'])
+            ->middleware('permission:attendance.create')
+            ->name('attendance.punch');
+
         Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])
             ->middleware('permission:attendance.create')
             ->name('attendance.check-in');
@@ -239,9 +261,14 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
             ->name('communication.broadcast.targeted');
         Route::put('/communication/messages/{message}/read', [CommunicationController::class, 'markRead'])
             ->name('communication.messages.read');
-        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-        Route::get('/reports/activity', [ReportController::class, 'activity'])->name('reports.activity');
-        Route::get('/reports/activity/{activity}', [ReportController::class, 'activityShow'])->name('reports.activity.show');
+        Route::prefix('/reports')
+            ->name('reports.')
+            ->middleware('role:super_admin,admin,hr,finance,employee')
+            ->group(function (): void {
+                Route::get('/', [ReportController::class, 'index'])->name('index');
+                Route::get('/activity', [ReportController::class, 'activity'])->name('activity');
+                Route::get('/activity/{activity}', [ReportController::class, 'activityShow'])->name('activity.show');
+            });
         Route::post('/payroll/structure', [PayrollController::class, 'storeStructure'])
             ->middleware('role:super_admin,admin,hr')
             ->name('payroll.structure.store');
@@ -330,4 +357,9 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
     Route::prefix('employee')->name('employee.')->middleware('role:employee')->group(function (): void {
         Route::get('/dashboard', [DashboardController::class, 'employee'])->name('dashboard');
     });
+
+    // API endpoints (JSON) under web auth for SPA
+    Route::post('/api/attendance/punch', [AttendanceController::class, 'punch'])
+        ->middleware('permission:attendance.create')
+        ->name('api.attendance.punch');
 });

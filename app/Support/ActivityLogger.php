@@ -11,6 +11,35 @@ use Throwable;
 
 class ActivityLogger
 {
+    private const MAX_PAYLOAD_DEPTH = 6;
+
+    private const MAX_ARRAY_ITEMS = 100;
+
+    private const MAX_STRING_LENGTH = 500;
+
+    private const REDACTED_VALUE = '[REDACTED]';
+
+    /**
+     * @var list<string>
+     */
+    private const SENSITIVE_KEY_MARKERS = [
+        'password',
+        'passcode',
+        'secret',
+        'token',
+        'authorization',
+        'cookie',
+        'session',
+        'otp',
+        'pin',
+        'ssn',
+        'pan',
+        'bank_account',
+        'account_number',
+        'access_key',
+        'refresh_key',
+    ];
+
     private static ?bool $activitiesTableExists = null;
 
     /**
@@ -48,7 +77,7 @@ class ActivityLogger
                 'tone' => $tone ?? self::defaultTone($eventKey),
                 'subject_type' => $subjectType,
                 'subject_id' => $subjectId,
-                'payload' => $payload === [] ? null : $payload,
+                'payload' => self::sanitizePayloadForStorage($payload),
                 'occurred_at' => now(),
             ]);
         } catch (Throwable) {
@@ -82,5 +111,96 @@ class ActivityLogger
         }
 
         return self::$activitiesTableExists;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function sanitizePayloadForDisplay(mixed $payload): array
+    {
+        if (! is_array($payload)) {
+            return [];
+        }
+
+        $sanitized = self::sanitizePayloadValue($payload, 0, null);
+        if (! is_array($sanitized)) {
+            return [];
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>|null
+     */
+    private static function sanitizePayloadForStorage(array $payload): ?array
+    {
+        $sanitized = self::sanitizePayloadForDisplay($payload);
+
+        return $sanitized === [] ? null : $sanitized;
+    }
+
+    private static function sanitizePayloadValue(mixed $value, int $depth, ?string $key): mixed
+    {
+        if ($key !== null && self::shouldRedactKey($key)) {
+            return self::REDACTED_VALUE;
+        }
+
+        if ($depth >= self::MAX_PAYLOAD_DEPTH) {
+            return '[TRUNCATED_DEPTH]';
+        }
+
+        if (is_array($value)) {
+            $sanitized = [];
+            $count = 0;
+            $total = count($value);
+
+            foreach ($value as $itemKey => $itemValue) {
+                if ($count >= self::MAX_ARRAY_ITEMS) {
+                    $remaining = max(0, $total - self::MAX_ARRAY_ITEMS);
+                    $sanitized['__truncated__'] = sprintf('%d additional entries removed', $remaining);
+                    break;
+                }
+
+                $childKey = is_int($itemKey) ? (string) $itemKey : (string) $itemKey;
+                $sanitized[$itemKey] = self::sanitizePayloadValue($itemValue, $depth + 1, $childKey);
+                $count++;
+            }
+
+            return $sanitized;
+        }
+
+        if (is_string($value)) {
+            return Str::limit($value, self::MAX_STRING_LENGTH, '...');
+        }
+
+        if (is_object($value)) {
+            if (method_exists($value, '__toString')) {
+                return Str::limit((string) $value, self::MAX_STRING_LENGTH, '...');
+            }
+
+            return '[OBJECT '.class_basename($value).']';
+        }
+
+        if (is_resource($value)) {
+            return '[RESOURCE]';
+        }
+
+        return $value;
+    }
+
+    private static function shouldRedactKey(string $key): bool
+    {
+        $normalized = strtolower($key);
+        $normalized = str_replace([' ', '.', '-', ':'], '_', $normalized);
+
+        foreach (self::SENSITIVE_KEY_MARKERS as $marker) {
+            if (str_contains($normalized, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -16,10 +16,12 @@ use App\Models\User;
 use App\Support\ActivityLogger;
 use App\Support\HolidayCalendar;
 use App\Support\NotificationCenter;
+use App\Support\PayrollWorkflow;
 use Carbon\Carbon;
 use DomainException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -460,7 +462,7 @@ class PayrollController extends Controller
         return response()->json([
             'message' => 'Payroll marked as paid successfully.',
             'payroll' => $this->workflowPayrollPayload($payroll),
-            'isLocked' => true,
+            'isLocked' => $this->activeMonthLock($payroll->payroll_month?->copy()->startOfMonth() ?? now()->startOfMonth()) !== null,
         ]);
     }
 
@@ -478,7 +480,11 @@ class PayrollController extends Controller
                 $resolvedFilters['branch'],
                 $resolvedFilters['department'],
                 $resolvedFilters['employeeId'],
-                $viewer
+                $viewer,
+                trim((string) ($validated['q'] ?? '')),
+                (string) ($validated['status'] ?? ''),
+                isset($validated['page']) ? (int) $validated['page'] : null,
+                isset($validated['per_page']) ? (int) $validated['per_page'] : null
             )
         );
     }
@@ -517,6 +523,7 @@ class PayrollController extends Controller
         $netTotal = 0.0;
         $employeesWithErrors = 0;
         $missingStructure = 0;
+        $computationContext = $this->buildPayrollComputationContext($employees, $monthStart);
 
         foreach ($employees as $employee) {
             $structure = $employee->payrollStructure;
@@ -536,7 +543,7 @@ class PayrollController extends Controller
             }
 
             try {
-                $calculation = $this->calculatePayroll($employee, $monthStart, $structure, null);
+                $calculation = $this->calculatePayroll($employee, $monthStart, $structure, null, $computationContext);
                 $gross = (float) ($calculation['gross_earnings'] ?? 0);
                 $deductions = (float) ($calculation['total_deductions'] ?? 0);
                 $net = (float) ($calculation['net_salary'] ?? 0);
@@ -614,30 +621,61 @@ class PayrollController extends Controller
         $updated = 0;
         $missingStructure = 0;
         $failed = 0;
+        $computationContext = $this->buildPayrollComputationContext($employees, $monthStart);
 
-        foreach ($employees as $employee) {
-            if (! $employee->payrollStructure) {
-                $missingStructure++;
-                continue;
-            }
-
-            try {
-                $result = $this->createOrUpdatePayroll(
-                    $employee,
-                    $monthStart,
-                    $viewer,
-                    null,
-                    $validated['notes'] ?? null
-                );
-
-                if ($result['updated']) {
-                    $updated++;
-                } else {
-                    $generated++;
+        try {
+            DB::transaction(function () use (
+                $monthStart,
+                $viewer,
+                $validated,
+                $employees,
+                $computationContext,
+                &$generated,
+                &$updated,
+                &$missingStructure,
+                &$failed
+            ): void {
+                if (
+                    PayrollMonthLock::query()
+                        ->whereDate('payroll_month', $monthStart->toDateString())
+                        ->whereNull('unlocked_at')
+                        ->lockForUpdate()
+                        ->exists()
+                ) {
+                    throw new DomainException('Payroll month is closed and locked.');
                 }
-            } catch (DomainException) {
-                $failed++;
-            }
+
+                foreach ($employees as $employee) {
+                    if (! $employee->payrollStructure) {
+                        $missingStructure++;
+                        continue;
+                    }
+
+                    try {
+                        $result = $this->createOrUpdatePayroll(
+                            $employee,
+                            $monthStart,
+                            $viewer,
+                            null,
+                            $validated['notes'] ?? null,
+                            $computationContext,
+                            true
+                        );
+
+                        if ($result['updated']) {
+                            $updated++;
+                        } else {
+                            $generated++;
+                        }
+                    } catch (DomainException) {
+                        $failed++;
+                    }
+                }
+            });
+        } catch (DomainException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
         }
 
         $this->logPayrollAudit(
@@ -718,26 +756,44 @@ class PayrollController extends Controller
             $query->whereIn('id', $ids);
         }
 
-        $records = $query->get();
         $approved = 0;
+        try {
+            DB::transaction(function () use ($query, $viewer, $monthStart, &$approved): void {
+                if (
+                    PayrollMonthLock::query()
+                        ->whereDate('payroll_month', $monthStart->toDateString())
+                        ->whereNull('unlocked_at')
+                        ->lockForUpdate()
+                        ->exists()
+                ) {
+                    throw new DomainException('Payroll month is closed and locked.');
+                }
 
-        foreach ($records as $payroll) {
-            $beforeValues = $this->workflowPayrollPayload($payroll);
-            $payroll->status = Payroll::STATUS_PROCESSED;
-            $payroll->approved_by_user_id = $viewer->id;
-            $payroll->approved_at = now();
-            $payroll->save();
-            $approved++;
+                $records = $query->lockForUpdate()->get();
 
-            $this->logPayrollAudit(
-                $viewer,
-                'payroll',
-                (int) $payroll->id,
-                'payroll.workflow.approve_batch',
-                $beforeValues,
-                $this->workflowPayrollPayload($payroll),
-                ['month' => $monthStart->format('Y-m')]
-            );
+                foreach ($records as $payroll) {
+                    $beforeValues = $this->workflowPayrollPayload($payroll);
+                    $payroll->status = Payroll::STATUS_PROCESSED;
+                    $payroll->approved_by_user_id = $viewer->id;
+                    $payroll->approved_at = now();
+                    $payroll->save();
+                    $approved++;
+
+                    $this->logPayrollAudit(
+                        $viewer,
+                        'payroll',
+                        (int) $payroll->id,
+                        'payroll.workflow.approve_batch',
+                        $beforeValues,
+                        $this->workflowPayrollPayload($payroll),
+                        ['month' => $monthStart->format('Y-m')]
+                    );
+                }
+            });
+        } catch (DomainException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
         }
 
         return response()->json([
@@ -772,6 +828,16 @@ class PayrollController extends Controller
 
         $monthStart = $this->resolveMonth((string) $validated['payroll_month']);
 
+        if (
+            $resolvedFilters['branch'] !== null
+            || $resolvedFilters['department'] !== null
+            || $resolvedFilters['employeeId'] !== null
+        ) {
+            return response()->json([
+                'message' => 'Close month supports full-month payroll only. Clear branch, department, and employee filters.',
+            ], 422);
+        }
+
         $activeLock = $this->activeMonthLock($monthStart);
         if ($activeLock !== null) {
             return response()->json([
@@ -779,12 +845,7 @@ class PayrollController extends Controller
             ], 422);
         }
 
-        $records = $this->workflowPayrollQuery(
-            $monthStart,
-            $resolvedFilters['branch'],
-            $resolvedFilters['department'],
-            $resolvedFilters['employeeId']
-        )->get();
+        $records = $this->workflowPayrollQuery($monthStart, null, null, null)->get();
         if ($records->isEmpty()) {
             return response()->json([
                 'message' => 'No payroll records found for selected month.',
@@ -801,50 +862,122 @@ class PayrollController extends Controller
             ], 422);
         }
 
-        $paidNow = 0;
-        foreach ($records as $payroll) {
-            if ($payroll->status === Payroll::STATUS_PAID) {
-                continue;
-            }
+        $employeeIds = $this->workflowEmployeeQuery(null, null, null)->pluck('users.id');
+        $totalEmployees = (int) $employeeIds->count();
+        $generatedCount = (int) $records->count();
+        $missingGenerated = max(0, $totalEmployees - $generatedCount);
+        $withStructureCount = PayrollStructure::query()
+            ->whereIn('user_id', $employeeIds)
+            ->count();
+        $missingStructure = max(0, $totalEmployees - (int) $withStructureCount);
+        $missingBankDetails = User::query()
+            ->whereIn('id', $employeeIds)
+            ->whereHas('profile', function (Builder $profileQuery): void {
+                $profileQuery->where(function (Builder $query): void {
+                    $query
+                        ->whereNull('bank_account_name')
+                        ->orWhere('bank_account_name', '')
+                        ->orWhereNull('bank_account_number')
+                        ->orWhere('bank_account_number', '')
+                        ->orWhereNull('bank_ifsc')
+                        ->orWhere('bank_ifsc', '');
+                });
+            })
+            ->count();
 
-            $beforeValues = $this->workflowPayrollPayload($payroll);
-            $payroll->status = Payroll::STATUS_PAID;
-            $payroll->payment_method = (string) $validated['payment_method'];
-            $payroll->payment_reference = blank($validated['payment_reference'] ?? null)
-                ? null
-                : (string) $validated['payment_reference'];
-            $payroll->notes = blank($validated['notes'] ?? null)
-                ? null
-                : (string) $validated['notes'];
-            $payroll->paid_by_user_id = $viewer->id;
-            $payroll->paid_at = now();
-            $payroll->save();
-            $paidNow++;
-
-            $this->logPayrollAudit(
-                $viewer,
-                'payroll',
-                (int) $payroll->id,
-                'payroll.workflow.pay_close',
-                $beforeValues,
-                $this->workflowPayrollPayload($payroll),
-                ['month' => $monthStart->format('Y-m')]
-            );
+        if ($missingStructure > 0 || $missingGenerated > 0 || $missingBankDetails > 0) {
+            return response()->json([
+                'message' => 'Pre-close checklist failed. Resolve pending setup issues before closing payroll.',
+                'checklist' => [
+                    'missingSalaryStructure' => (int) $missingStructure,
+                    'notGenerated' => (int) $missingGenerated,
+                    'missingBankDetails' => (int) $missingBankDetails,
+                ],
+            ], 422);
         }
 
-        PayrollMonthLock::query()->create([
-            'payroll_month' => $monthStart->toDateString(),
-            'locked_by_user_id' => $viewer->id,
-            'locked_at' => now(),
-            'metadata' => [
-                'payment_method' => (string) $validated['payment_method'],
-                'payment_reference' => (string) ($validated['payment_reference'] ?? ''),
-                'branch' => $resolvedFilters['branch'],
-                'department' => $resolvedFilters['department'],
-                'employee_id' => $resolvedFilters['employeeId'],
-                'paid_now' => $paidNow,
-            ],
-        ]);
+        $paidNow = 0;
+        $paidAmount = 0.0;
+        try {
+            DB::transaction(function () use ($monthStart, $viewer, $validated, &$paidNow, &$paidAmount): void {
+                if (
+                    PayrollMonthLock::query()
+                        ->whereDate('payroll_month', $monthStart->toDateString())
+                        ->whereNull('unlocked_at')
+                        ->lockForUpdate()
+                        ->exists()
+                ) {
+                    throw new DomainException('Payroll month is already locked.');
+                }
+
+                $records = $this->workflowPayrollQuery($monthStart, null, null, null)
+                    ->lockForUpdate()
+                    ->get();
+
+                $hasPending = $records->contains(function (Payroll $payroll): bool {
+                    return ! in_array($payroll->status, [Payroll::STATUS_PROCESSED, Payroll::STATUS_PAID], true);
+                });
+
+                if ($hasPending) {
+                    throw new DomainException('All payroll records must be approved before payment.');
+                }
+
+                foreach ($records as $payroll) {
+                    if ($payroll->status === Payroll::STATUS_PAID) {
+                        continue;
+                    }
+
+                    $beforeValues = $this->workflowPayrollPayload($payroll);
+                    $payroll->status = Payroll::STATUS_PAID;
+                    $payroll->payment_method = (string) $validated['payment_method'];
+                    $payroll->payment_reference = blank($validated['payment_reference'] ?? null)
+                        ? null
+                        : (string) $validated['payment_reference'];
+                    $payroll->notes = blank($validated['notes'] ?? null)
+                        ? null
+                        : (string) $validated['notes'];
+                    $payroll->paid_by_user_id = $viewer->id;
+                    $payroll->paid_at = now();
+                    $payroll->save();
+                    $paidNow++;
+                    $paidAmount += (float) $payroll->net_salary;
+
+                    $this->logPayrollAudit(
+                        $viewer,
+                        'payroll',
+                        (int) $payroll->id,
+                        'payroll.workflow.pay_close',
+                        $beforeValues,
+                        $this->workflowPayrollPayload($payroll),
+                        ['month' => $monthStart->format('Y-m')]
+                    );
+                }
+
+                PayrollMonthLock::query()->updateOrCreate(
+                    ['payroll_month' => $monthStart->toDateString()],
+                    [
+                        'locked_by_user_id' => $viewer->id,
+                        'locked_at' => now(),
+                        'unlocked_by_user_id' => null,
+                        'unlocked_at' => null,
+                        'unlock_reason' => null,
+                        'metadata' => [
+                            'payment_method' => (string) $validated['payment_method'],
+                            'payment_reference' => (string) ($validated['payment_reference'] ?? ''),
+                            'branch' => null,
+                            'department' => null,
+                            'employee_id' => null,
+                            'paid_now' => $paidNow,
+                            'paid_amount' => round($paidAmount, 2),
+                        ],
+                    ]
+                );
+            });
+        } catch (DomainException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
 
         $this->logPayrollAudit(
             $viewer,
@@ -860,12 +993,15 @@ class PayrollController extends Controller
             'message' => 'Payroll paid and month closed successfully.',
             'summary' => [
                 'paid' => $paidNow,
+                'paidAmount' => round($paidAmount, 2),
+                'paymentMethod' => (string) $validated['payment_method'],
+                'month' => $monthStart->format('Y-m'),
             ],
             'overview' => $this->buildWorkflowOverviewPayload(
                 $monthStart,
-                $resolvedFilters['branch'],
-                $resolvedFilters['department'],
-                $resolvedFilters['employeeId'],
+                null,
+                null,
+                null,
                 $viewer
             ),
         ]);
@@ -1181,15 +1317,45 @@ class PayrollController extends Controller
     public function exportDirectoryCsv(Request $request): StreamedResponse
     {
         $viewer = $this->ensureManagementAccess($request);
-        $statusFilter = (string) $request->string('status');
-        $search = (string) $request->string('q');
-        $monthFilter = (string) $request->string('payroll_month');
+        $validated = $request->validate([
+            'payroll_month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'status' => ['nullable', Rule::in(['', 'generated', 'approved', 'paid', 'failed'])],
+            'q' => ['nullable', 'string', 'max:120'],
+            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
+            'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
+            'employee_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('user_profiles', 'user_id')->where(function ($query): void {
+                    $query->where('is_employee', true);
+                }),
+            ],
+        ]);
+        $statusFilter = (string) ($validated['status'] ?? '');
+        $search = trim((string) ($validated['q'] ?? ''));
+        $resolvedFilters = $this->resolveWorkflowFilters($validated);
+        $monthFilter = (string) ($validated['payroll_month'] ?? '');
         $monthStart = $this->resolveMonthOrCurrent($monthFilter);
 
         $query = Payroll::query()
             ->with('user.profile')
-            ->whereHas('user', function (Builder $builder): void {
+            ->whereHas('user', function (Builder $builder) use ($resolvedFilters): void {
                 $builder->workforce();
+                if (($resolvedFilters['employeeId'] ?? null) !== null) {
+                    $builder->where('users.id', (int) $resolvedFilters['employeeId']);
+                }
+                if (($resolvedFilters['branch'] ?? null) !== null) {
+                    $branch = mb_strtolower(trim((string) $resolvedFilters['branch']));
+                    $builder->whereHas('profile', function (Builder $profileQuery) use ($branch): void {
+                        $profileQuery->whereRaw('LOWER(TRIM(branch)) = ?', [$branch]);
+                    });
+                }
+                if (($resolvedFilters['department'] ?? null) !== null) {
+                    $department = mb_strtolower(trim((string) $resolvedFilters['department']));
+                    $builder->whereHas('profile', function (Builder $profileQuery) use ($department): void {
+                        $profileQuery->whereRaw('LOWER(TRIM(department)) = ?', [$department]);
+                    });
+                }
             })
             ->whereYear('payroll_month', $monthStart->year)
             ->whereMonth('payroll_month', $monthStart->month)
@@ -1220,7 +1386,14 @@ class PayrollController extends Controller
             'payroll.directory.export_csv',
             null,
             null,
-            ['month' => $monthStart->format('Y-m'), 'status' => $statusFilter, 'search' => $search]
+            [
+                'month' => $monthStart->format('Y-m'),
+                'status' => $statusFilter,
+                'search' => $search,
+                'branch' => $resolvedFilters['branch'],
+                'department' => $resolvedFilters['department'],
+                'employee_id' => $resolvedFilters['employeeId'],
+            ]
         );
 
         return response()->streamDownload(function () use ($query): void {
@@ -1283,9 +1456,10 @@ class PayrollController extends Controller
 
         $employees = User::query()
             ->workforce()
-            ->with('payrollStructure')
+            ->with(['profile', 'payrollStructure'])
             ->orderBy('name')
             ->get();
+        $computationContext = $this->buildPayrollComputationContext($employees, $monthStart);
 
         $generatedCount = 0;
         $noStructureCount = 0;
@@ -1305,6 +1479,7 @@ class PayrollController extends Controller
                     $viewer,
                     null,
                     $validated['notes'] ?? null,
+                    $computationContext,
                 );
                 $generatedCount++;
             } catch (DomainException) {
@@ -1814,6 +1989,8 @@ class PayrollController extends Controller
         User $viewer,
         ?float $overridePayableDays,
         ?string $notes,
+        array $computationContext = [],
+        bool $skipLockCheck = false,
     ): array {
         $structure = PayrollStructure::query()
             ->where('user_id', $employee->id)
@@ -1827,20 +2004,21 @@ class PayrollController extends Controller
 
         $monthDate = $monthStart->toDateString();
 
-        if ($this->activeMonthLock($monthStart) !== null && ! $viewer->hasRole(UserRole::SUPER_ADMIN->value)) {
+        if (! $skipLockCheck && $this->activeMonthLock($monthStart) !== null && ! $viewer->hasRole(UserRole::SUPER_ADMIN->value)) {
             throw new DomainException("Payroll month {$monthStart->format('M Y')} is locked.");
         }
 
         $existingPayroll = Payroll::query()
             ->where('user_id', $employee->id)
             ->whereDate('payroll_month', $monthDate)
+            ->lockForUpdate()
             ->first();
 
         if ($existingPayroll && $existingPayroll->status === Payroll::STATUS_PAID) {
             throw new DomainException("Payroll for {$employee->name} is already marked paid for {$monthStart->format('M Y')}.");
         }
 
-        $calculated = $this->calculatePayroll($employee, $monthStart, $structure, $overridePayableDays);
+        $calculated = $this->calculatePayroll($employee, $monthStart, $structure, $overridePayableDays, $computationContext);
 
         $payload = array_merge($calculated, [
             'status' => Payroll::STATUS_DRAFT,
@@ -1876,15 +2054,24 @@ class PayrollController extends Controller
         Carbon $monthStart,
         PayrollStructure $structure,
         ?float $overridePayableDays,
+        array $computationContext = [],
     ): array {
         $monthStart = $monthStart->copy()->startOfMonth();
         $monthEnd = $monthStart->copy()->endOfMonth();
-        $holidayMap = HolidayCalendar::dateMap($monthStart, $monthEnd, $employee->profile?->branch, false);
+        $branchKey = $this->normalizeBranchKey((string) ($employee->profile?->branch ?? ''));
+        $holidayMap = $computationContext['holidayMapByBranch'][$branchKey] ?? null;
+        if (! is_array($holidayMap)) {
+            $holidayMap = HolidayCalendar::dateMap($monthStart, $monthEnd, $employee->profile?->branch, false);
+        }
         $holidayCount = (float) count($holidayMap);
         $workingDays = max(0.0, (float) $monthStart->daysInMonth - $holidayCount);
 
-        $attendanceLopDays = $this->attendanceLopDays($employee->id, $monthStart, $monthEnd, $holidayMap);
-        $unpaidLeaveDays = $this->unpaidLeaveDays($employee->id, $monthStart, $monthEnd, $holidayMap);
+        $attendanceLopDays = array_key_exists($employee->id, $computationContext['attendanceLopByUserId'] ?? [])
+            ? (float) ($computationContext['attendanceLopByUserId'][$employee->id] ?? 0.0)
+            : $this->attendanceLopDays($employee->id, $monthStart, $monthEnd, $holidayMap);
+        $unpaidLeaveDays = array_key_exists($employee->id, $computationContext['unpaidLeaveByUserId'] ?? [])
+            ? (float) ($computationContext['unpaidLeaveByUserId'][$employee->id] ?? 0.0)
+            : $this->unpaidLeaveDays($employee->id, $monthStart, $monthEnd, $holidayMap);
         $lopDays = round(min($workingDays, $attendanceLopDays + $unpaidLeaveDays), 2);
         $payableDays = round(max(0.0, $workingDays - $lopDays), 2);
 
@@ -2012,6 +2199,148 @@ class PayrollController extends Controller
         }
 
         return round($unpaidDays, 2);
+    }
+
+    /**
+     * @param Collection<int, User> $employees
+     * @return array{
+     *  holidayMapByBranch: array<string, array<string, bool>>,
+     *  attendanceLopByUserId: array<int, float>,
+     *  unpaidLeaveByUserId: array<int, float>
+     * }
+     */
+    private function buildPayrollComputationContext(Collection $employees, Carbon $monthStart): array
+    {
+        $employeeIds = $employees
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->values()
+            ->all();
+
+        if ($employeeIds === []) {
+            return [
+                'holidayMapByBranch' => [],
+                'attendanceLopByUserId' => [],
+                'unpaidLeaveByUserId' => [],
+            ];
+        }
+
+        $monthStart = $monthStart->copy()->startOfMonth();
+        $monthEnd = $monthStart->copy()->endOfMonth();
+
+        $holidayMapByBranch = [];
+        $branchKeyByUserId = [];
+        foreach ($employees as $employee) {
+            $branchValue = (string) ($employee->profile?->branch ?? '');
+            $branchKey = $this->normalizeBranchKey($branchValue);
+            $branchKeyByUserId[(int) $employee->id] = $branchKey;
+
+            if (! array_key_exists($branchKey, $holidayMapByBranch)) {
+                $holidayMapByBranch[$branchKey] = HolidayCalendar::dateMap(
+                    $monthStart,
+                    $monthEnd,
+                    $branchValue !== '' ? $branchValue : null,
+                    false
+                );
+            }
+        }
+
+        $attendanceLopByUserId = array_fill_keys($employeeIds, 0.0);
+        Attendance::query()
+            ->whereIn('user_id', $employeeIds)
+            ->whereBetween('attendance_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+            ->get(['user_id', 'status', 'attendance_date'])
+            ->each(function (Attendance $record) use (&$attendanceLopByUserId, $branchKeyByUserId, $holidayMapByBranch): void {
+                $userId = (int) $record->user_id;
+                $attendanceDate = $record->attendance_date?->toDateString();
+                if (! isset($attendanceLopByUserId[$userId])) {
+                    return;
+                }
+
+                $branchKey = $branchKeyByUserId[$userId] ?? $this->normalizeBranchKey('');
+                $holidayMap = $holidayMapByBranch[$branchKey] ?? [];
+                if ($attendanceDate && isset($holidayMap[$attendanceDate])) {
+                    return;
+                }
+
+                $attendanceLopByUserId[$userId] += match ($record->status) {
+                    Attendance::STATUS_ABSENT => 1.0,
+                    Attendance::STATUS_HALF_DAY => 0.5,
+                    default => 0.0,
+                };
+            });
+
+        $unpaidLeaveByUserId = array_fill_keys($employeeIds, 0.0);
+        LeaveRequest::query()
+            ->whereIn('user_id', $employeeIds)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->where('leave_type', LeaveRequest::TYPE_UNPAID)
+            ->whereDate('start_date', '<=', $monthEnd->toDateString())
+            ->whereDate('end_date', '>=', $monthStart->toDateString())
+            ->get()
+            ->each(function (LeaveRequest $leave) use (&$unpaidLeaveByUserId, $branchKeyByUserId, $holidayMapByBranch, $monthStart, $monthEnd): void {
+                $userId = (int) $leave->user_id;
+                if (! isset($unpaidLeaveByUserId[$userId])) {
+                    return;
+                }
+
+                $branchKey = $branchKeyByUserId[$userId] ?? $this->normalizeBranchKey('');
+                $holidayMap = $holidayMapByBranch[$branchKey] ?? [];
+
+                $leaveStart = $leave->start_date?->copy()->startOfDay();
+                $leaveEnd = $leave->end_date?->copy()->startOfDay();
+
+                if (! $leaveStart || ! $leaveEnd) {
+                    return;
+                }
+
+                $effectiveStart = $leaveStart->greaterThan($monthStart) ? $leaveStart : $monthStart->copy();
+                $effectiveEnd = $leaveEnd->lessThan($monthEnd) ? $leaveEnd : $monthEnd->copy();
+
+                if ($effectiveStart->greaterThan($effectiveEnd)) {
+                    return;
+                }
+
+                $isHalfDay = ($leave->day_type ?? null) === LeaveRequest::DAY_TYPE_HALF
+                    || (float) $leave->total_days === 0.5;
+
+                if ($isHalfDay) {
+                    if (! isset($holidayMap[$effectiveStart->toDateString()])) {
+                        $unpaidLeaveByUserId[$userId] += 0.5;
+                    }
+
+                    return;
+                }
+
+                $cursor = $effectiveStart->copy();
+                while ($cursor->lessThanOrEqualTo($effectiveEnd)) {
+                    if (! isset($holidayMap[$cursor->toDateString()])) {
+                        $unpaidLeaveByUserId[$userId] += 1.0;
+                    }
+                    $cursor->addDay();
+                }
+            });
+
+        $attendanceLopByUserId = collect($attendanceLopByUserId)
+            ->map(fn (float $value): float => round($value, 2))
+            ->all();
+        $unpaidLeaveByUserId = collect($unpaidLeaveByUserId)
+            ->map(fn (float $value): float => round($value, 2))
+            ->all();
+
+        return [
+            'holidayMapByBranch' => $holidayMapByBranch,
+            'attendanceLopByUserId' => $attendanceLopByUserId,
+            'unpaidLeaveByUserId' => $unpaidLeaveByUserId,
+        ];
+    }
+
+    private function normalizeBranchKey(string $branch): string
+    {
+        $normalized = mb_strtolower(trim($branch));
+
+        return $normalized !== '' ? $normalized : '__default__';
     }
 
     /**
@@ -2193,6 +2522,10 @@ class PayrollController extends Controller
             'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
             'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
             'department' => ['nullable', 'string', 'max:120'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', Rule::in(['', 'generated', 'approved', 'paid', 'failed'])],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
             'employee_id' => [
                 'nullable',
                 'integer',
@@ -2297,38 +2630,102 @@ class PayrollController extends Controller
         ?string $branch,
         ?string $department,
         ?int $employeeId,
-        User $viewer
+        User $viewer,
+        ?string $search = null,
+        ?string $uiStatus = null,
+        ?int $page = null,
+        ?int $perPage = null
     ): array {
-        $records = $this->workflowPayrollQuery($monthStart, $branch, $department, $employeeId)->get();
+        $baseQuery = $this->workflowPayrollQuery($monthStart, $branch, $department, $employeeId);
         $totalEmployees = $this->workflowEmployeeQuery($branch, $department, $employeeId)->count();
         $activeLock = $this->activeMonthLock($monthStart);
 
-        $generatedCount = (int) $records->count();
-        $approvedCount = (int) $records->filter(function (Payroll $payroll): bool {
-            return in_array($payroll->status, [Payroll::STATUS_PROCESSED, Payroll::STATUS_PAID], true);
-        })->count();
-        $paidCount = (int) $records->where('status', Payroll::STATUS_PAID)->count();
-        $failedCount = (int) $records->where('status', Payroll::STATUS_FAILED)->count();
-        $draftCount = (int) $records->where('status', Payroll::STATUS_DRAFT)->count();
-        $netTotal = (float) $records->sum('net_salary');
+        $generatedCount = (int) (clone $baseQuery)->count();
+        $approvedCount = (int) (clone $baseQuery)
+            ->whereIn('status', [Payroll::STATUS_PROCESSED, Payroll::STATUS_PAID])
+            ->count();
+        $paidCount = (int) (clone $baseQuery)->where('status', Payroll::STATUS_PAID)->count();
+        $failedCount = (int) (clone $baseQuery)->where('status', Payroll::STATUS_FAILED)->count();
+        $draftCount = (int) (clone $baseQuery)->where('status', Payroll::STATUS_DRAFT)->count();
+        $netTotal = (float) (clone $baseQuery)->sum('net_salary');
 
         $allApproved = $generatedCount > 0 && $approvedCount === $generatedCount;
         $allPaid = $generatedCount > 0 && $paidCount === $generatedCount;
-        $isLocked = $activeLock !== null || $allPaid;
+        $isLocked = $activeLock !== null;
 
         $workflowStatus = $isLocked
             ? 'paid'
-            : ($allApproved ? 'approved' : ($generatedCount > 0 ? 'generated' : 'draft'));
+            : ($allPaid ? 'paid' : ($allApproved ? 'approved' : ($generatedCount > 0 ? 'generated' : 'draft')));
 
-        $latestRecordUpdatedAt = $records->max('updated_at');
+        $latestRecordUpdatedAt = (clone $baseQuery)->max('updated_at');
         $latestTimestamp = $activeLock?->locked_at;
         if ($latestRecordUpdatedAt instanceof Carbon) {
             $latestTimestamp = $latestTimestamp instanceof Carbon
                 ? ($latestRecordUpdatedAt->greaterThan($latestTimestamp) ? $latestRecordUpdatedAt : $latestTimestamp)
                 : $latestRecordUpdatedAt;
+        } elseif (filled($latestRecordUpdatedAt)) {
+            $latestTimestamp = Carbon::parse((string) $latestRecordUpdatedAt);
         }
 
-        $rows = $records->map(function (Payroll $record) use ($isLocked): array {
+        $statusFilter = $this->uiStatusToDbStatus($uiStatus);
+        $searchTerm = trim((string) ($search ?? ''));
+        $recordQuery = (clone $baseQuery)
+            ->when($statusFilter !== null, function (Builder $query) use ($statusFilter): void {
+                $query->where('status', $statusFilter);
+            })
+            ->when($searchTerm !== '', function (Builder $query) use ($searchTerm): void {
+                $query->whereHas('user', function (Builder $userQuery) use ($searchTerm): void {
+                    $userQuery->where(function (Builder $innerQuery) use ($searchTerm): void {
+                        $innerQuery
+                            ->where('name', 'like', '%' . $searchTerm . '%')
+                            ->orWhere('email', 'like', '%' . $searchTerm . '%')
+                            ->orWhereHas('profile', function (Builder $profileQuery) use ($searchTerm): void {
+                                $profileQuery->where('department', 'like', '%' . $searchTerm . '%');
+                            });
+                    });
+                });
+            });
+
+        $pagination = [
+            'currentPage' => 1,
+            'lastPage' => 1,
+            'perPage' => 0,
+            'total' => 0,
+        ];
+        $recordRows = collect();
+        if ($perPage === null) {
+            $recordRows = $recordQuery
+                ->orderBy('user_id')
+                ->get();
+            $total = (int) $recordRows->count();
+            $pagination = [
+                'currentPage' => 1,
+                'lastPage' => 1,
+                'perPage' => $total,
+                'total' => $total,
+            ];
+        } else {
+            $safePage = max(1, (int) $page);
+            $safePerPage = max(5, min(100, (int) $perPage));
+            $recordPage = $recordQuery
+                ->orderBy('user_id')
+                ->paginate($safePerPage, ['*'], 'page', $safePage);
+            $recordRows = collect($recordPage->items());
+            $pagination = [
+                'currentPage' => $recordPage->currentPage(),
+                'lastPage' => $recordPage->lastPage(),
+                'perPage' => $recordPage->perPage(),
+                'total' => $recordPage->total(),
+            ];
+        }
+
+        $tableTotals = [
+            'gross' => round((float) $recordRows->sum('gross_earnings'), 2),
+            'deductions' => round((float) $recordRows->sum('total_deductions'), 2),
+            'net' => round((float) $recordRows->sum('net_salary'), 2),
+        ];
+
+        $rows = $recordRows->map(function (Payroll $record) use ($isLocked): array {
             return [
                 'id' => $record->id,
                 'employeeId' => $record->user?->id,
@@ -2384,36 +2781,30 @@ class PayrollController extends Controller
                 'failedCount' => $failedCount,
                 'draftCount' => $draftCount,
             ],
+            'tableTotals' => $tableTotals,
+            'pagination' => $pagination,
             'records' => $rows,
         ];
     }
 
     private function canGenerate(User $viewer): bool
     {
-        return $viewer->hasAnyRole([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::HR->value,
-            UserRole::ADMIN->value,
-        ]);
+        return PayrollWorkflow::canGenerate($viewer);
     }
 
     private function canApprove(User $viewer): bool
     {
-        return $viewer->hasAnyRole([UserRole::SUPER_ADMIN->value, UserRole::ADMIN->value]);
+        return PayrollWorkflow::canApprove($viewer);
     }
 
     private function canMarkPaid(User $viewer): bool
     {
-        return $viewer->hasAnyRole([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::FINANCE->value,
-            UserRole::ADMIN->value,
-        ]);
+        return PayrollWorkflow::canMarkPaid($viewer);
     }
 
     private function canUnlock(User $viewer): bool
     {
-        return $viewer->hasRole(UserRole::SUPER_ADMIN->value);
+        return PayrollWorkflow::canUnlock($viewer);
     }
 
     private function assertCanGenerate(User $viewer): void
@@ -2446,37 +2837,17 @@ class PayrollController extends Controller
 
     private function dbStatusToUiStatus(string $dbStatus): string
     {
-        return match ($dbStatus) {
-            Payroll::STATUS_DRAFT => 'generated',
-            Payroll::STATUS_PROCESSED => 'approved',
-            Payroll::STATUS_PAID => 'paid',
-            Payroll::STATUS_FAILED => 'failed',
-            default => 'generated',
-        };
+        return PayrollWorkflow::dbStatusToUiStatus($dbStatus);
     }
 
     private function uiStatusToDbStatus(?string $uiStatus): ?string
     {
-        $status = strtolower((string) ($uiStatus ?? ''));
-
-        return match ($status) {
-            'generated' => Payroll::STATUS_DRAFT,
-            'approved' => Payroll::STATUS_PROCESSED,
-            'paid' => Payroll::STATUS_PAID,
-            'failed' => Payroll::STATUS_FAILED,
-            default => null,
-        };
+        return PayrollWorkflow::uiStatusToDbStatus($uiStatus);
     }
 
     private function statusLabelFromDb(string $dbStatus): string
     {
-        return match ($dbStatus) {
-            Payroll::STATUS_DRAFT => 'Generated',
-            Payroll::STATUS_PROCESSED => 'Approved',
-            Payroll::STATUS_PAID => 'Paid',
-            Payroll::STATUS_FAILED => 'Failed',
-            default => (string) str($dbStatus)->replace('_', ' ')->title(),
-        };
+        return PayrollWorkflow::statusLabelFromDb($dbStatus);
     }
 
     /**

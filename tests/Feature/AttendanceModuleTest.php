@@ -22,7 +22,7 @@ class AttendanceModuleTest extends TestCase
 
     public function test_guest_cannot_access_attendance_module(): void
     {
-        $this->get(route('modules.attendance.index'))
+        $this->get(route('modules.attendance.overview'))
             ->assertRedirect(route('login'));
     }
 
@@ -37,12 +37,12 @@ class AttendanceModuleTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->get(route('modules.attendance.index'))
+            ->get(route('modules.attendance.overview'))
             ->assertOk()
             ->assertSee('Mark Attendance');
 
         $this->actingAs($hr)
-            ->get(route('modules.attendance.index'))
+            ->get(route('modules.attendance.overview'))
             ->assertOk()
             ->assertSee('Attendance Directory');
     }
@@ -54,7 +54,7 @@ class AttendanceModuleTest extends TestCase
         ]);
 
         $this->actingAs($employee)
-            ->get(route('modules.attendance.index'))
+            ->get(route('modules.attendance.overview'))
             ->assertOk()
             ->assertSee('My Attendance')
             ->assertDontSee('Mark Attendance');
@@ -79,7 +79,7 @@ class AttendanceModuleTest extends TestCase
                 'check_out_time' => '18:00',
                 'notes' => 'Onsite shift',
             ])
-            ->assertRedirect(route('modules.attendance.index'));
+            ->assertRedirect(route('modules.attendance.overview'));
 
         $this->assertDatabaseHas('attendances', [
             'user_id' => $employee->id,
@@ -113,12 +113,12 @@ class AttendanceModuleTest extends TestCase
         Carbon::setTestNow('2026-02-15 09:00:00');
         $this->actingAs($employee)
             ->post(route('modules.attendance.check-in'))
-            ->assertRedirect(route('modules.attendance.index'));
+            ->assertRedirect(route('modules.attendance.overview'));
 
         Carbon::setTestNow('2026-02-15 17:30:00');
         $this->actingAs($employee)
             ->post(route('modules.attendance.check-out'))
-            ->assertRedirect(route('modules.attendance.index'));
+            ->assertRedirect(route('modules.attendance.overview'));
 
         $record = Attendance::query()
             ->where('user_id', $employee->id)
@@ -160,7 +160,7 @@ class AttendanceModuleTest extends TestCase
                 'check_out_time' => '14:00',
                 'notes' => 'Half day approved',
             ])
-            ->assertRedirect(route('modules.attendance.index'));
+            ->assertRedirect(route('modules.attendance.overview'));
 
         $this->assertDatabaseHas('attendances', [
             'id' => $attendance->id,

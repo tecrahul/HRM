@@ -506,16 +506,9 @@ function SmtpSettingsApp({ payload }) {
     );
 }
 
+import { mountSMTPSettings } from '../../pages/Settings/SMTPSettings';
+
 export function mountSmtpSettingsPage() {
-    const rootElement = document.getElementById('smtp-settings-root');
-    if (!rootElement) {
-        return;
-    }
-
-    const payload = parsePayload(rootElement);
-    if (!payload) {
-        return;
-    }
-
-    createRoot(rootElement).render(<SmtpSettingsApp payload={payload} />);
+    // Delegate to the new structured SMTP settings page
+    mountSMTPSettings();
 }

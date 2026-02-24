@@ -16,6 +16,7 @@
         \App\Enums\UserRole::HR->value,
     ]) ?? false;
     $isAdmin = $user?->hasRole(\App\Enums\UserRole::ADMIN->value) ?? false;
+    $isSuperAdmin = $user?->hasRole(\App\Enums\UserRole::SUPER_ADMIN->value) ?? false;
     $isEmployee = $user?->hasRole(\App\Enums\UserRole::EMPLOYEE->value) ?? false;
     $dashboardRoute = $user?->dashboardRouteName() ?? 'dashboard';
 @endphp
@@ -53,10 +54,26 @@
                     </a>
                 @endif
             @endif
-            <a href="{{ route('modules.attendance.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.*') ? 'is-active' : '' }}">
+            <a href="{{ route('modules.attendance.overview') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.*') ? 'is-active' : '' }}">
                 <span class="hrm-nav__icon"><x-heroicon-o-clock class="h-4 w-4 text-gold-400" /></span>
                 <span>Attendance</span>
             </a>
+            <a href="{{ route('modules.attendance.overview') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.overview') ? 'is-active' : '' }}" style="padding-left: 22px;">
+                <span class="hrm-nav__dot"></span>
+                <span>Overview</span>
+            </a>
+            @if ($user?->can('attendance.create') && ! ($isAdmin || $isSuperAdmin))
+                <a href="{{ route('modules.attendance.punch') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.punch') || request()->routeIs('modules.attendance.punch-in') || request()->routeIs('modules.attendance.punch-out') ? 'is-active' : '' }}" style="padding-left: 22px;">
+                    <span class="hrm-nav__dot"></span>
+                    <span>Punch In/Out</span>
+                </a>
+            @endif
+            @if ($isAdmin || $isSuperAdmin)
+                <a href="{{ route('modules.attendance.overview', ['action' => 'create']) }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.overview') ? 'is-active' : '' }}" style="padding-left: 22px;">
+                    <span class="hrm-nav__dot"></span>
+                    <span>Mark Attendance</span>
+                </a>
+            @endif
             <a href="{{ route('modules.payroll.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.payroll.*') ? 'is-active' : '' }}">
                 <span class="hrm-nav__icon"><x-heroicon-o-banknotes class="h-4 w-4 text-gold-400" /></span>
                 <span>Payroll</span>

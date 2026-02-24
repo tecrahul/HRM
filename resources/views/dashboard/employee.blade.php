@@ -34,7 +34,7 @@
                 <p class="ui-section-subtitle">Track attendance, leave, payroll, and profile updates from your workspace.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto">
-                <a href="{{ route('modules.attendance.index') }}" class="ui-btn ui-btn-primary">Attendance</a>
+                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-primary">Attendance</a>
                 <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">Apply Leave</a>
                 <a href="{{ route('modules.payroll.index') }}" class="ui-btn ui-btn-ghost">Payslips</a>
             </div>
@@ -123,7 +123,7 @@
             </div>
 
             <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                <a href="{{ route('modules.attendance.index') }}" class="ui-tile-link">
+                <a href="{{ route('modules.attendance.overview') }}" class="ui-tile-link">
                     <span class="ui-icon-chip ui-icon-sky"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
                     <div><p class="font-semibold">Attendance</p><p class="ui-section-subtitle mt-1">Check in/out and history</p></div>
                 </a>

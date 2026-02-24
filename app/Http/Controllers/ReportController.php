@@ -19,6 +19,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class ReportController extends Controller
 {
@@ -72,9 +73,8 @@ class ReportController extends Controller
         $reportTypeLabel = $reportTypeOptions[$reportType] ?? $reportTypeOptions['comprehensive'];
         $visibleSections = $this->sectionsForReportType($reportType);
 
-        $employeeQuery = User::query()
+        $employeeScopeQuery = User::query()
             ->workforce()
-            ->with('profile')
             ->when($filters['q'] !== '', function (Builder $query) use ($filters): void {
                 $query->where(function (Builder $innerQuery) use ($filters): void {
                     $innerQuery
@@ -85,33 +85,33 @@ class ReportController extends Controller
 
         if ($isManagement) {
             if ($filters['employee_id'] > 0) {
-                $employeeQuery->whereKey($filters['employee_id']);
+                $employeeScopeQuery->whereKey($filters['employee_id']);
             }
 
             if ($filters['department'] !== '') {
-                $employeeQuery->whereHas('profile', function (Builder $query) use ($filters): void {
+                $employeeScopeQuery->whereHas('profile', function (Builder $query) use ($filters): void {
                     $query->where('department', $filters['department']);
                 });
             }
 
             if ($filters['branch'] !== '') {
-                $employeeQuery->whereHas('profile', function (Builder $query) use ($filters): void {
+                $employeeScopeQuery->whereHas('profile', function (Builder $query) use ($filters): void {
                     $query->where('branch', $filters['branch']);
                 });
             }
         } else {
-            $employeeQuery->whereKey($viewer->id);
+            $employeeScopeQuery->whereKey($viewer->id);
         }
 
-        $employeeIds = (clone $employeeQuery)->pluck('id');
-        $employeeCount = $employeeIds->count();
+        $employeeCount = (clone $employeeScopeQuery)->count('users.id');
+        $employeeIdSubquery = (clone $employeeScopeQuery)->select('users.id');
         $periodDays = max(
             1,
             (int) $from->copy()->startOfDay()->diffInDays($to->copy()->startOfDay()) + 1
         );
 
         $attendanceBase = Attendance::query()
-            ->whereIn('user_id', $employeeIds)
+            ->whereIn('user_id', (clone $employeeIdSubquery))
             ->whereBetween('attendance_date', [$from->toDateString(), $to->toDateString()]);
 
         $attendanceTotals = (clone $attendanceBase)
@@ -127,30 +127,14 @@ class ReportController extends Controller
             ->get();
 
         $leaveBase = LeaveRequest::query()
-            ->whereIn('user_id', $employeeIds)
+            ->whereIn('user_id', (clone $employeeIdSubquery))
             ->where(function (Builder $query) use ($from, $to): void {
                 $query->whereDate('start_date', '<=', $to->toDateString())
                     ->whereDate('end_date', '>=', $from->toDateString());
             });
-
-        $leaveTotals = (clone $leaveBase)
-            ->selectRaw('COUNT(*) as total_requests')
-            ->selectRaw("COALESCE(SUM(CASE WHEN status = 'approved' THEN total_days ELSE 0 END), 0) as approved_days")
-            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_requests")
-            ->first();
-
-        $leaveStatusBreakdown = (clone $leaveBase)
-            ->selectRaw('status, COUNT(*) as request_count')
-            ->groupBy('status')
-            ->orderByDesc('request_count')
-            ->get();
-
-        $leaveTypeBreakdown = (clone $leaveBase)
-            ->selectRaw('leave_type, COUNT(*) as request_count')
-            ->selectRaw("COALESCE(SUM(CASE WHEN status = 'approved' THEN total_days ELSE 0 END), 0) as approved_days")
-            ->groupBy('leave_type')
-            ->orderByDesc('request_count')
-            ->get();
+        $leaveRows = (clone $leaveBase)
+            ->get(['user_id', 'leave_type', 'status', 'start_date', 'end_date', 'total_days']);
+        $leaveSummary = $this->summarizeLeaveRows($leaveRows, $from, $to);
 
         $payrollEnabled = Schema::hasTable('payrolls');
         $payrollStatusBreakdown = collect();
@@ -166,7 +150,7 @@ class ReportController extends Controller
             $payrollRangeEnd = $to->copy()->startOfMonth()->toDateString();
 
             $payrollBase = Payroll::query()
-                ->whereIn('user_id', $employeeIds)
+                ->whereIn('user_id', (clone $employeeIdSubquery))
                 ->whereBetween('payroll_month', [$payrollRangeStart, $payrollRangeEnd]);
 
             $payrollTotals = (clone $payrollBase)
@@ -196,9 +180,9 @@ class ReportController extends Controller
             'attendancePresentUnits' => $attendancePresentUnits,
             'attendanceRate' => $attendanceRate,
             'attendanceWorkHours' => round(((float) ($attendanceTotals?->work_minutes_total ?? 0)) / 60, 1),
-            'leaveRequests' => (int) ($leaveTotals?->total_requests ?? 0),
-            'leaveApprovedDays' => round((float) ($leaveTotals?->approved_days ?? 0), 1),
-            'leavePendingRequests' => (int) ($leaveTotals?->pending_requests ?? 0),
+            'leaveRequests' => (int) ($leaveSummary['total_requests'] ?? 0),
+            'leaveApprovedDays' => round((float) ($leaveSummary['approved_days'] ?? 0), 1),
+            'leavePendingRequests' => (int) ($leaveSummary['pending_requests'] ?? 0),
             'payrollEntries' => (int) ($payrollTotals?->generated_entries ?? 0),
             'payrollPaidEntries' => (int) ($payrollTotals?->paid_entries ?? 0),
             'payrollNet' => round((float) ($payrollTotals?->net_salary ?? 0), 2),
@@ -206,10 +190,8 @@ class ReportController extends Controller
         ];
 
         if ($filters['export'] === 'csv') {
-            $allEmployees = (clone $employeeQuery)
-                ->orderBy('name')
-                ->get();
-            $rows = $this->buildEmployeeSummaryRows($allEmployees, $from, $to, $payrollEnabled);
+            $employeeExportQuery = (clone $employeeScopeQuery)
+                ->with('profile');
 
             ActivityLogger::log(
                 $viewer,
@@ -226,10 +208,18 @@ class ReportController extends Controller
                 ]
             );
 
-            return $this->exportCsv($rows, $from, $to, $reportType, $reportTypeLabel);
+            return $this->exportCsv(
+                $employeeExportQuery,
+                $from,
+                $to,
+                $reportType,
+                $reportTypeLabel,
+                $payrollEnabled
+            );
         }
 
-        $employees = (clone $employeeQuery)
+        $employees = (clone $employeeScopeQuery)
+            ->with('profile')
             ->orderBy('name')
             ->paginate(15)
             ->withQueryString();
@@ -283,8 +273,8 @@ class ReportController extends Controller
             'employees' => $employees,
             'rows' => $employeeSummaryRows,
             'attendanceStatusBreakdown' => $attendanceStatusBreakdown,
-            'leaveStatusBreakdown' => $leaveStatusBreakdown,
-            'leaveTypeBreakdown' => $leaveTypeBreakdown,
+            'leaveStatusBreakdown' => $leaveSummary['status_breakdown'],
+            'leaveTypeBreakdown' => $leaveSummary['type_breakdown'],
             'payrollStatusBreakdown' => $payrollStatusBreakdown,
             'payrollEnabled' => $payrollEnabled,
             'departmentOptions' => $departmentOptions,
@@ -415,14 +405,14 @@ class ReportController extends Controller
                 $activityQuery->where('actor_user_id', $filters['actor_user_id']);
             }
 
-            $stats['total'] = (clone $activityQuery)->count();
-            $stats['uniqueActors'] = (clone $activityQuery)
-                ->whereNotNull('actor_user_id')
-                ->distinct('actor_user_id')
-                ->count('actor_user_id');
-            $stats['systemEvents'] = (clone $activityQuery)
-                ->whereNull('actor_user_id')
-                ->count();
+            $statsRow = (clone $activityQuery)
+                ->selectRaw('COUNT(*) as total')
+                ->selectRaw('COUNT(DISTINCT actor_user_id) as unique_actors')
+                ->selectRaw('SUM(CASE WHEN actor_user_id IS NULL THEN 1 ELSE 0 END) as system_events')
+                ->first();
+            $stats['total'] = (int) ($statsRow?->total ?? 0);
+            $stats['uniqueActors'] = (int) ($statsRow?->unique_actors ?? 0);
+            $stats['systemEvents'] = (int) ($statsRow?->system_events ?? 0);
 
             $activities = (clone $activityQuery)
                 ->orderByDesc('occurred_at')
@@ -442,7 +432,7 @@ class ReportController extends Controller
         ]);
     }
 
-    public function activityShow(Request $request, Activity $activity): View
+    public function activityShow(Request $request, int $activity): View
     {
         $viewer = $request->user();
 
@@ -450,17 +440,32 @@ class ReportController extends Controller
             abort(403);
         }
 
+        if (! Schema::hasTable('activities')) {
+            abort(404);
+        }
+
+        $activityModel = Activity::query()->findOrFail($activity);
+
         $isManagement = $viewer->hasAnyRole([
             UserRole::SUPER_ADMIN->value,
             UserRole::ADMIN->value,
             UserRole::HR->value,
         ]);
 
-        if (! $isManagement && (int) $activity->actor_user_id !== (int) $viewer->id) {
+        if (! $isManagement && (int) $activityModel->actor_user_id !== (int) $viewer->id) {
             abort(403);
         }
 
-        $activity->loadMissing(['actor', 'subject']);
+        $activityModel->loadMissing(['actor', 'subject']);
+
+        $payload = ActivityLogger::sanitizePayloadForDisplay($activityModel->payload);
+        $payloadJson = '{}';
+        if ($payload !== []) {
+            $encodedPayload = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            if (is_string($encodedPayload) && $encodedPayload !== '') {
+                $payloadJson = $encodedPayload;
+            }
+        }
 
         $backFilters = $request->only([
             'from_date',
@@ -474,8 +479,9 @@ class ReportController extends Controller
         $backUrl = route('modules.reports.activity', $backFilters);
 
         return view('modules.reports.activity-show', [
-            'activity' => $activity,
+            'activity' => $activityModel,
             'backUrl' => $backUrl,
+            'payloadJson' => $payloadJson,
         ]);
     }
 
@@ -534,16 +540,13 @@ class ReportController extends Controller
             ->get()
             ->keyBy('user_id');
 
-        $leaveByUser = LeaveRequest::query()
+        $leaveRows = LeaveRequest::query()
             ->whereIn('user_id', $ids)
             ->whereDate('start_date', '<=', $to->toDateString())
             ->whereDate('end_date', '>=', $from->toDateString())
-            ->select('user_id')
-            ->selectRaw("COALESCE(SUM(CASE WHEN status = 'approved' THEN total_days ELSE 0 END), 0) as approved_days")
-            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_requests")
-            ->groupBy('user_id')
-            ->get()
-            ->keyBy('user_id');
+            ->get(['user_id', 'leave_type', 'status', 'start_date', 'end_date', 'total_days']);
+        $leaveSummary = $this->summarizeLeaveRows($leaveRows, $from, $to);
+        $leaveByUser = $leaveSummary['by_user'];
 
         $payrollByUser = collect();
         $latestPayrollByUser = collect();
@@ -613,15 +616,13 @@ class ReportController extends Controller
             ->values();
     }
 
-    /**
-     * @param Collection<int, array<string, int|float|string>> $rows
-     */
     private function exportCsv(
-        Collection $rows,
+        Builder $employeeQuery,
         Carbon $from,
         Carbon $to,
         string $reportType,
-        string $reportTypeLabel
+        string $reportTypeLabel,
+        bool $payrollEnabled
     ): StreamedResponse {
         [$headers, $resolver] = $this->csvColumnsForReportType($reportType);
 
@@ -632,25 +633,220 @@ class ReportController extends Controller
             $to->format('Ymd')
         );
 
-        return response()->streamDownload(function () use ($rows, $from, $to, $headers, $resolver, $reportTypeLabel): void {
+        return response()->streamDownload(function () use ($employeeQuery, $from, $to, $headers, $resolver, $reportTypeLabel, $payrollEnabled): void {
             $handle = fopen('php://output', 'wb');
             if ($handle === false) {
                 return;
             }
 
-            fputcsv($handle, ['Report Type', $reportTypeLabel]);
-            fputcsv($handle, ['Report Period', $from->toDateString().' to '.$to->toDateString()]);
-            fputcsv($handle, []);
-            fputcsv($handle, $headers);
+            fwrite($handle, "\xEF\xBB\xBF");
 
-            foreach ($rows as $row) {
-                fputcsv($handle, $resolver($row));
-            }
+            fputcsv($handle, $this->sanitizeCsvRow(['Report Type', $reportTypeLabel]));
+            fputcsv($handle, $this->sanitizeCsvRow(['Report Period', $from->toDateString().' to '.$to->toDateString()]));
+            fputcsv($handle, []);
+            fputcsv($handle, $this->sanitizeCsvRow($headers));
+
+            $employeeQuery->chunkById(300, function (Collection $employees) use ($from, $to, $payrollEnabled, $resolver, $handle): void {
+                $employees->loadMissing('profile');
+
+                $rows = $this->buildEmployeeSummaryRows(
+                    $employees,
+                    $from,
+                    $to,
+                    $payrollEnabled
+                );
+
+                foreach ($rows as $row) {
+                    fputcsv($handle, $this->sanitizeCsvRow($resolver($row)));
+                }
+            });
 
             fclose($handle);
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    /**
+     * @param Collection<int, LeaveRequest> $leaveRows
+     * @return array{
+     *     total_requests: int,
+     *     approved_days: float,
+     *     pending_requests: int,
+     *     status_breakdown: Collection<int, object{status: string, request_count: int}>,
+     *     type_breakdown: Collection<int, object{leave_type: string, request_count: int, approved_days: float}>,
+     *     by_user: Collection<int, object{approved_days: float, pending_requests: int}>
+     * }
+     */
+    private function summarizeLeaveRows(Collection $leaveRows, Carbon $from, Carbon $to): array
+    {
+        $statusCounts = [];
+        $typeCounts = [];
+        $approvedByType = [];
+        $byUser = [];
+        $pendingRequests = 0;
+        $approvedDays = 0.0;
+
+        foreach ($leaveRows as $leave) {
+            $status = trim((string) ($leave->status ?? ''));
+            $leaveType = trim((string) ($leave->leave_type ?? ''));
+            $userId = (int) ($leave->user_id ?? 0);
+
+            if ($status !== '') {
+                $statusCounts[$status] = ($statusCounts[$status] ?? 0) + 1;
+            }
+
+            if ($leaveType !== '') {
+                $typeCounts[$leaveType] = ($typeCounts[$leaveType] ?? 0) + 1;
+            }
+
+            if ($status === LeaveRequest::STATUS_PENDING) {
+                $pendingRequests++;
+
+                if ($userId > 0) {
+                    if (! array_key_exists($userId, $byUser)) {
+                        $byUser[$userId] = [
+                            'approved_days' => 0.0,
+                            'pending_requests' => 0,
+                        ];
+                    }
+                    $byUser[$userId]['pending_requests']++;
+                }
+            }
+
+            if ($status !== LeaveRequest::STATUS_APPROVED) {
+                continue;
+            }
+
+            $overlapDays = $this->overlapLeaveUnits(
+                $leave->start_date,
+                $leave->end_date,
+                (float) ($leave->total_days ?? 0),
+                $from,
+                $to
+            );
+            if ($overlapDays <= 0) {
+                continue;
+            }
+
+            $approvedDays += $overlapDays;
+
+            if ($leaveType !== '') {
+                $approvedByType[$leaveType] = ($approvedByType[$leaveType] ?? 0) + $overlapDays;
+            }
+
+            if ($userId > 0) {
+                if (! array_key_exists($userId, $byUser)) {
+                    $byUser[$userId] = [
+                        'approved_days' => 0.0,
+                        'pending_requests' => 0,
+                    ];
+                }
+                $byUser[$userId]['approved_days'] += $overlapDays;
+            }
+        }
+
+        $statusBreakdown = collect($statusCounts)
+            ->map(fn (int $count, string $status): object => (object) [
+                'status' => $status,
+                'request_count' => $count,
+            ])
+            ->sortByDesc(fn (object $item): int => (int) $item->request_count)
+            ->values();
+
+        $typeBreakdown = collect($typeCounts)
+            ->map(function (int $count, string $leaveType) use ($approvedByType): object {
+                return (object) [
+                    'leave_type' => $leaveType,
+                    'request_count' => $count,
+                    'approved_days' => (float) ($approvedByType[$leaveType] ?? 0.0),
+                ];
+            })
+            ->sortByDesc(fn (object $item): int => (int) $item->request_count)
+            ->values();
+
+        $byUserCollection = collect($byUser)->map(function (array $totals): object {
+            return (object) [
+                'approved_days' => (float) ($totals['approved_days'] ?? 0.0),
+                'pending_requests' => (int) ($totals['pending_requests'] ?? 0),
+            ];
+        });
+
+        return [
+            'total_requests' => $leaveRows->count(),
+            'approved_days' => $approvedDays,
+            'pending_requests' => $pendingRequests,
+            'status_breakdown' => $statusBreakdown,
+            'type_breakdown' => $typeBreakdown,
+            'by_user' => $byUserCollection,
+        ];
+    }
+
+    private function overlapLeaveUnits(
+        mixed $startDate,
+        mixed $endDate,
+        float $totalDays,
+        Carbon $from,
+        Carbon $to
+    ): float {
+        if ($totalDays <= 0) {
+            return 0.0;
+        }
+
+        try {
+            $start = $startDate instanceof Carbon
+                ? $startDate->copy()->startOfDay()
+                : Carbon::parse((string) $startDate)->startOfDay();
+            $end = $endDate instanceof Carbon
+                ? $endDate->copy()->endOfDay()
+                : Carbon::parse((string) $endDate)->endOfDay();
+        } catch (Throwable) {
+            return 0.0;
+        }
+
+        if ($start->greaterThan($end)) {
+            return 0.0;
+        }
+
+        $windowStart = $start->greaterThan($from) ? $start : $from->copy()->startOfDay();
+        $windowEnd = $end->lessThan($to) ? $end : $to->copy()->endOfDay();
+
+        if ($windowStart->greaterThan($windowEnd)) {
+            return 0.0;
+        }
+
+        $requestDays = max(1, (int) $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1);
+        $overlapDays = max(0, (int) $windowStart->copy()->startOfDay()->diffInDays($windowEnd->copy()->startOfDay()) + 1);
+        $units = $overlapDays * ($totalDays / $requestDays);
+        $units = min($totalDays, max(0, $units));
+
+        return round($units, 4);
+    }
+
+    /**
+     * @param list<int|float|string> $values
+     * @return list<int|float|string>
+     */
+    private function sanitizeCsvRow(array $values): array
+    {
+        return array_map(function (int|float|string $value): int|float|string {
+            if (! is_string($value) || $value === '') {
+                return $value;
+            }
+
+            $firstChar = $value[0];
+            $trimmedLeading = ltrim($value);
+            $firstTrimmedChar = $trimmedLeading !== '' ? $trimmedLeading[0] : $firstChar;
+
+            if (
+                in_array($firstChar, ["\t", "\r", "\n"], true)
+                || in_array($firstTrimmedChar, ['=', '+', '-', '@'], true)
+            ) {
+                return "'".$value;
+            }
+
+            return $value;
+        }, $values);
     }
 
     /**

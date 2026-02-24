@@ -11,6 +11,7 @@ use App\Models\Payroll;
 use App\Models\PayrollMonthLock;
 use App\Models\PayrollStructure;
 use App\Models\User;
+use App\Support\PayrollWorkflow;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -628,7 +629,7 @@ class PayrollModuleController extends Controller
                 'canGenerate' => $this->canGenerate($viewer),
                 'canApprove' => $this->canApprove($viewer),
                 'canMarkPaid' => $this->canMarkPaid($viewer),
-                'canUnlock' => $viewer->hasRole(UserRole::SUPER_ADMIN->value),
+                'canUnlock' => PayrollWorkflow::canUnlock($viewer),
                 'role' => $viewer->role instanceof UserRole ? $viewer->role->value : (string) $viewer->role,
             ],
             'urls' => [
@@ -770,15 +771,7 @@ class PayrollModuleController extends Controller
 
     private function uiStatusToDbStatus(?string $uiStatus): ?string
     {
-        $status = strtolower((string) ($uiStatus ?? ''));
-
-        return match ($status) {
-            'generated' => Payroll::STATUS_DRAFT,
-            'approved' => Payroll::STATUS_PROCESSED,
-            'paid' => Payroll::STATUS_PAID,
-            'failed' => Payroll::STATUS_FAILED,
-            default => null,
-        };
+        return PayrollWorkflow::uiStatusToDbStatus($uiStatus);
     }
 
     private function ensureManagementAccess(Request $request): User
@@ -799,27 +792,16 @@ class PayrollModuleController extends Controller
 
     private function canGenerate(User $viewer): bool
     {
-        return $viewer->hasAnyRole([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::HR->value,
-            UserRole::ADMIN->value,
-        ]);
+        return PayrollWorkflow::canGenerate($viewer);
     }
 
     private function canApprove(User $viewer): bool
     {
-        return $viewer->hasAnyRole([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::ADMIN->value,
-        ]);
+        return PayrollWorkflow::canApprove($viewer);
     }
 
     private function canMarkPaid(User $viewer): bool
     {
-        return $viewer->hasAnyRole([
-            UserRole::SUPER_ADMIN->value,
-            UserRole::FINANCE->value,
-            UserRole::ADMIN->value,
-        ]);
+        return PayrollWorkflow::canMarkPaid($viewer);
     }
 }
