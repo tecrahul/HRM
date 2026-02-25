@@ -72,18 +72,18 @@ export default function Sidebar({ payload }) {
 
       <nav className="flex-1 min-h-0">
         <div className="hrm-sidebar-scroll pr-1" style={{ maxHeight: 'calc(100vh - 220px)' }}>
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col gap-0.5">
             {topItems.map((it) => (
               <SidebarItem key={it.key} item={it} isCollapsed={isCollapsed} onOpenFlyout={openFlyout} isFlyoutOpenForKey={flyout.open && flyout.parentKey === it.key} />
             ))}
           </ul>
 
           {Object.keys(sections).map((section) => (
-            <div key={section} className="mt-3">
+            <div key={section} className="mt-2">
               {!isCollapsed && (
                 <p className="px-2 text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--hr-text-muted)' }}>{section}</p>
               )}
-              <ul className="flex flex-col gap-1 mt-1">
+              <ul className="flex flex-col gap-0.5 mt-0.5">
                 {sections[section].map((it) => (
                   <SidebarItem key={it.key} item={it} isCollapsed={isCollapsed} onOpenFlyout={openFlyout} isFlyoutOpenForKey={flyout.open && flyout.parentKey === it.key} />
                 ))}

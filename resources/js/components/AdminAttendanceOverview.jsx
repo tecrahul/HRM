@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { fetchAdminAttendanceOverview } from '../services/adminAttendanceApi';
 import { buildDashboardSummaryQuery } from '../services/adminDashboardApi';
+import { AnalyticsDonutChart } from './common/charts/AnalyticsDonutChart';
+import { ChartLegend } from './common/charts/ChartLegend';
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -35,73 +37,7 @@ function StatusCard({ label, value, color }) {
     );
 }
 
-function PieChart({ entries }) {
-    const radius = 54;
-    const strokeWidth = 20;
-    const circumference = 2 * Math.PI * radius;
-    const total = entries.reduce((sum, item) => sum + item.value, 0);
-
-    let progressOffset = 0;
-
-    return (
-        <div className="flex items-center gap-5">
-            <svg viewBox="0 0 140 140" className="h-44 w-44 shrink-0" role="img" aria-label="Attendance distribution chart">
-                <circle
-                    cx="70"
-                    cy="70"
-                    r={radius}
-                    fill="none"
-                    stroke="rgb(148 163 184 / 0.24)"
-                    strokeWidth={strokeWidth}
-                />
-                {entries.map((entry) => {
-                    const ratio = total > 0 ? entry.value / total : 0;
-                    const arcLength = ratio * circumference;
-                    const dashArray = `${arcLength} ${circumference - arcLength}`;
-                    const dashOffset = -progressOffset;
-
-                    progressOffset += arcLength;
-
-                    return (
-                        <circle
-                            key={entry.key}
-                            cx="70"
-                            cy="70"
-                            r={radius}
-                            fill="none"
-                            stroke={entry.color}
-                            strokeWidth={strokeWidth}
-                            strokeDasharray={dashArray}
-                            strokeDashoffset={dashOffset}
-                            strokeLinecap="butt"
-                            transform="rotate(-90 70 70)"
-                        />
-                    );
-                })}
-                <text x="70" y="66" textAnchor="middle" className="fill-current text-[9px] font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
-                    Total
-                </text>
-                <text x="70" y="86" textAnchor="middle" className="fill-current text-lg font-extrabold" style={{ color: 'var(--hr-text-main)' }}>
-                    {toCount(total)}
-                </text>
-            </svg>
-
-            <div className="space-y-2 text-xs">
-                {entries.map((entry) => (
-                    <div key={entry.key} className="flex items-center justify-between gap-3 min-w-[170px]">
-                        <span className="inline-flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                            <span style={{ color: 'var(--hr-text-main)' }}>{entry.label}</span>
-                        </span>
-                        <span className="font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
-                            {toCount(entry.value)}
-                        </span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
+// Replaced legacy SVG pie with unified Recharts donut chart
 
 function DepartmentBars({ departments }) {
     return (
@@ -209,6 +145,20 @@ function AdminAttendanceOverview({
         }));
     }, [payload]);
 
+    const [hidden, setHidden] = useState(new Set());
+    const legendItems = useMemo(() => {
+        const sum = entries.reduce((acc, e) => acc + Number(e.value || 0), 0);
+        return entries.map((e) => ({
+            key: e.key,
+            label: e.label,
+            color: e.color,
+            value: toCount(e.value),
+            pct: sum > 0 ? ((Number(e.value || 0) / sum) * 100).toFixed(1) : '0.0',
+            visible: !hidden.has(e.key),
+        }));
+    }, [entries, hidden]);
+    const displayed = useMemo(() => entries.filter((e) => !hidden.has(e.key)), [entries, hidden]);
+
     return (
         <section className="relative rounded-xl border p-4 pt-12" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface-strong)' }}>
             <button
@@ -252,7 +202,17 @@ function AdminAttendanceOverview({
                             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
                                 Status Distribution (Pie)
                             </p>
-                            <PieChart entries={entries} />
+                            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_240px] items-start">
+                                <AnalyticsDonutChart data={displayed} height={240} showCenterTotal tooltipTitle="Attendance" />
+                                <ChartLegend
+                                    items={legendItems}
+                                    onToggle={(key) => setHidden((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(key)) next.delete(key); else next.add(key);
+                                        return next;
+                                    })}
+                                />
+                            </div>
                         </div>
                         <div className="rounded-xl border p-4" style={{ borderColor: 'var(--hr-line)' }}>
                             <DepartmentBars departments={payload?.departments ?? []} />

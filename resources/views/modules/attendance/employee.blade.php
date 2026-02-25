@@ -80,7 +80,10 @@
                         @csrf
                         <p class="att-action-title">Quick Check-In</p>
                         <p class="att-action-subtitle">Record your start time first, then leave any optional context note.</p>
-                        <button type="submit" class="ui-btn att-action-btn">Check In</button>
+                        <button type="submit" class="ui-btn att-action-btn">
+                            <x-heroicon-o-clock class="h-4 w-4" />
+                            Check In
+                        </button>
                         <div class="att-note-wrap">
                             <label for="check_in_notes" class="ui-kpi-label block mb-1">Note (Optional)</label>
                             <textarea
@@ -101,7 +104,10 @@
                         @csrf
                         <p class="att-action-title">Quick Check-Out</p>
                         <p class="att-action-subtitle">Record your end time first, then leave any optional context note.</p>
-                        <button type="submit" class="ui-btn att-action-btn">Check Out</button>
+                        <button type="submit" class="ui-btn att-action-btn">
+                            <x-heroicon-o-clock class="h-4 w-4" />
+                            Check Out
+                        </button>
                         <div class="att-note-wrap">
                             <label for="check_out_notes" class="ui-kpi-label block mb-1">Note (Optional)</label>
                             <textarea
@@ -130,52 +136,7 @@
         </div>
     </section>
 
-    <section class="ui-kpi-grid is-4">
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Records This Month</p>
-                    <p class="ui-kpi-value">{{ $stats['monthRecords'] }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-sky">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
-                </span>
-            </div>
-        </article>
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Present Days</p>
-                    <p class="ui-kpi-value">{{ $stats['presentCount'] }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-green">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>
-                </span>
-            </div>
-        </article>
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Absent Days</p>
-                    <p class="ui-kpi-value">{{ $stats['absentCount'] }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-pink">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg>
-                </span>
-            </div>
-        </article>
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Avg Daily Hours</p>
-                    <p class="ui-kpi-value">{{ number_format($stats['averageDailyHours'], 1) }}h</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-violet">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><path d="M7 13l4-4 3 3 5-6"></path></svg>
-                </span>
-            </div>
-        </article>
-    </section>
+    
 
     <section class="ui-section">
         <div class="ui-section-head">
@@ -201,8 +162,14 @@
                 @endforeach
             </select>
             <div class="flex items-center gap-2">
-                <button type="submit" class="ui-btn ui-btn-primary">Filter</button>
-                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">Reset</a>
+                <button type="submit" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-magnifying-glass class="h-4 w-4" />
+                    Filter
+                </button>
+                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-x-mark class="h-4 w-4" />
+                    Reset
+                </a>
             </div>
         </form>
 

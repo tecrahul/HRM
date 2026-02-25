@@ -74,6 +74,10 @@ export function AttendanceHeader({
                         onClick={onPunchIn}
                         disabled={submitting}
                     >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 7v5l3 2" />
+                        </svg>
                         Punch In
                     </button>
                 ) : null}
@@ -86,6 +90,10 @@ export function AttendanceHeader({
                         onClick={onPunchOut}
                         disabled={submitting}
                     >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 7v5l3 2" />
+                        </svg>
                         Punch Out
                     </button>
                 ) : null}

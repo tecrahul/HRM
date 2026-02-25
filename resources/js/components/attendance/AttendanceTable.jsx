@@ -143,6 +143,9 @@ export function AttendanceTable({
                                                 onClick={() => onApprove(record)}
                                                 disabled={submitting}
                                             >
+                                                <svg className="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="m4.5 12.75 6 6 9-13.5" />
+                                                </svg>
                                                 Approve
                                             </button>
                                         ) : null}
@@ -154,6 +157,9 @@ export function AttendanceTable({
                                                 onClick={() => onReject(record)}
                                                 disabled={submitting}
                                             >
+                                                <svg className="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
                                                 Reject
                                             </button>
                                         ) : null}
@@ -165,6 +171,9 @@ export function AttendanceTable({
                                                 onClick={() => onEdit(record)}
                                                 disabled={submitting}
                                             >
+                                                <svg className="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
+                                                </svg>
                                                 Edit
                                             </button>
                                         ) : null}
@@ -185,6 +194,13 @@ export function AttendanceTable({
                                                 onClick={() => onDelete(record)}
                                                 disabled={submitting}
                                             >
+                                                <svg className="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="M6 7h12" />
+                                                    <path d="M9 7V5h6v2" />
+                                                    <path d="M8 7v12h8V7" />
+                                                    <path d="M10 11v6" />
+                                                    <path d="M14 11v6" />
+                                                </svg>
                                                 Delete
                                             </button>
                                         ) : null}

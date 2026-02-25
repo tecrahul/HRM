@@ -359,7 +359,10 @@
                     </svg>
                     <span data-attendance-form-open-label>Mark Attendance</span>
                 </button>
-                <a href="#attendance-directory" class="ui-btn ui-btn-ghost">View Directory</a>
+                    <a href="#attendance-directory" class="ui-btn ui-btn-ghost">
+                        <x-heroicon-o-squares-2x2 class="h-4 w-4" />
+                        View Directory
+                    </a>
             </div>
         </div>
 
@@ -686,8 +689,14 @@
                 </div>
 
                 <div class="att-filter-col-2 att-filter-actions">
-                    <button type="submit" class="ui-btn ui-btn-primary">Apply Filters</button>
-                    <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">Reset</a>
+                    <button type="submit" class="ui-btn ui-btn-primary">
+                        <x-heroicon-o-magnifying-glass class="h-4 w-4" />
+                        Apply Filters
+                    </button>
+                    <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">
+                        <x-heroicon-o-x-mark class="h-4 w-4" />
+                        Reset
+                    </a>
                 </div>
             </form>
 

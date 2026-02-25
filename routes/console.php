@@ -16,11 +16,15 @@ use Carbon\Carbon;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Scheduled tasks
+Schedule::command('communication:purge-trashed')->daily();
 
 Artisan::command(
     'demo:data

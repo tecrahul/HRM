@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\MessageDraft;
 use App\Models\User;
 use App\Support\ActivityLogger;
 use App\Support\CommunicationGate;
@@ -22,7 +23,11 @@ class CommunicationController extends Controller
         abort_unless($viewer instanceof User, 403);
 
         $tab = (string) $request->string('tab', 'inbox');
-        if (! in_array($tab, ['inbox', 'sent'], true)) {
+        // support: inbox, outbox(sent), drafts, bin
+        if ($tab === 'outbox') {
+            $tab = 'sent';
+        }
+        if (! in_array($tab, ['inbox', 'sent', 'drafts', 'bin'], true)) {
             $tab = 'inbox';
         }
 
@@ -33,11 +38,13 @@ class CommunicationController extends Controller
 
         $inboxQuery = Message::query()
             ->with(['sender.profile', 'conversation'])
-            ->where('receiver_id', $viewer->id);
+            ->where('receiver_id', $viewer->id)
+            ->whereNull('receiver_trashed_at');
 
         $sentQuery = Message::query()
             ->with(['receiver.profile', 'conversation'])
-            ->where('sender_id', $viewer->id);
+            ->where('sender_id', $viewer->id)
+            ->whereNull('sender_trashed_at');
 
         if ($status === 'read') {
             $inboxQuery->where('read_status', true);
@@ -55,6 +62,30 @@ class CommunicationController extends Controller
         $sentMessages = $sentQuery
             ->latest()
             ->paginate(12, ['*'], 'sent_page')
+            ->withQueryString();
+
+        // Drafts owned by viewer
+        $drafts = MessageDraft::query()
+            ->with(['receiver'])
+            ->where('user_id', $viewer->id)
+            ->latest()
+            ->paginate(12, ['*'], 'drafts_page')
+            ->withQueryString();
+
+        // Bin: messages trashed by viewer (as sender or receiver)
+        $binQuery = Message::query()
+            ->with(['sender.profile', 'receiver.profile', 'conversation'])
+            ->where(function ($q) use ($viewer): void {
+                $q->where(function ($q2) use ($viewer): void {
+                    $q2->where('receiver_id', $viewer->id)->whereNotNull('receiver_trashed_at');
+                })->orWhere(function ($q2) use ($viewer): void {
+                    $q2->where('sender_id', $viewer->id)->whereNotNull('sender_trashed_at');
+                });
+            });
+
+        $binMessages = $binQuery
+            ->latest()
+            ->paginate(12, ['*'], 'bin_page')
             ->withQueryString();
 
         $broadcastTargetEmployees = collect();
@@ -82,25 +113,32 @@ class CommunicationController extends Controller
                 ->values();
         }
 
-        $inboxTotalCount = (int) Message::query()->where('receiver_id', $viewer->id)->count();
+        $inboxTotalCount = (int) Message::query()->where('receiver_id', $viewer->id)->whereNull('receiver_trashed_at')->count();
         $inboxUnreadCount = (int) Message::query()
             ->where('receiver_id', $viewer->id)
             ->where('read_status', false)
+            ->whereNull('receiver_trashed_at')
             ->count();
         $inboxReadCount = max($inboxTotalCount - $inboxUnreadCount, 0);
 
-        $sentTotalCount = (int) Message::query()->where('sender_id', $viewer->id)->count();
+        $sentTotalCount = (int) Message::query()->where('sender_id', $viewer->id)->whereNull('sender_trashed_at')->count();
         $sentReadCount = (int) Message::query()
             ->where('sender_id', $viewer->id)
             ->where('read_status', true)
+            ->whereNull('sender_trashed_at')
             ->count();
         $sentUnreadCount = max($sentTotalCount - $sentReadCount, 0);
+
+        $draftsCount = (int) MessageDraft::query()->where('user_id', $viewer->id)->count();
+        $binCount = (int) $binQuery->count();
 
         return view('modules.communication.index', [
             'tab' => $tab,
             'statusFilter' => $status,
             'inboxMessages' => $inboxMessages,
             'sentMessages' => $sentMessages,
+            'drafts' => $drafts,
+            'binMessages' => $binMessages,
             'directRecipients' => $communicationGate->directRecipients($viewer),
             'teamRecipients' => $communicationGate->teamRecipients($viewer),
             'canBroadcastAll' => $communicationGate->canBroadcastAll($viewer),
@@ -124,8 +162,121 @@ class CommunicationController extends Controller
                 'inbox' => $inboxTotalCount,
                 'sent' => $sentTotalCount,
                 'unread' => $inboxUnreadCount,
+                'drafts' => $draftsCount,
+                'bin' => $binCount,
             ],
         ]);
+    }
+
+    public function storeDraft(Request $request): RedirectResponse
+    {
+        $viewer = $request->user();
+        abort_unless($viewer instanceof User, 403);
+
+        $validated = $request->validate([
+            'receiver_id' => ['nullable', 'integer', 'exists:users,id'],
+            'message' => ['nullable', 'string', 'max:5000'],
+            'attachments' => ['nullable', 'array', 'max:5'],
+            'attachments.*' => [
+                'file',
+                'max:5120',
+                'mimetypes:image/jpeg,image/png,image/webp,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ],
+        ]);
+
+        $attachments = $this->storeAttachments($request);
+
+        MessageDraft::query()->create([
+            'user_id' => $viewer->id,
+            'receiver_id' => isset($validated['receiver_id']) && (int) $validated['receiver_id'] > 0 ? (int) $validated['receiver_id'] : null,
+            'message' => trim((string) ($validated['message'] ?? '')),
+            'attachments' => $attachments === [] ? null : $attachments,
+        ]);
+
+        return redirect()->route('modules.communication.index', ['tab' => 'drafts'])
+            ->with('status', 'Draft saved.');
+    }
+
+    public function destroyDraft(Request $request, MessageDraft $draft): RedirectResponse
+    {
+        $viewer = $request->user();
+        abort_unless($viewer instanceof User, 403);
+        if ((int) $draft->user_id !== (int) $viewer->id) {
+            abort(404);
+        }
+        $draft->delete();
+        return redirect()->back()->with('status', 'Draft deleted.');
+    }
+
+    public function sendDraft(Request $request, MessageDraft $draft): RedirectResponse
+    {
+        $viewer = $request->user();
+        abort_unless($viewer instanceof User, 403);
+        if ((int) $draft->user_id !== (int) $viewer->id) {
+            abort(404);
+        }
+        $receiverId = (int) ($draft->receiver_id ?? 0);
+        abort_if($receiverId <= 0, 422, 'Draft must have a recipient before sending.');
+
+        $receiver = User::query()->findOrFail($receiverId);
+
+        // Reuse direct message flow
+        $conversation = $this->resolveDirectConversation($viewer, $receiver);
+        Message::query()->create([
+            'conversation_id' => $conversation->id,
+            'sender_id' => $viewer->id,
+            'receiver_id' => $receiver->id,
+            'message' => trim((string) ($draft->message ?? '')),
+            'attachments' => is_array($draft->attachments) && $draft->attachments !== [] ? $draft->attachments : null,
+            'is_broadcast' => false,
+            'read_status' => false,
+        ]);
+        $conversation->forceFill(['last_message_at' => now()])->save();
+
+        $draft->delete();
+
+        return redirect()->route('modules.communication.index', ['tab' => 'sent'])
+            ->with('status', 'Draft sent.');
+    }
+
+    public function trashMessage(Request $request, Message $message): RedirectResponse
+    {
+        $viewer = $request->user();
+        abort_unless($viewer instanceof User, 403);
+
+        if ((int) $message->receiver_id === (int) $viewer->id) {
+            if ($message->receiver_trashed_at === null) {
+                $message->forceFill(['receiver_trashed_at' => now()])->save();
+            }
+        } elseif ((int) $message->sender_id === (int) $viewer->id) {
+            if ($message->sender_trashed_at === null) {
+                $message->forceFill(['sender_trashed_at' => now()])->save();
+            }
+        } else {
+            abort(404);
+        }
+
+        return redirect()->back()->with('status', 'Moved to Bin.');
+    }
+
+    public function restoreMessage(Request $request, Message $message): RedirectResponse
+    {
+        $viewer = $request->user();
+        abort_unless($viewer instanceof User, 403);
+
+        if ((int) $message->receiver_id === (int) $viewer->id) {
+            if ($message->receiver_trashed_at !== null) {
+                $message->forceFill(['receiver_trashed_at' => null])->save();
+            }
+        } elseif ((int) $message->sender_id === (int) $viewer->id) {
+            if ($message->sender_trashed_at !== null) {
+                $message->forceFill(['sender_trashed_at' => null])->save();
+            }
+        } else {
+            abort(404);
+        }
+
+        return redirect()->back()->with('status', 'Message restored.');
     }
 
     public function sendDirectMessage(
@@ -706,5 +857,80 @@ class CommunicationController extends Controller
                 'last_message_at' => now(),
             ]
         );
+    }
+
+    /**
+     * Permanently delete a single message from Bin for the current user.
+     */
+    public function destroyMessageNow(Request $request, Message $message): RedirectResponse
+    {
+        $viewer = $request->user();
+        abort_unless($viewer instanceof User, 403);
+
+        $ownsAsReceiver = (int) $message->receiver_id === (int) $viewer->id;
+        $ownsAsSender = (int) $message->sender_id === (int) $viewer->id;
+        if (! $ownsAsReceiver && ! $ownsAsSender) {
+            abort(404);
+        }
+
+        // Only allow hard delete if the message is in this user's Bin
+        $isInUserBin = ($ownsAsReceiver && $message->receiver_trashed_at !== null)
+            || ($ownsAsSender && $message->sender_trashed_at !== null);
+        abort_unless($isInUserBin, 403);
+
+        $this->deleteMessageWithAttachments($message);
+
+        return redirect()->back()->with('status', 'Message deleted permanently.');
+    }
+
+    /**
+     * Permanently delete all messages in the current user's Bin.
+     */
+    public function destroyAllInBin(Request $request): RedirectResponse
+    {
+        $viewer = $request->user();
+        abort_unless($viewer instanceof User, 403);
+
+        $binMessages = Message::query()
+            ->where(function ($q) use ($viewer): void {
+                $q->where(function ($q2) use ($viewer): void {
+                    $q2->where('receiver_id', $viewer->id)->whereNotNull('receiver_trashed_at');
+                })->orWhere(function ($q2) use ($viewer): void {
+                    $q2->where('sender_id', $viewer->id)->whereNotNull('sender_trashed_at');
+                });
+            })
+            ->get();
+
+        foreach ($binMessages as $msg) {
+            $this->deleteMessageWithAttachments($msg);
+        }
+
+        return redirect()->route('modules.communication.index', ['tab' => 'bin'])
+            ->with('status', 'Bin emptied.');
+    }
+
+    /**
+     * Best-effort attachment cleanup, then delete the message.
+     */
+    private function deleteMessageWithAttachments(Message $message): void
+    {
+        try {
+            $attachments = (array) ($message->attachments ?? []);
+            foreach ($attachments as $path) {
+                $pathStr = (string) $path;
+                if (str_starts_with($pathStr, 'storage/')) {
+                    $diskPath = substr($pathStr, strlen('storage/'));
+                    try {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete($diskPath);
+                    } catch (\Throwable) {
+                        // ignore
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+
+        $message->delete();
     }
 }

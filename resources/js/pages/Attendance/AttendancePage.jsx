@@ -13,13 +13,14 @@ import { PunchPanel } from '../../components/attendance/PunchPanel';
 import { usePunchAttendance } from '../../components/attendance/usePunchAttendance';
 
 const TODAY = new Date().toISOString().slice(0, 10);
+const MONTH_START = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 
 const EMPTY_FILTERS = {
     status: '',
     approval_status: '',
     attendance_date: TODAY,
     use_date_range: '1',
-    date_from: TODAY,
+    date_from: MONTH_START,
     date_to: TODAY,
     range_mode: 'absolute',
     range_preset: '',
@@ -390,12 +391,14 @@ function AttendancePage({ payload }) {
                         : (payload.routes?.smartPunchPage || '#')}
             />
 
-            <AttendanceInfoCards
-                stats={stats}
-                canApprove={Boolean(capabilities.canApprove)}
-                currentUser={payload.currentUser}
-                isEmployeeOnly={Boolean(capabilities.isEmployeeOnly)}
-            />
+            {!Boolean(capabilities.isEmployeeOnly) && (
+                <AttendanceInfoCards
+                    stats={stats}
+                    canApprove={Boolean(capabilities.canApprove)}
+                    currentUser={payload.currentUser}
+                    isEmployeeOnly={false}
+                />
+            )}
 
             {error ? (
                 <section className="hrm-modern-surface rounded-2xl p-4">

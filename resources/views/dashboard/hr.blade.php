@@ -34,9 +34,18 @@
                 <p class="ui-section-subtitle">Run daily HR workflows with live module metrics and quick actions.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto">
-                <a href="{{ route('modules.employees.index') }}" class="ui-btn ui-btn-primary">Employees</a>
-                <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">Leave Queue</a>
-                <a href="{{ route('modules.payroll.index') }}" class="ui-btn ui-btn-ghost">Payroll Desk</a>
+                <a href="{{ route('modules.employees.index') }}" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-users class="h-4 w-4" />
+                    Employees
+                </a>
+                <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-bolt class="h-4 w-4" />
+                    Leave Queue
+                </a>
+                <a href="{{ route('modules.payroll.index') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-banknotes class="h-4 w-4" />
+                    Payroll Desk
+                </a>
             </div>
         </div>
     </section>
@@ -189,7 +198,10 @@
                                 <p class="text-xs mt-1" style="color: var(--hr-text-muted);">{{ $employee->profile?->department ?? 'Unassigned' }} • {{ ucfirst((string) ($employee->profile?->status ?? 'active')) }}</p>
                                 <p class="text-xs mt-1" style="color: var(--hr-text-muted);">{{ $employee->email }}</p>
                             </div>
-                            <a href="{{ route('employees.overview', ['user' => $employee->id]) }}" class="ui-btn ui-btn-ghost">Review</a>
+                            <a href="{{ route('employees.overview', ['user' => $employee->id]) }}" class="ui-btn ui-btn-ghost">
+                                <x-heroicon-o-eye class="h-4 w-4" />
+                                Review
+                            </a>
                         </div>
                     </li>
                 @empty

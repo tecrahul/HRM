@@ -1340,8 +1340,9 @@ class AttendanceController extends Controller
 
         if ($useDateRange) {
             if ($dateFrom === '' && $dateTo === '') {
-                $dateFrom = $attendanceDate;
-                $dateTo = $attendanceDate;
+                // Default to the current month: from 1st of month to today
+                $dateFrom = now()->copy()->startOfMonth()->toDateString();
+                $dateTo = $attendanceDate; // today
             } elseif ($dateFrom === '') {
                 $dateFrom = $dateTo;
             } elseif ($dateTo === '') {

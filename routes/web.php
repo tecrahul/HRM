@@ -245,6 +245,15 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
             Route::get('/settings', [PayrollModuleController::class, 'settings'])->name('settings');
         });
         Route::get('/communication', [CommunicationController::class, 'index'])->name('communication.index');
+        // Drafts
+        Route::post('/communication/drafts', [CommunicationController::class, 'storeDraft'])->name('communication.drafts.store');
+        Route::delete('/communication/drafts/{draft}', [CommunicationController::class, 'destroyDraft'])->name('communication.drafts.destroy');
+        Route::post('/communication/drafts/{draft}/send', [CommunicationController::class, 'sendDraft'])->name('communication.drafts.send');
+        // Trash/Restore
+        Route::put('/communication/messages/{message}/trash', [CommunicationController::class, 'trashMessage'])->name('communication.messages.trash');
+        Route::put('/communication/messages/{message}/restore', [CommunicationController::class, 'restoreMessage'])->name('communication.messages.restore');
+        Route::delete('/communication/messages/{message}', [CommunicationController::class, 'destroyMessageNow'])->name('communication.messages.destroy');
+        Route::delete('/communication/bin', [CommunicationController::class, 'destroyAllInBin'])->name('communication.bin.destroy-all');
         Route::post('/communication/direct', [CommunicationController::class, 'sendDirectMessage'])
             ->name('communication.direct.send');
         Route::post('/communication/broadcast', [CommunicationController::class, 'sendBroadcast'])

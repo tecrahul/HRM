@@ -2,13 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { GlobalDateRangePicker } from '../common/GlobalDateRangePicker';
 
 const TODAY = new Date().toISOString().slice(0, 10);
+const MONTH_START = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 
 const DEFAULT_FILTERS = {
     status: '',
     approval_status: '',
     attendance_date: TODAY,
     use_date_range: '1',
-    date_from: TODAY,
+    date_from: MONTH_START,
     date_to: TODAY,
     range_mode: 'absolute',
     range_preset: '',
@@ -25,6 +26,53 @@ function SearchIcon() {
         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
+        </svg>
+    );
+}
+
+function FilterIcon() {
+    return (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 5h18" />
+            <path d="M6 12h12" />
+            <path d="M10 19h4" />
+        </svg>
+    );
+}
+
+function XIcon() {
+    return (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M6 18L18 6M6 6l12 12" />
+        </svg>
+    );
+}
+
+function DownloadIcon() {
+    return (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 3v12" />
+            <path d="M12 15l4-4" />
+            <path d="M12 15l-4-4" />
+            <path d="M4 21h16" />
+        </svg>
+    );
+}
+
+function LockClosedIcon() {
+    return (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M7 10V8a5 5 0 0110 0v2" />
+            <rect x="5" y="10" width="14" height="10" rx="2" />
+        </svg>
+    );
+}
+
+function LockOpenIcon() {
+    return (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M8 10V8a5 5 0 119 0" />
+            <rect x="5" y="10" width="14" height="10" rx="2" />
         </svg>
     );
 }
@@ -231,7 +279,7 @@ export function AttendanceFilters({
                             idPrefix="attendance_filter"
                             value={localFilters}
                             defaultMode="absolute"
-                            defaultFrom={TODAY}
+                            defaultFrom={MONTH_START}
                             defaultTo={TODAY}
                             showModeToggle={false}
                             forceMode="absolute"
@@ -405,6 +453,7 @@ export function AttendanceFilters({
                             style={{ background: '#0f766e' }}
                             disabled={loading || submitting}
                         >
+                            <FilterIcon />
                             {loading ? 'Loading...' : 'Apply Filters'}
                         </button>
                         <button
@@ -414,6 +463,7 @@ export function AttendanceFilters({
                             onClick={clearFilters}
                             disabled={loading || submitting}
                         >
+                            <XIcon />
                             Clear
                         </button>
                     </div>
@@ -429,6 +479,7 @@ export function AttendanceFilters({
                                     onApply(normalizedFilters, true);
                                 }}
                             >
+                                <DownloadIcon />
                                 Export
                             </a>
                         ) : null}
@@ -442,6 +493,7 @@ export function AttendanceFilters({
                                     onClick={() => onLockMonth(selectedMonth)}
                                     disabled={loading || submitting}
                                 >
+                                    <LockClosedIcon />
                                     Lock Month
                                 </button>
                             ) : (
@@ -459,6 +511,7 @@ export function AttendanceFilters({
                                 onClick={() => onUnlockMonth(selectedMonth)}
                                 disabled={loading || submitting}
                             >
+                                <LockOpenIcon />
                                 Unlock Month
                             </button>
                         ) : null}

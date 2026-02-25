@@ -135,9 +135,18 @@
             </div>
 
             <div class="rounded-xl border p-3 flex flex-wrap items-center gap-2" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                <button type="submit" class="ui-btn ui-btn-primary">Generate Report</button>
-                <button type="submit" name="export" value="csv" class="ui-btn">Export CSV</button>
-                <a href="{{ route('modules.reports.index') }}" class="ui-btn ui-btn-ghost">Clear Filters</a>
+                <button type="submit" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-sparkles class="h-4 w-4" />
+                    Generate Report
+                </button>
+                <button type="submit" name="export" value="csv" class="ui-btn">
+                    <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
+                    Export CSV
+                </button>
+                <a href="{{ route('modules.reports.index') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-x-mark class="h-4 w-4" />
+                    Clear Filters
+                </a>
             </div>
         </form>
 

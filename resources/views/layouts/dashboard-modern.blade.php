@@ -127,6 +127,9 @@
         .hrm-modern-nav-link {
             border: 1px solid transparent;
             transition: all 150ms ease;
+            /* Compact vertical padding overrides Tailwind py-2.5 */
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
         }
 
         .hrm-modern-nav-link:hover {
@@ -134,8 +137,37 @@
             background: var(--hr-accent-soft);
         }
 
+        /* Subtle icon motion on hover */
+        .hrm-modern-nav-link:hover .hrm-nav-icon {
+            transform: translateY(-1px) scale(1.05);
+            transition: transform 150ms ease;
+        }
+
         .hrm-modern-nav-link.is-active {
             border-color: var(--hr-accent-border);
+            background: var(--hr-accent-soft);
+        }
+
+        /* Compact list gaps */
+        .hrm-modern-nav {
+            gap: 0.25rem; /* equals Tailwind gap-1 */
+        }
+
+        /* Compact submenu spacing */
+        .hrm-submenu-links {
+            gap: 0.125rem; /* equals Tailwind gap-0.5 */
+        }
+        .hrm-submenu-links .hrm-modern-nav-link {
+            padding-top: 0.375rem; /* ~py-1.5 -> slightly smaller */
+            padding-bottom: 0.375rem;
+            font-size: 0.90rem; /* Increase submenu font size */
+        }
+        /* Ensure React-rendered submenu links also use 0.90rem */
+        .hrm-modern-sidebar ul[id^="submenu-"] a {
+            font-size: 0.90rem;
+        }
+        /* Hover effect for submenu items rendered by React */
+        .hrm-modern-sidebar ul[id^="submenu-"] a:hover {
             background: var(--hr-accent-soft);
         }
 
@@ -814,14 +846,33 @@
             $sidebarItems = [];
             $sidebarItems[] = [ 'key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'url' => route($dashboardRoute), 'active' => request()->routeIs($dashboardRoute) ];
             if ($canManageUsers) {
-                $sidebarItems[] = [ 'key' => 'users', 'label' => 'Users', 'icon' => 'users', 'url' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*') ];
-                $sidebarItems[] = [ 'key' => 'departments', 'label' => 'Departments', 'icon' => 'departments', 'url' => route('modules.departments.index'), 'active' => request()->routeIs('modules.departments.*') ];
+                $usersChildren = [
+                    [ 'key' => 'users-all', 'label' => 'All Users', 'url' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.index') ],
+                    [ 'key' => 'users-invite', 'label' => 'Invite User', 'url' => route('admin.users.create'), 'active' => request()->routeIs('admin.users.create') ],
+                ];
+                $sidebarItems[] = [ 'key' => 'users', 'label' => 'Users', 'icon' => 'users', 'url' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*'), 'children' => $usersChildren ];
+
+                $departmentsChildren = [
+                    [ 'key' => 'departments-all', 'label' => 'All Departments', 'url' => route('modules.departments.index'), 'active' => request()->routeIs('modules.departments.index') ],
+                ];
+                $sidebarItems[] = [ 'key' => 'departments', 'label' => 'Departments', 'icon' => 'departments', 'url' => route('modules.departments.index'), 'active' => request()->routeIs('modules.departments.*'), 'children' => $departmentsChildren ];
+
                 if ($isAdmin) {
-                    $sidebarItems[] = [ 'key' => 'branches', 'label' => 'Branches', 'icon' => 'branches', 'url' => route('modules.branches.index'), 'active' => request()->routeIs('modules.branches.*') ];
+                    $branchesChildren = [
+                        [ 'key' => 'branches-all', 'label' => 'All Branches', 'url' => route('modules.branches.index'), 'active' => request()->routeIs('modules.branches.index') ],
+                    ];
+                    $sidebarItems[] = [ 'key' => 'branches', 'label' => 'Branches', 'icon' => 'branches', 'url' => route('modules.branches.index'), 'active' => request()->routeIs('modules.branches.*'), 'children' => $branchesChildren ];
                 }
             }
-            $sidebarItems[] = [ 'key' => 'holidays', 'label' => 'Holidays', 'icon' => 'calendar', 'url' => route('modules.holidays.index'), 'active' => request()->routeIs('modules.holidays.*') ];
-            $sidebarItems[] = [ 'key' => 'employees', 'label' => $isEmployee ? 'Profile' : 'Employees', 'icon' => 'employees', 'url' => route('modules.employees.index'), 'active' => request()->routeIs('modules.employees.*') ];
+            $holidaysChildren = [
+                [ 'key' => 'holidays-calendar', 'label' => 'Calendar', 'url' => route('modules.holidays.index'), 'active' => request()->routeIs('modules.holidays.index') ],
+            ];
+            $sidebarItems[] = [ 'key' => 'holidays', 'label' => 'Holidays', 'icon' => 'calendar', 'url' => route('modules.holidays.index'), 'active' => request()->routeIs('modules.holidays.*'), 'children' => $holidaysChildren ];
+
+            $employeesChildren = [
+                [ 'key' => 'employees-directory', 'label' => $isEmployee ? 'My Profile' : 'Directory', 'url' => route('modules.employees.index'), 'active' => request()->routeIs('modules.employees.index') ],
+            ];
+            $sidebarItems[] = [ 'key' => 'employees', 'label' => $isEmployee ? 'Profile' : 'Employees', 'icon' => 'employees', 'url' => route('modules.employees.index'), 'active' => request()->routeIs('modules.employees.*'), 'children' => $employeesChildren ];
             // Attendance submenu items
             $attendanceChildren = [
                 [ 'key' => 'attendance-overview', 'label' => 'Overview', 'url' => route('modules.attendance.overview'), 'active' => request()->routeIs('modules.attendance.overview') && strtolower((string) request()->query('action', '')) === '' ],
@@ -833,7 +884,10 @@
                 $attendanceChildren[] = [ 'key' => 'attendance-mark', 'label' => 'Mark Attendance', 'url' => route('modules.attendance.overview', ['action' => 'create']), 'active' => request()->routeIs('modules.attendance.overview') && strtolower((string) request()->query('action', '')) === 'create' ];
             }
             $sidebarItems[] = [ 'key' => 'attendance', 'label' => 'Attendance', 'icon' => 'attendance', 'url' => route('modules.attendance.overview'), 'active' => request()->routeIs('modules.attendance.*'), 'children' => $attendanceChildren ];
-            $sidebarItems[] = [ 'key' => 'leave', 'label' => 'Leave', 'icon' => 'leave', 'url' => route('modules.leave.index'), 'active' => request()->routeIs('modules.leave.*') ];
+            $leaveChildren = [
+                [ 'key' => 'leave-overview', 'label' => $isEmployee ? 'My Requests' : 'Overview', 'url' => route('modules.leave.index'), 'active' => request()->routeIs('modules.leave.index') ],
+            ];
+            $sidebarItems[] = [ 'key' => 'leave', 'label' => 'Leave', 'icon' => 'leave', 'url' => route('modules.leave.index'), 'active' => request()->routeIs('modules.leave.*'), 'children' => $leaveChildren ];
             if ($canSeePayroll) {
                 $payrollChildren = [
                     [ 'key' => 'salary-structures', 'label' => 'Salary Structures', 'url' => route('modules.payroll.salary-structures'), 'active' => request()->routeIs('modules.payroll.salary-structures') ],
@@ -845,8 +899,21 @@
                 ];
                 $sidebarItems[] = [ 'key' => 'payroll', 'label' => 'Payroll', 'icon' => 'payroll', 'url' => route('modules.payroll.index'), 'active' => str_starts_with((string) request()->route()?->getName(), 'modules.payroll.'), 'children' => $payrollChildren ];
             }
-            $sidebarItems[] = [ 'key' => 'communication', 'label' => 'Communication', 'icon' => 'communication', 'url' => route('modules.communication.index'), 'active' => request()->routeIs('modules.communication.*'), 'badge' => $unreadCommunicationCount ];
-            $sidebarItems[] = [ 'key' => 'notifications', 'label' => 'Notifications', 'icon' => 'notifications', 'url' => route('notifications.index'), 'active' => request()->routeIs('notifications.*'), 'badge' => $unreadNotificationsCount ];
+            $activeCommTab = strtolower((string) request()->query('tab', 'inbox'));
+            $communicationChildren = [
+                [ 'key' => 'communication-inbox', 'label' => 'Inbox', 'url' => route('modules.communication.index', ['tab' => 'inbox']), 'active' => request()->routeIs('modules.communication.index') && ($activeCommTab === '' || $activeCommTab === 'inbox') ],
+                [ 'key' => 'communication-outbox', 'label' => 'Outbox', 'url' => route('modules.communication.index', ['tab' => 'outbox']), 'active' => request()->routeIs('modules.communication.index') && $activeCommTab === 'outbox' ],
+                [ 'key' => 'communication-drafts', 'label' => 'Drafts', 'url' => route('modules.communication.index', ['tab' => 'drafts']), 'active' => request()->routeIs('modules.communication.index') && $activeCommTab === 'drafts' ],
+                [ 'key' => 'communication-bin', 'label' => 'Bin', 'url' => route('modules.communication.index', ['tab' => 'bin']), 'active' => request()->routeIs('modules.communication.index') && $activeCommTab === 'bin' ],
+            ];
+            $sidebarItems[] = [ 'key' => 'communication', 'label' => 'Communication', 'icon' => 'communication', 'url' => route('modules.communication.index'), 'active' => request()->routeIs('modules.communication.*'), 'badge' => $unreadCommunicationCount, 'children' => $communicationChildren ];
+
+            $notificationsChildren = [
+                [ 'key' => 'notifications-all', 'label' => 'All', 'url' => route('notifications.index', ['status' => 'all']), 'active' => request()->routeIs('notifications.index') && strtolower((string) request()->query('status', 'all')) === 'all' ],
+                [ 'key' => 'notifications-unread', 'label' => 'Unread', 'url' => route('notifications.index', ['status' => 'unread']), 'active' => request()->routeIs('notifications.index') && strtolower((string) request()->query('status', 'all')) === 'unread' ],
+                [ 'key' => 'notifications-read', 'label' => 'Read', 'url' => route('notifications.index', ['status' => 'read']), 'active' => request()->routeIs('notifications.index') && strtolower((string) request()->query('status', 'all')) === 'read' ],
+            ];
+            $sidebarItems[] = [ 'key' => 'notifications', 'label' => 'Notifications', 'icon' => 'notifications', 'url' => route('notifications.index'), 'active' => request()->routeIs('notifications.*'), 'badge' => $unreadNotificationsCount, 'children' => $notificationsChildren ];
             $reportsChildren = [
                 [ 'key' => 'reports-overview', 'label' => 'Overview', 'url' => route('modules.reports.index'), 'active' => request()->routeIs('modules.reports.index') ],
                 [ 'key' => 'reports-activity', 'label' => 'Activity', 'url' => route('modules.reports.activity'), 'active' => request()->routeIs('modules.reports.activity') ],

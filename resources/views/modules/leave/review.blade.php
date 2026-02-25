@@ -100,9 +100,18 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
-                    <button type="submit" name="status" value="approved" class="ui-btn" style="background: #16a34a; color: #fff; border-color: transparent;">Approve Request</button>
-                    <button type="submit" name="status" value="rejected" class="ui-btn" style="background: #dc2626; color: #fff; border-color: transparent;">Reject Request</button>
-                    <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">Back to Leave</a>
+                    <button type="submit" name="status" value="approved" class="ui-btn" style="background: #16a34a; color: #fff; border-color: transparent;">
+                        <x-heroicon-o-check class="h-4 w-4" />
+                        Approve Request
+                    </button>
+                    <button type="submit" name="status" value="rejected" class="ui-btn" style="background: #dc2626; color: #fff; border-color: transparent;">
+                        <x-heroicon-o-x-mark class="h-4 w-4" />
+                        Reject Request
+                    </button>
+                    <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">
+                        <x-heroicon-o-arrow-left class="h-4 w-4" />
+                        Back to Leave
+                    </a>
                 </div>
             </form>
         </article>

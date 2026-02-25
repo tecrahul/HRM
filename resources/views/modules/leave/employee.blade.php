@@ -137,7 +137,10 @@
                 </div>
 
                 <div class="md:col-span-2">
-                    <button type="submit" class="ui-btn ui-btn-primary">Submit Request</button>
+                    <button type="submit" class="ui-btn ui-btn-primary">
+                        <x-heroicon-o-check class="h-4 w-4" />
+                        Submit Request
+                    </button>
                 </div>
             </form>
         </article>
@@ -204,8 +207,14 @@
                 @endforeach
             </select>
             <div class="flex items-center gap-2 md:col-span-2">
-                <button type="submit" class="ui-btn ui-btn-primary">Filter</button>
-                <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">Reset</a>
+                <button type="submit" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-magnifying-glass class="h-4 w-4" />
+                    Filter
+                </button>
+                <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-x-mark class="h-4 w-4" />
+                    Reset
+                </a>
             </div>
         </form>
 

@@ -6,7 +6,7 @@ use App\Services\MailConfigurationManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Str;
+use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider

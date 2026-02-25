@@ -34,9 +34,18 @@
                 <p class="ui-section-subtitle">Track attendance, leave, payroll, and profile updates from your workspace.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto">
-                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-primary">Attendance</a>
-                <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">Apply Leave</a>
-                <a href="{{ route('modules.payroll.index') }}" class="ui-btn ui-btn-ghost">Payslips</a>
+                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-calendar-days class="h-4 w-4" />
+                    Attendance
+                </a>
+                <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-pencil-square class="h-4 w-4" />
+                    Apply Leave
+                </a>
+                <a href="{{ route('modules.payroll.index') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-banknotes class="h-4 w-4" />
+                    Payslips
+                </a>
             </div>
         </div>
     </section>

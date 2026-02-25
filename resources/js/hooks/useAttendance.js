@@ -9,19 +9,25 @@ const INITIAL_META = {
     to: 0,
 };
 
-const INITIAL_FILTERS = {
-    status: '',
-    approval_status: '',
-    attendance_date: new Date().toISOString().slice(0, 10),
-    use_date_range: '1',
-    date_from: new Date().toISOString().slice(0, 10),
-    date_to: new Date().toISOString().slice(0, 10),
-    range_mode: 'absolute',
-    range_preset: '',
-    department: '',
-    branch: '',
-    employee_id: '',
-};
+const INITIAL_FILTERS = (() => {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+
+    return {
+        status: '',
+        approval_status: '',
+        attendance_date: todayStr,
+        use_date_range: '1',
+        date_from: monthStart,
+        date_to: todayStr,
+        range_mode: 'absolute',
+        range_preset: '',
+        department: '',
+        branch: '',
+        employee_id: '',
+    };
+})();
 
 export function useAttendance(api, initialPayload = {}) {
     const [records, setRecords] = useState(initialPayload.data ?? []);

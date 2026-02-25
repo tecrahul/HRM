@@ -19,6 +19,8 @@ class Message extends Model
         'is_broadcast',
         'read_status',
         'read_at',
+        'sender_trashed_at',
+        'receiver_trashed_at',
     ];
 
     /**
@@ -31,6 +33,8 @@ class Message extends Model
             'is_broadcast' => 'boolean',
             'read_status' => 'boolean',
             'read_at' => 'datetime',
+            'sender_trashed_at' => 'datetime',
+            'receiver_trashed_at' => 'datetime',
         ];
     }
 

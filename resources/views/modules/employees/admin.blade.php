@@ -613,7 +613,8 @@
                         @endforeach
                     </select>
 
-                    <button id="employeeFilterSubmit" type="submit" class="emp-filter-apply rounded-xl px-3 py-2.5 text-sm font-bold">
+                    <button id="employeeFilterSubmit" type="submit" class="emp-filter-apply rounded-xl px-3 py-2.5 text-sm font-bold inline-flex items-center gap-2">
+                        <x-heroicon-o-magnifying-glass class="h-4 w-4" />
                         Apply Filters
                     </button>
                 </div>

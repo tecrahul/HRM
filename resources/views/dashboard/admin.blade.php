@@ -25,9 +25,18 @@
                 <p class="ui-section-subtitle">Monitor users, employees, attendance, leave, payroll, departments, and branches from one dashboard.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto">
-                <a href="{{ route('admin.users.index') }}" class="ui-btn ui-btn-primary">Manage Users</a>
-                <a href="{{ route('modules.employees.index') }}" class="ui-btn ui-btn-ghost">Employee Directory</a>
-                <a href="{{ route('modules.payroll.index') }}" class="ui-btn ui-btn-ghost">Run Payroll</a>
+                <a href="{{ route('admin.users.index') }}" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-users class="h-4 w-4" />
+                    Manage Users
+                </a>
+                <a href="{{ route('modules.employees.index') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-users class="h-4 w-4" />
+                    Employee Directory
+                </a>
+                <a href="{{ route('modules.payroll.index') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-banknotes class="h-4 w-4" />
+                    Run Payroll
+                </a>
             </div>
         </div>
     </section>
@@ -61,8 +70,14 @@
                 </select>
             </label>
             <div class="flex items-center gap-2 md:justify-end">
-                <a href="{{ url()->current() }}" class="ui-btn ui-btn-ghost">Clear</a>
-                <button type="submit" class="ui-btn ui-btn-primary">Apply</button>
+                <a href="{{ url()->current() }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-x-mark class="h-4 w-4" />
+                    Clear
+                </a>
+                <button type="submit" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-check class="h-4 w-4" />
+                    Apply
+                </button>
             </div>
         </form>
     </section>
@@ -226,7 +241,10 @@
                 <h3 class="ui-section-title">Latest Employee Records</h3>
                 <p class="ui-section-subtitle">Newest entries with status and module-ready profile details.</p>
             </div>
-            <a href="{{ route('admin.users.create') }}" class="ui-btn ui-btn-primary">Add Employee</a>
+            <a href="{{ route('admin.users.create') }}" class="ui-btn ui-btn-primary">
+                <x-heroicon-o-plus class="h-4 w-4" />
+                Add Employee
+            </a>
         </div>
 
         <div class="ui-table-wrap">
@@ -269,7 +287,10 @@
                         </td>
                         <td>{{ str((string) ($profile?->employment_type ?? 'full_time'))->replace('_', ' ')->title() }}</td>
                         <td>{{ $profile?->joined_on?->format('M d, Y') ?? 'N/A' }}</td>
-                        <td><a href="{{ route('admin.users.edit', $employee) }}" class="ui-btn ui-btn-ghost">Open</a></td>
+                        <td><a href="{{ route('admin.users.edit', $employee) }}" class="ui-btn ui-btn-ghost">
+                            <x-heroicon-o-eye class="h-4 w-4" />
+                            Open
+                        </a></td>
                     </tr>
                 @empty
                     <tr>

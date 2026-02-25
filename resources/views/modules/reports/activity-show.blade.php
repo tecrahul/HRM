@@ -17,7 +17,10 @@
                 <h3 class="ui-section-title">Activity Snapshot</h3>
                 <p class="ui-section-subtitle">Detailed audit information for selected activity record.</p>
             </div>
-            <a href="{{ $backUrl }}" class="ui-btn ui-btn-ghost">Back to Activity Log</a>
+            <a href="{{ $backUrl }}" class="ui-btn ui-btn-ghost">
+                <x-heroicon-o-arrow-left class="h-4 w-4" />
+                Back to Activity Log
+            </a>
         </div>
 
         <div class="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">

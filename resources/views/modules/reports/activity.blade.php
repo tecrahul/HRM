@@ -95,8 +95,14 @@
             </div>
 
             <div class="rounded-xl border p-3 flex flex-wrap items-center gap-2" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                <button type="submit" class="ui-btn ui-btn-primary">Apply Filters</button>
-                <a href="{{ route('modules.reports.activity') }}" class="ui-btn ui-btn-ghost">Clear Filters</a>
+                <button type="submit" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-magnifying-glass class="h-4 w-4" />
+                    Apply Filters
+                </button>
+                <a href="{{ route('modules.reports.activity') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-x-mark class="h-4 w-4" />
+                    Clear Filters
+                </a>
             </div>
         </form>
     </section>

@@ -96,7 +96,6 @@
             }
         }
 
-        /* Inline attachment preview */
         .comm-attachment-preview {
             overflow: hidden;
             max-height: 0;
@@ -127,87 +126,6 @@
 @endpush
 
 @section('content')
-    @if (session('status'))
-        <div class="ui-alert ui-alert-success">{{ session('status') }}</div>
-    @endif
-
-    @if (session('error'))
-        <div class="ui-alert ui-alert-danger">{{ session('error') }}</div>
-    @endif
-
-    @php
-        $inboxCount = (int) ($stats['inbox'] ?? 0);
-        $sentCount = (int) ($stats['sent'] ?? 0);
-        $unreadCount = (int) ($stats['unread'] ?? 0);
-        $readCount = max($inboxCount - $unreadCount, 0);
-        $unreadRatio = $inboxCount > 0 ? min((int) round(($unreadCount / $inboxCount) * 100), 100) : 0;
-    @endphp
-
-    <section class="ui-kpi-grid is-3">
-        <article class="ui-kpi-card" style="background: linear-gradient(145deg, var(--hr-surface-strong), var(--hr-surface));">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Inbox</p>
-                    <p class="ui-kpi-value">{{ number_format($inboxCount) }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-sky">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 12h-6l-2 3h-4l-2-3H2"></path>
-                        <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
-                    </svg>
-                </span>
-            </div>
-            <div class="mt-3 rounded-xl border px-3 py-2.5" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                <p class="text-xs font-semibold">Unread pending: {{ number_format($unreadCount) }}</p>
-                <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Direct and broadcast messages in your inbox.</p>
-            </div>
-        </article>
-        <article class="ui-kpi-card" style="background: linear-gradient(145deg, var(--hr-surface-strong), var(--hr-surface));">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Sent</p>
-                    <p class="ui-kpi-value">{{ number_format($sentCount) }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-violet">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="m22 2-7 20-4-9-9-4Z"></path>
-                        <path d="M22 2 11 13"></path>
-                    </svg>
-                </span>
-            </div>
-            <div class="mt-3 rounded-xl border px-3 py-2.5" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                <p class="text-xs font-semibold">Read in inbox: {{ number_format($readCount) }}</p>
-                <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Messages in your inbox already marked as read.</p>
-            </div>
-        </article>
-        <article class="ui-kpi-card" style="background: linear-gradient(145deg, var(--hr-surface-strong), var(--hr-surface));">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="ui-kpi-label">Unread</p>
-                    <p class="ui-kpi-value">{{ number_format($unreadCount) }}</p>
-                </div>
-                <span class="ui-icon-chip ui-icon-amber">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <path d="M12 9v4"></path>
-                        <path d="M12 17h.01"></path>
-                    </svg>
-                </span>
-            </div>
-            <div class="mt-3 rounded-xl border px-3 py-2.5" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                <div class="h-1.5 rounded-full" style="background: var(--hr-line);">
-                    <span class="block h-full rounded-full" style="width: {{ $unreadRatio }}%; background: #f59e0b;"></span>
-                </div>
-                <p class="text-xs mt-2 font-semibold">
-                    Unread ratio: {{ $unreadRatio }}%
-                </p>
-                <p class="text-xs mt-1" style="color: var(--hr-text-muted);">
-                    {{ $unreadCount > 0 ? 'Pending responses need attention.' : 'All caught up.' }}
-                </p>
-            </div>
-        </article>
-    </section>
-
     @php
         $hasBroadcastTab = $canBroadcastAll || $canBroadcastTeam;
         $actionTab = (string) old('communication_action_tab', 'compose');
@@ -295,8 +213,9 @@
                                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                                 @enderror
                             </div>
-                            <div class="md:col-span-2">
+                            <div class="md:col-span-2 flex items-center gap-2">
                                 <button type="submit" class="ui-btn ui-btn-primary">Send Message</button>
+                                <button type="submit" class="ui-btn ui-btn-ghost" formaction="{{ route('modules.communication.drafts.store') }}">Save Draft</button>
                             </div>
                         </form>
                     </div>
@@ -457,78 +376,106 @@
         </div>
     </section>
 
+    @php
+        $statusFilterValue = (string) ($statusFilter ?? 'all');
+        $activeStatusFilter = in_array($statusFilterValue, ['all', 'read', 'unread'], true)
+            ? $statusFilterValue
+            : 'all';
+        $messageCounts = is_array($messageFilterCounts ?? null) ? $messageFilterCounts : [];
+        $inboxFilterCounts = is_array($messageCounts['inbox'] ?? null) ? $messageCounts['inbox'] : [];
+        $sentFilterCounts = is_array($messageCounts['sent'] ?? null) ? $messageCounts['sent'] : [];
+        $activeTabCounts = $tab === 'sent' ? $sentFilterCounts : $inboxFilterCounts;
+    @endphp
+
+    <div class="comm-filter-shell">
+        <div class="comm-filter-row">
+            <p class="comm-filter-label">Mailbox</p>
+            <div class="comm-filter-group">
+                <a
+                    href="{{ route('modules.communication.index', ['tab' => 'inbox', 'status' => $activeStatusFilter]) }}"
+                    class="comm-filter-pill {{ $tab === 'inbox' ? 'is-active' : '' }}"
+                    @if ($tab === 'inbox') aria-current="page" @endif
+                >
+                    Inbox
+                    <span class="comm-filter-count">{{ number_format((int) ($inboxFilterCounts['all'] ?? 0)) }}</span>
+                </a>
+                <a
+                    href="{{ route('modules.communication.index', ['tab' => 'outbox', 'status' => $activeStatusFilter]) }}"
+                    class="comm-filter-pill {{ $tab === 'sent' ? 'is-active' : '' }}"
+                    @if ($tab === 'sent') aria-current="page" @endif
+                >
+                    Outbox
+                    <span class="comm-filter-count">{{ number_format((int) ($sentFilterCounts['all'] ?? 0)) }}</span>
+                </a>
+                <a
+                    href="{{ route('modules.communication.index', ['tab' => 'drafts']) }}"
+                    class="comm-filter-pill {{ $tab === 'drafts' ? 'is-active' : '' }}"
+                    @if ($tab === 'drafts') aria-current="page" @endif
+                >
+                    Drafts
+                    <span class="comm-filter-count">{{ number_format((int) ($stats['drafts'] ?? 0)) }}</span>
+                </a>
+                <a
+                    href="{{ route('modules.communication.index', ['tab' => 'bin']) }}"
+                    class="comm-filter-pill {{ $tab === 'bin' ? 'is-active' : '' }}"
+                    @if ($tab === 'bin') aria-current="page" @endif
+                >
+                    Bin
+                    <span class="comm-filter-count">{{ number_format((int) ($stats['bin'] ?? 0)) }}</span>
+                </a>
+            </div>
+        </div>
+
+        @if (in_array($tab, ['inbox','sent'], true))
+        <div class="comm-filter-row">
+            <p class="comm-filter-label">Status</p>
+            <div class="comm-filter-group">
+                <a
+                    href="{{ route('modules.communication.index', ['tab' => $tab, 'status' => 'all']) }}"
+                    class="comm-filter-pill {{ $activeStatusFilter === 'all' ? 'is-active' : '' }}"
+                    @if ($activeStatusFilter === 'all') aria-current="page" @endif
+                >
+                    All
+                    <span class="comm-filter-count">{{ number_format((int) ($activeTabCounts['all'] ?? 0)) }}</span>
+                </a>
+                <a
+                    href="{{ route('modules.communication.index', ['tab' => $tab, 'status' => 'read']) }}"
+                    class="comm-filter-pill {{ $activeStatusFilter === 'read' ? 'is-active' : '' }}"
+                    @if ($activeStatusFilter === 'read') aria-current="page" @endif
+                >
+                    Read
+                    <span class="comm-filter-count">{{ number_format((int) ($activeTabCounts['read'] ?? 0)) }}</span>
+                </a>
+                <a
+                    href="{{ route('modules.communication.index', ['tab' => $tab, 'status' => 'unread']) }}"
+                    class="comm-filter-pill {{ $activeStatusFilter === 'unread' ? 'is-active' : '' }}"
+                    @if ($activeStatusFilter === 'unread') aria-current="page" @endif
+                >
+                    Unread
+                    <span class="comm-filter-count">{{ number_format((int) ($activeTabCounts['unread'] ?? 0)) }}</span>
+                </a>
+            </div>
+        </div>
+        @endif
+    </div>
+
     <section class="ui-section">
-        @php
-            $statusFilterValue = (string) ($statusFilter ?? 'all');
-            $activeStatusFilter = in_array($statusFilterValue, ['all', 'read', 'unread'], true)
-                ? $statusFilterValue
-                : 'all';
-            $messageCounts = is_array($messageFilterCounts ?? null) ? $messageFilterCounts : [];
-            $inboxFilterCounts = is_array($messageCounts['inbox'] ?? null) ? $messageCounts['inbox'] : [];
-            $sentFilterCounts = is_array($messageCounts['sent'] ?? null) ? $messageCounts['sent'] : [];
-            $activeTabCounts = $tab === 'sent' ? $sentFilterCounts : $inboxFilterCounts;
-        @endphp
         <div class="ui-section-head">
             <div>
                 <h3 class="ui-section-title">Message Box</h3>
-                <p class="ui-section-subtitle">Track incoming and sent communication records.</p>
+                <p class="ui-section-subtitle">Track incoming, sent, drafts and bin.</p>
             </div>
-            <button type="button" class="ui-btn ui-btn-primary" data-message-box-compose-trigger>
-                Compose Message
-            </button>
-        </div>
-
-        <div class="comm-filter-shell">
-            <div class="comm-filter-row">
-                <p class="comm-filter-label">Mailbox</p>
-                <div class="comm-filter-group">
-                    <a
-                        href="{{ route('modules.communication.index', ['tab' => 'inbox', 'status' => $activeStatusFilter]) }}"
-                        class="comm-filter-pill {{ $tab === 'inbox' ? 'is-active' : '' }}"
-                        @if ($tab === 'inbox') aria-current="page" @endif
-                    >
-                        Inbox
-                        <span class="comm-filter-count">{{ number_format((int) ($inboxFilterCounts['all'] ?? 0)) }}</span>
-                    </a>
-                    <a
-                        href="{{ route('modules.communication.index', ['tab' => 'sent', 'status' => $activeStatusFilter]) }}"
-                        class="comm-filter-pill {{ $tab === 'sent' ? 'is-active' : '' }}"
-                        @if ($tab === 'sent') aria-current="page" @endif
-                    >
-                        Sent
-                        <span class="comm-filter-count">{{ number_format((int) ($sentFilterCounts['all'] ?? 0)) }}</span>
-                    </a>
-                </div>
-            </div>
-
-            <div class="comm-filter-row">
-                <p class="comm-filter-label">Status</p>
-                <div class="comm-filter-group">
-                    <a
-                        href="{{ route('modules.communication.index', ['tab' => $tab, 'status' => 'all']) }}"
-                        class="comm-filter-pill {{ $activeStatusFilter === 'all' ? 'is-active' : '' }}"
-                        @if ($activeStatusFilter === 'all') aria-current="page" @endif
-                    >
-                        All
-                        <span class="comm-filter-count">{{ number_format((int) ($activeTabCounts['all'] ?? 0)) }}</span>
-                    </a>
-                    <a
-                        href="{{ route('modules.communication.index', ['tab' => $tab, 'status' => 'read']) }}"
-                        class="comm-filter-pill {{ $activeStatusFilter === 'read' ? 'is-active' : '' }}"
-                        @if ($activeStatusFilter === 'read') aria-current="page" @endif
-                    >
-                        Read
-                        <span class="comm-filter-count">{{ number_format((int) ($activeTabCounts['read'] ?? 0)) }}</span>
-                    </a>
-                    <a
-                        href="{{ route('modules.communication.index', ['tab' => $tab, 'status' => 'unread']) }}"
-                        class="comm-filter-pill {{ $activeStatusFilter === 'unread' ? 'is-active' : '' }}"
-                        @if ($activeStatusFilter === 'unread') aria-current="page" @endif
-                    >
-                        Unread
-                        <span class="comm-filter-count">{{ number_format((int) ($activeTabCounts['unread'] ?? 0)) }}</span>
-                    </a>
-                </div>
+            <div class="flex items-center gap-2">
+                @if ($tab === 'bin' && (int) ($stats['bin'] ?? 0) > 0)
+                    <form method="POST" action="{{ route('modules.communication.bin.destroy-all') }}">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="ui-btn ui-btn-danger">Empty Bin</button>
+                    </form>
+                @endif
+                <button type="button" class="ui-btn ui-btn-primary" data-message-box-compose-trigger>
+                    Compose Message
+                </button>
             </div>
         </div>
 
@@ -536,17 +483,37 @@
             <div class="mt-4 space-y-3">
                 @forelse($inboxMessages as $messageRow)
                     <article class="rounded-xl border p-4 {{ ! $messageRow->read_status ? 'border-amber-300' : '' }}" style="background: var(--hr-surface-strong); border-color: var(--hr-line);">
+                        @php
+                            $sender = $messageRow->sender;
+                            $senderEmail = (string) ($sender->email ?? '');
+                            $senderDept = (string) ($sender->profile->department ?? '');
+                            $senderBranch = (string) ($sender->profile->branch ?? '');
+                            $senderTitle = (string) ($sender->profile->job_title ?? '');
+                            $avatarUrl = asset('images/user-avatar.svg');
+                        @endphp
                         <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <p class="font-semibold">{{ $messageRow->sender?->name ?? 'Unknown Sender' }}</p>
-                                <p class="text-xs mt-1" style="color: var(--hr-text-muted);">
-                                    {{ str($messageRow->conversation?->type ?? 'direct')->replace('_', ' ')->title() }}
-                                    • {{ $messageRow->created_at?->format('M d, Y h:i A') ?? 'N/A' }}
-                                </p>
+                            <div class="flex items-start gap-3 min-w-0">
+                                <img src="{{ $avatarUrl }}" alt="Avatar" class="h-8 w-8 rounded-full border" style="border-color: var(--hr-line);">
+                                <div class="min-w-0">
+                                    <p class="font-semibold truncate">{{ $sender?->name ?? 'Unknown Sender' }}</p>
+                                    <p class="text-xs mt-0.5 truncate" style="color: var(--hr-text-muted);">{{ $senderEmail }}</p>
+                                    <div class="flex items-center gap-2 text-[11px] mt-1" style="color: var(--hr-text-muted);">
+                                        @if ($senderTitle !== '')<span>{{ $senderTitle }}</span>@endif
+                                        @if ($senderDept !== '')<span>• {{ $senderDept }}</span>@endif
+                                        @if ($senderBranch !== '')<span>• {{ $senderBranch }}</span>@endif
+                                    </div>
+                                </div>
                             </div>
-                            <span class="ui-status-chip {{ $messageRow->read_status ? 'ui-status-slate' : 'ui-status-amber' }}">
-                                {{ $messageRow->read_status ? 'Read' : 'Unread' }}
-                            </span>
+                            <div class="text-right">
+                                <span class="ui-status-chip {{ $messageRow->read_status ? 'ui-status-slate' : 'ui-status-amber' }}">
+                                    {{ $messageRow->read_status ? 'Read' : 'Unread' }}
+                                </span>
+                                <p class="text-[11px] mt-1" style="color: var(--hr-text-muted);">{{ $messageRow->created_at?->format('M d, Y h:i A') ?? 'N/A' }}</p>
+                                <button type="button" class="ui-btn ui-btn-ghost mt-1 comm-details-trigger">Details</button>
+                            </div>
+                        </div>
+                        <div class="comm-details hidden mt-3 rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                            <p class="text-xs"><strong>Conversation:</strong> {{ str($messageRow->conversation?->type ?? 'direct')->replace('_', ' ')->title() }} {{ ($messageRow->conversation?->subject ?? '') !== '' ? '• Subject: '.$messageRow->conversation?->subject : '' }}</p>
                         </div>
                         <p class="text-sm mt-2" style="white-space: pre-line;">{{ $messageRow->message }}</p>
                         @if (is_array($messageRow->attachments) && $messageRow->attachments !== [])
@@ -564,13 +531,20 @@
                                 @endforeach
                             </div>
                         @endif
-                        @if (! $messageRow->read_status)
-                            <form method="POST" action="{{ route('modules.communication.messages.read', $messageRow) }}" class="mt-3">
+                        <div class="mt-3 flex items-center gap-2">
+                            @if (! $messageRow->read_status)
+                                <form method="POST" action="{{ route('modules.communication.messages.read', $messageRow) }}">
+                                    @csrf
+                                    @method('PUT')
+                                    <button type="submit" class="ui-btn ui-btn-primary">Mark Read</button>
+                                </form>
+                            @endif
+                            <form method="POST" action="{{ route('modules.communication.messages.trash', $messageRow) }}">
                                 @csrf
                                 @method('PUT')
-                                <button type="submit" class="ui-btn ui-btn-primary">Mark Read</button>
+                                <button type="submit" class="ui-btn ui-btn-ghost">Move to Bin</button>
                             </form>
-                        @endif
+                        </div>
                     </article>
                 @empty
                     <p class="ui-empty">
@@ -582,21 +556,41 @@
             <div class="mt-4">
                 {{ $inboxMessages->links() }}
             </div>
-        @else
+        @elseif ($tab === 'sent')
             <div class="mt-4 space-y-3">
                 @forelse($sentMessages as $messageRow)
                     <article class="rounded-xl border p-4" style="background: var(--hr-surface-strong); border-color: var(--hr-line);">
+                        @php
+                            $rcv = $messageRow->receiver;
+                            $rcvEmail = (string) ($rcv->email ?? '');
+                            $rcvDept = (string) ($rcv->profile->department ?? '');
+                            $rcvBranch = (string) ($rcv->profile->branch ?? '');
+                            $rcvTitle = (string) ($rcv->profile->job_title ?? '');
+                            $rcvAvatar = asset('images/user-avatar.svg');
+                        @endphp
                         <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <p class="font-semibold">To: {{ $messageRow->receiver?->name ?? 'Unknown Recipient' }}</p>
-                                <p class="text-xs mt-1" style="color: var(--hr-text-muted);">
-                                    {{ str($messageRow->conversation?->type ?? 'direct')->replace('_', ' ')->title() }}
-                                    • {{ $messageRow->created_at?->format('M d, Y h:i A') ?? 'N/A' }}
-                                </p>
+                            <div class="flex items-start gap-3 min-w-0">
+                                <img src="{{ $rcvAvatar }}" alt="Avatar" class="h-8 w-8 rounded-full border" style="border-color: var(--hr-line);">
+                                <div class="min-w-0">
+                                    <p class="font-semibold truncate">To: {{ $rcv?->name ?? 'Unknown Recipient' }}</p>
+                                    <p class="text-xs mt-0.5 truncate" style="color: var(--hr-text-muted);">{{ $rcvEmail }}</p>
+                                    <div class="flex items-center gap-2 text-[11px] mt-1" style="color: var(--hr-text-muted);">
+                                        @if ($rcvTitle !== '')<span>{{ $rcvTitle }}</span>@endif
+                                        @if ($rcvDept !== '')<span>• {{ $rcvDept }}</span>@endif
+                                        @if ($rcvBranch !== '')<span>• {{ $rcvBranch }}</span>@endif
+                                    </div>
+                                </div>
                             </div>
-                            <span class="ui-status-chip {{ $messageRow->read_status ? 'ui-status-green' : 'ui-status-amber' }}">
-                                {{ $messageRow->read_status ? 'Read' : 'Unread' }}
-                            </span>
+                            <div class="text-right">
+                                <span class="ui-status-chip {{ $messageRow->read_status ? 'ui-status-green' : 'ui-status-amber' }}">
+                                    {{ $messageRow->read_status ? 'Read' : 'Unread' }}
+                                </span>
+                                <p class="text-[11px] mt-1" style="color: var(--hr-text-muted);">{{ $messageRow->created_at?->format('M d, Y h:i A') ?? 'N/A' }}</p>
+                                <button type="button" class="ui-btn ui-btn-ghost mt-1 comm-details-trigger">Details</button>
+                            </div>
+                        </div>
+                        <div class="comm-details hidden mt-3 rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                            <p class="text-xs"><strong>Conversation:</strong> {{ str($messageRow->conversation?->type ?? 'direct')->replace('_', ' ')->title() }} {{ ($messageRow->conversation?->subject ?? '') !== '' ? '• Subject: '.$messageRow->conversation?->subject : '' }}</p>
                         </div>
                         <p class="text-sm mt-2" style="white-space: pre-line;">{{ $messageRow->message }}</p>
                         @if (is_array($messageRow->attachments) && $messageRow->attachments !== [])
@@ -614,6 +608,13 @@
                                 @endforeach
                             </div>
                         @endif
+                        <div class="mt-3">
+                            <form method="POST" action="{{ route('modules.communication.messages.trash', $messageRow) }}">
+                                @csrf
+                                @method('PUT')
+                                <button type="submit" class="ui-btn ui-btn-ghost">Move to Bin</button>
+                            </form>
+                        </div>
                     </article>
                 @empty
                     <p class="ui-empty">
@@ -625,6 +626,102 @@
             <div class="mt-4">
                 {{ $sentMessages->links() }}
             </div>
+        @elseif ($tab === 'drafts')
+            <div class="mt-4 space-y-3">
+                @forelse($drafts as $draft)
+                    <article class="rounded-xl border p-4" style="background: var(--hr-surface-strong); border-color: var(--hr-line);">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="font-semibold">To: {{ $draft->receiver?->name ?? 'Not set' }}</p>
+                                <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Draft • {{ $draft->updated_at?->format('M d, Y h:i A') ?? 'N/A' }}</p>
+                            </div>
+                        </div>
+                        @if(($draft->message ?? '') !== '')
+                            <p class="text-sm mt-2" style="white-space: pre-line;">{{ $draft->message }}</p>
+                        @endif
+                        @if (is_array($draft->attachments) && $draft->attachments !== [])
+                            <div class="mt-2 flex flex-col gap-2">
+                                @foreach($draft->attachments as $attachmentPath)
+                                    @php $attachmentUrl = str_starts_with((string) $attachmentPath, 'http') ? (string) $attachmentPath : asset((string) $attachmentPath); @endphp
+                                    <div>
+                                        <button type="button" class="ui-btn ui-btn-ghost comm-attachment-trigger" data-attachment-url="{{ $attachmentUrl }}">Attachment</button>
+                                        <div class="comm-attachment-preview mt-2" aria-hidden="true"></div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                        <div class="mt-3 flex items-center gap-2">
+                            <form method="POST" action="{{ route('modules.communication.drafts.send', $draft) }}">
+                                @csrf
+                                <button type="submit" class="ui-btn ui-btn-primary">Send</button>
+                            </form>
+                            <form method="POST" action="{{ route('modules.communication.drafts.destroy', $draft) }}">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="ui-btn ui-btn-ghost">Delete</button>
+                            </form>
+                        </div>
+                    </article>
+                @empty
+                    <p class="ui-empty">No drafts found.</p>
+                @endforelse
+            </div>
+            <div class="mt-4">{{ $drafts->links() }}</div>
+        @elseif ($tab === 'bin')
+            <div class="mt-4 space-y-3">
+                @forelse($binMessages as $messageRow)
+                    <article class="rounded-xl border p-4" style="background: var(--hr-surface-strong); border-color: var(--hr-line);">
+                        @php
+                            $isReceiver = (int) $messageRow->receiver_id === (int) auth()->id();
+                            $peer = $isReceiver ? $messageRow->sender : $messageRow->receiver;
+                            $peerEmail = (string) ($peer->email ?? '');
+                            $peerDept = (string) ($peer->profile->department ?? '');
+                            $peerBranch = (string) ($peer->profile->branch ?? '');
+                            $peerTitle = (string) ($peer->profile->job_title ?? '');
+                            $peerAvatar = asset('images/user-avatar.svg');
+                        @endphp
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-start gap-3 min-w-0">
+                                <img src="{{ $peerAvatar }}" alt="Avatar" class="h-8 w-8 rounded-full border" style="border-color: var(--hr-line);">
+                                <div class="min-w-0">
+                                    <p class="font-semibold truncate">{{ $isReceiver ? 'From: ' : 'To: ' }}{{ $peer?->name ?? 'Unknown' }}</p>
+                                    <p class="text-xs mt-0.5 truncate" style="color: var(--hr-text-muted);">{{ $peerEmail }}</p>
+                                    <div class="flex items-center gap-2 text-[11px] mt-1" style="color: var(--hr-text-muted);">
+                                        @if ($peerTitle !== '')<span>{{ $peerTitle }}</span>@endif
+                                        @if ($peerDept !== '')<span>• {{ $peerDept }}</span>@endif
+                                        @if ($peerBranch !== '')<span>• {{ $peerBranch }}</span>@endif
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="ui-status-chip">In Bin</span>
+                                <p class="text-[11px] mt-1" style="color: var(--hr-text-muted);">{{ $messageRow->created_at?->format('M d, Y h:i A') ?? 'N/A' }}</p>
+                                <button type="button" class="ui-btn ui-btn-ghost mt-1 comm-details-trigger">Details</button>
+                            </div>
+                        </div>
+                        <div class="comm-details hidden mt-3 rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                            <p class="text-xs"><strong>Conversation:</strong> {{ str($messageRow->conversation?->type ?? 'direct')->replace('_', ' ')->title() }} {{ ($messageRow->conversation?->subject ?? '') !== '' ? '• Subject: '.$messageRow->conversation?->subject : '' }}</p>
+                        </div>
+                        <p class="text-sm mt-2" style="white-space: pre-line;">{{ $messageRow->message }}</p>
+                        <div class="mt-3 flex items-center gap-2">
+                            <form method="POST" action="{{ route('modules.communication.messages.restore', $messageRow) }}">
+                                @csrf
+                                @method('PUT')
+                                <button type="submit" class="ui-btn ui-btn-primary">Restore</button>
+                            </form>
+                            <form method="POST" action="{{ route('modules.communication.messages.destroy', $messageRow) }}" onsubmit="return confirm('Delete this message permanently?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="ui-btn ui-btn-danger">Delete Now</button>
+                            </form>
+                            <span class="text-xs" style="color: var(--hr-text-muted);">Auto-deletes after 30 days</span>
+                        </div>
+                    </article>
+                @empty
+                    <p class="ui-empty">Bin is empty.</p>
+                @endforelse
+            </div>
+            <div class="mt-4">{{ $binMessages->links() }}</div>
         @endif
     </section>
 @endsection
@@ -914,6 +1011,18 @@
                 const preview = button.parentElement?.querySelector(".comm-attachment-preview");
                 if (!preview) return;
                 togglePreview(preview, url);
+            });
+        })();
+
+        // Expand/collapse message details
+        (() => {
+            document.addEventListener('click', (event) => {
+                const btn = event.target instanceof Element ? event.target.closest('.comm-details-trigger') : null;
+                if (!btn) return;
+                const container = btn.closest('article');
+                const details = container ? container.querySelector('.comm-details') : null;
+                if (!details) return;
+                details.classList.toggle('hidden');
             });
         })();
     </script>

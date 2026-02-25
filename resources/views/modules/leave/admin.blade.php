@@ -176,7 +176,10 @@
                     @enderror
                 </div>
 
-                <button type="submit" class="ui-btn ui-btn-primary">Assign Leave</button>
+                <button type="submit" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-check class="h-4 w-4" />
+                    Assign Leave
+                </button>
             </form>
         </article>
 
@@ -318,8 +321,14 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-                <button type="submit" class="ui-btn ui-btn-primary">Apply Filters</button>
-                <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">Reset</a>
+                    <button type="submit" class="ui-btn ui-btn-primary">
+                        <x-heroicon-o-magnifying-glass class="h-4 w-4" />
+                        Apply Filters
+                    </button>
+                    <a href="{{ route('modules.leave.index') }}" class="ui-btn ui-btn-ghost">
+                        <x-heroicon-o-x-mark class="h-4 w-4" />
+                        Reset
+                    </a>
             </div>
         </form>
 
@@ -384,7 +393,10 @@
                         <td>
                             @if ($leaveRequest->status === 'pending')
                                 <div class="text-right">
-                                    <a href="{{ route('modules.leave.review.form', $leaveRequest) }}" class="ui-btn !py-1.5 !text-xs ui-btn-primary">Review Request</a>
+                                    <a href="{{ route('modules.leave.review.form', $leaveRequest) }}" class="ui-btn !py-1.5 !text-xs ui-btn-primary">
+                                        <x-heroicon-o-eye class="h-4 w-4" />
+                                        Review Request
+                                    </a>
                                 </div>
                             @else
                                 <div class="text-right text-xs" style="color: var(--hr-text-muted);">No action</div>

@@ -11,7 +11,10 @@
                 <p class="ui-section-subtitle">Record your check-out time with an optional note.</p>
             </div>
             <div class="flex items-center gap-2">
-                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">Back to Attendance</a>
+                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-arrow-left class="h-4 w-4" />
+                    Back to Attendance
+                </a>
             </div>
         </div>
 
@@ -26,8 +29,14 @@
                 <textarea id="notes" name="notes" rows="3" class="ui-textarea" placeholder="Any wrap up notes?"></textarea>
             </div>
             <div class="flex items-center gap-2">
-                <button type="submit" class="ui-btn ui-btn-primary">Confirm Punch Out</button>
-                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">Cancel</a>
+                <button type="submit" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-check class="h-4 w-4" />
+                    Confirm Punch Out
+                </button>
+                <a href="{{ route('modules.attendance.overview') }}" class="ui-btn ui-btn-ghost">
+                    <x-heroicon-o-x-mark class="h-4 w-4" />
+                    Cancel
+                </a>
             </div>
         </form>
     </div>

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { MiniSparkline } from './charts/MiniSparkline';
 
 const COLOR_THEMES = {
     primary: {
@@ -99,31 +100,7 @@ const formatComparisonValue = (comparisonValue) => {
     return raw;
 };
 
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-
-const buildSparkline = (data, width = 128, height = 28, padding = 2) => {
-    const clean = data
-        .map((entry) => Number(entry))
-        .filter((value) => Number.isFinite(value));
-
-    if (clean.length < 2) {
-        return '';
-    }
-
-    const min = Math.min(...clean);
-    const max = Math.max(...clean);
-    const span = max - min || 1;
-    const step = (width - (padding * 2)) / (clean.length - 1);
-
-    return clean
-        .map((value, index) => {
-            const x = padding + (step * index);
-            const normalized = (value - min) / span;
-            const y = height - padding - ((height - (padding * 2)) * clamp(normalized, 0, 1));
-            return `${x.toFixed(2)},${y.toFixed(2)}`;
-        })
-        .join(' ');
-};
+// Inline sparkline implementation replaced by shared MiniSparkline (Recharts)
 
 export function QuickInfoCard({
     title,
@@ -143,10 +120,7 @@ export function QuickInfoCard({
     const comparisonLabel = formatComparisonValue(comparisonValue);
     const hasComparison = trendType !== null && comparisonLabel !== '';
 
-    const chartPoints = useMemo(
-        () => (showChart ? buildSparkline(Array.isArray(chartData) ? chartData : []) : ''),
-        [chartData, showChart],
-    );
+    const chartSeries = useMemo(() => (Array.isArray(chartData) ? chartData : []), [chartData]);
 
     return (
         <article
@@ -199,18 +173,9 @@ export function QuickInfoCard({
                 </p>
             ) : null}
 
-            {showChart && chartPoints !== '' ? (
+            {showChart ? (
                 <div className="mt-2 h-7">
-                    <svg viewBox="0 0 128 28" className="h-full w-full" preserveAspectRatio="none" aria-hidden="true">
-                        <polyline
-                            fill="none"
-                            stroke={styles.chartColor}
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            points={chartPoints}
-                        />
-                    </svg>
+                    <MiniSparkline data={chartSeries} color={styles.chartColor} />
                 </div>
             ) : null}
         </article>

@@ -95,7 +95,10 @@
                         <option value="{{ $statusOption }}" {{ $filters['status'] === $statusOption ? 'selected' : '' }}>{{ ucfirst($statusOption) }}</option>
                     @endforeach
                 </select>
-                <button type="submit" class="rounded-xl px-3 py-2.5 text-sm font-semibold border" style="border-color: var(--hr-line);">Filter</button>
+                <button type="submit" class="rounded-xl px-3 py-2.5 text-sm font-semibold border" style="border-color: var(--hr-line); display:inline-flex; align-items:center; gap:6px;">
+                    <x-heroicon-o-magnifying-glass class="h-4 w-4" />
+                    Filter
+                </button>
             </div>
         </form>
 
