@@ -8,6 +8,7 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CommunicationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EmployeeOnboardingController;
 use App\Http\Controllers\HolidayController;
@@ -77,6 +78,18 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
     Route::get('/settings', [SettingsController::class, 'index'])
         ->middleware('role:super_admin,admin,hr')
         ->name('settings.index');
+    Route::get('/settings/themes', [SettingsController::class, 'themes'])
+        ->middleware('role:super_admin,admin,hr')
+        ->name('settings.themes');
+    Route::post('/settings/themes', [SettingsController::class, 'updateThemes'])
+        ->middleware('role:super_admin,admin')
+        ->name('settings.themes.update');
+    Route::get('/settings/typography', [SettingsController::class, 'typography'])
+        ->middleware('role:super_admin,admin,hr')
+        ->name('settings.typography');
+    Route::post('/settings/typography', [SettingsController::class, 'updateTypography'])
+        ->middleware('role:super_admin,admin')
+        ->name('settings.typography.update');
     Route::post('/settings/company-details', [SettingsController::class, 'updateCompanyDetails'])
         ->middleware('role:super_admin,admin')
         ->name('settings.company.update');
@@ -105,6 +118,9 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
     Route::get('/api/employees/search', [EmployeeSearchController::class, 'search'])
         ->middleware('role:super_admin,admin,hr,finance')
         ->name('api.employees.search');
+    Route::get('/api/employees', [\App\Http\Controllers\Api\EmployeeDirectoryController::class, 'index'])
+        ->middleware('role:super_admin,admin,hr,finance,employee')
+        ->name('api.employees.index');
     Route::get('/api/employees/{user}/setup-status', [EmployeeOnboardingController::class, 'setupStatus'])
         ->middleware('role:super_admin,admin,hr,finance')
         ->name('api.employees.setup-status');
@@ -131,6 +147,14 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
         ->middleware('role:super_admin,admin,hr,finance')
         ->name('api.dashboard.admin.leave-overview');
 
+    // Admin dashboard: Work Hours widgets
+    Route::get('/api/dashboard/admin/work-hours/avg', [DashboardController::class, 'adminWorkHoursAvg'])
+        ->middleware('role:super_admin,admin,hr,finance')
+        ->name('api.dashboard.admin.work-hours.avg');
+    Route::get('/api/dashboard/admin/work-hours/monthly', [DashboardController::class, 'adminWorkHoursMonthly'])
+        ->middleware('role:super_admin,admin,hr,finance')
+        ->name('api.dashboard.admin.work-hours.monthly');
+
     Route::prefix('modules')->name('modules.')->middleware('role:super_admin,admin,hr,employee,finance')->group(function (): void {
         Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
         Route::get('/departments', [DepartmentController::class, 'index'])
@@ -148,6 +172,22 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
         Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])
             ->middleware('role:super_admin,admin,hr')
             ->name('departments.destroy');
+        // Designations module
+        Route::get('/designations', [DesignationController::class, 'index'])
+            ->middleware('role:super_admin,admin,hr')
+            ->name('designations.index');
+        Route::post('/designations', [DesignationController::class, 'store'])
+            ->middleware('role:super_admin,admin,hr')
+            ->name('designations.store');
+        Route::get('/designations/{designation}/edit', [DesignationController::class, 'edit'])
+            ->middleware('role:super_admin,admin,hr')
+            ->name('designations.edit');
+        Route::put('/designations/{designation}', [DesignationController::class, 'update'])
+            ->middleware('role:super_admin,admin,hr')
+            ->name('designations.update');
+        Route::delete('/designations/{designation}', [DesignationController::class, 'destroy'])
+            ->middleware('role:super_admin,admin,hr')
+            ->name('designations.destroy');
         Route::get('/branches', [BranchController::class, 'index'])
             ->middleware('role:super_admin,admin')
             ->name('branches.index');

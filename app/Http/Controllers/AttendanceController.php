@@ -725,7 +725,7 @@ class AttendanceController extends Controller
                 foreach ($records as $record) {
                     $profile = $record->user?->profile;
                     fputcsv($handle, [
-                        (string) ($record->user?->name ?? ''),
+                        (string) ($record->user?->full_name ?? ''),
                         (string) ($record->user?->email ?? ''),
                         (string) ($profile?->branch ?? ''),
                         (string) ($profile?->department ?? ''),
@@ -792,7 +792,7 @@ class AttendanceController extends Controller
             ->get()
             ->map(static fn (User $user): array => [
                 'id' => (int) $user->id,
-                'name' => (string) $user->name,
+                'name' => (string) $user->full_name,
                 'email' => (string) $user->email,
                 'department' => (string) ($user->profile?->department ?? ''),
                 'branch' => (string) ($user->profile?->branch ?? ''),
@@ -1043,7 +1043,7 @@ class AttendanceController extends Controller
             ],
             'currentUser' => [
                 'id' => $viewer->id,
-                'name' => $viewer->name,
+                'name' => $viewer->full_name,
                 'email' => $viewer->email,
                 'department' => $viewer->profile?->department,
                 'branch' => $viewer->profile?->branch,
@@ -1526,7 +1526,7 @@ class AttendanceController extends Controller
             'id' => $attendance->id,
             'employee' => [
                 'id' => $attendance->user?->id,
-                'name' => $attendance->user?->name,
+                'name' => $attendance->user?->full_name,
                 'email' => $attendance->user?->email,
                 'branch' => $profile?->branch,
                 'department' => $profile?->department,
@@ -1547,7 +1547,7 @@ class AttendanceController extends Controller
             'requestedCheckInIso' => $attendance->requested_check_in_at?->format('H:i'),
             'requestedCheckOutIso' => $attendance->requested_check_out_at?->format('H:i'),
             'requestedWorkMinutes' => $attendance->requested_work_minutes,
-            'requestedBy' => $attendance->correctionRequestedBy?->name,
+            'requestedBy' => $attendance->correctionRequestedBy?->full_name,
             'notes' => $attendance->notes,
             'isMonthLocked' => $isMonthLocked,
             'canApprove' => $viewer->can('attendance.approve')

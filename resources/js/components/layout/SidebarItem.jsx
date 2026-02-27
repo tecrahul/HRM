@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import SidebarTooltip from './SidebarTooltip';
 import Icon from '../shared/Icon';
 
-export default function SidebarItem({ item, isCollapsed, onOpenFlyout, activeColor = 'var(--hr-accent)', isFlyoutOpenForKey = false }) {
+export default function SidebarItem({ item, isCollapsed, onOpenFlyout, activeColor = 'var(--hr-accent)', isFlyoutOpenForKey = false, level = 2 }) {
   const ref = useRef(null);
   const anchorRef = useRef(null);
   const [hover, setHover] = useState(false);
@@ -57,8 +57,8 @@ export default function SidebarItem({ item, isCollapsed, onOpenFlyout, activeCol
 
   const linkContent = (
     <div className={`relative flex items-center ${isCollapsed ? 'justify-center' : 'justify-start gap-2'} w-full` }>
-      <span className={`hrm-nav-icon inline-flex items-center justify-center rounded-xl ${item.active ? 'ring-2 ring-offset-0' : ''}`}
-            style={{ width: 32, height: 32, color: (item.active || open) ? activeColor : 'var(--hr-text-main)', borderColor: activeColor }}>
+      <span className={`hrm-nav-icon inline-flex items-center justify-center rounded-lg ${item.active ? 'ring-2 ring-offset-0' : ''}`}
+            style={{ width: 20, height: 20, color: (item.active || open) ? activeColor : 'var(--hr-text-main)', borderColor: activeColor }}>
         <Icon name={item.icon} />
         {item.badge > 0 && (
           <span className="absolute -top-0 -right-0 h-4 min-w-4 px-1 text-[10px] leading-4 text-white rounded-full text-center"
@@ -91,7 +91,7 @@ export default function SidebarItem({ item, isCollapsed, onOpenFlyout, activeCol
         id={`sidebar-item-${item.key}`}
         ref={anchorRef}
         href={item.url}
-        className={`hrm-modern-nav-link block rounded-xl px-2 py-1 ${item.active ? 'bg-transparent' : ''}`}
+        className={`hrm-modern-nav-link ${level === 1 ? 'hrm-nav-l1' : 'hrm-nav-l2'} block rounded-xl px-2 ${item.active ? 'bg-transparent' : ''}`}
         style={{ color: 'var(--hr-text-main)' }}
         aria-haspopup={hasChildren ? 'menu' : undefined}
         aria-expanded={hasChildren ? (isCollapsed ? (isFlyoutOpenForKey ? 'true' : 'false') : (open ? 'true' : 'false')) : undefined}
@@ -113,7 +113,7 @@ export default function SidebarItem({ item, isCollapsed, onOpenFlyout, activeCol
             <li key={child.key}>
               <a
                 href={child.url}
-                className={`flex items-center gap-2 rounded-lg pl-8 pr-3 py-1.5 text-xs font-semibold hover:opacity-90 ${child.active ? 'ring-1' : ''}`}
+                className={`flex items-center gap-2 rounded-lg pl-3 pr-3 text-xs font-semibold hover:opacity-90 ${child.active ? 'ring-1' : ''}`}
                 style={{ color: 'var(--hr-text-main)', borderColor: 'var(--hr-accent)' }}
                 role="menuitem"
               >

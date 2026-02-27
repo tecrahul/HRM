@@ -8,7 +8,7 @@ function SkeletonRows({ cols }) {
             {Array.from({ length: 6 }).map((_, rowIndex) => (
                 <tr key={`attendance-skeleton-${rowIndex}`} className="border-b" style={{ borderColor: 'var(--hr-line)' }}>
                     {Array.from({ length: cols }).map((__, colIndex) => (
-                        <td key={`attendance-skeleton-cell-${rowIndex}-${colIndex}`} className="px-2 py-3">
+                        <td key={`attendance-skeleton-cell-${rowIndex}-${colIndex}`} className="px-6 py-4">
                             <div className="h-4 rounded bg-slate-200 dark:bg-slate-700 animate-pulse w-full max-w-[140px]" />
                         </td>
                     ))}
@@ -58,11 +58,11 @@ export function AttendanceTable({
     }, [meta?.currentPage, meta?.lastPage]);
 
     return (
-        <article className="hrm-modern-surface rounded-2xl p-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
+        <article className="hrm-modern-surface rounded-2xl p-6">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                     <h3 className="text-lg font-extrabold">Attendance Directory</h3>
-                    <p className="text-sm mt-1" style={{ color: 'var(--hr-text-muted)' }}>
+                    <p className="text-sm mt-2" style={{ color: 'var(--hr-text-muted)' }}>
                         Review attendance entries, approvals, and correction workflow.
                     </p>
                 </div>
@@ -71,24 +71,24 @@ export function AttendanceTable({
                 ) : null}
             </div>
 
-            <div className="mt-4 overflow-x-auto">
+            <div className="mt-6 overflow-x-auto">
                 <table className="w-full min-w-[1160px] text-sm">
                     <thead>
                         <tr className="border-b text-left" style={{ borderColor: 'var(--hr-line)', color: 'var(--hr-text-muted)' }}>
-                            <th className="px-2 py-2.5 font-semibold">Employee</th>
+                            <th className="px-6 py-4 font-semibold">Employee</th>
                             <PermissionGuard allowed={capabilities?.showBranchColumn}>
-                                <th className="px-2 py-2.5 font-semibold">Branch</th>
+                                <th className="px-6 py-4 font-semibold">Branch</th>
                             </PermissionGuard>
                             <PermissionGuard allowed={capabilities?.showDepartmentColumn}>
-                                <th className="px-2 py-2.5 font-semibold">Department</th>
+                                <th className="px-6 py-4 font-semibold">Department</th>
                             </PermissionGuard>
-                            <th className="px-2 py-2.5 font-semibold">Date</th>
-                            <th className="px-2 py-2.5 font-semibold">Status</th>
-                            <th className="px-2 py-2.5 font-semibold">Check-in</th>
-                            <th className="px-2 py-2.5 font-semibold">Check-out</th>
-                            <th className="px-2 py-2.5 font-semibold">Total Hours</th>
-                            <th className="px-2 py-2.5 font-semibold">Approval</th>
-                            <th className="px-2 py-2.5 font-semibold text-right">Actions</th>
+                            <th className="px-6 py-4 font-semibold">Date</th>
+                            <th className="px-6 py-4 font-semibold">Status</th>
+                            <th className="px-6 py-4 font-semibold">Check-in</th>
+                            <th className="px-6 py-4 font-semibold">Check-out</th>
+                            <th className="px-6 py-4 font-semibold">Total Hours</th>
+                            <th className="px-6 py-4 font-semibold">Approval</th>
+                            <th className="px-6 py-4 font-semibold text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -96,7 +96,7 @@ export function AttendanceTable({
 
                         {!loading && records.length === 0 ? (
                             <tr>
-                                <td colSpan={columns} className="px-2 py-8 text-center" style={{ color: 'var(--hr-text-muted)' }}>
+                                <td colSpan={columns} className="px-6 py-8 text-center" style={{ color: 'var(--hr-text-muted)' }}>
                                     No attendance records found for selected filters.
                                 </td>
                             </tr>
@@ -108,32 +108,32 @@ export function AttendanceTable({
                                 className={`border-b border-l-4 ${record.leftBorderClass || 'border-slate-300'}`}
                                 style={{ borderBottomColor: 'var(--hr-line)' }}
                             >
-                                <td className="px-2 py-3">
+                                <td className="px-6 py-4">
                                     <p className="font-semibold">{record.employee?.name}</p>
                                     <p className="text-xs" style={{ color: 'var(--hr-text-muted)' }}>{record.employee?.email}</p>
                                 </td>
                                 <PermissionGuard allowed={capabilities?.showBranchColumn}>
-                                    <td className="px-2 py-3">{record.employee?.branch || 'N/A'}</td>
+                                    <td className="px-6 py-4">{record.employee?.branch || 'N/A'}</td>
                                 </PermissionGuard>
                                 <PermissionGuard allowed={capabilities?.showDepartmentColumn}>
-                                    <td className="px-2 py-3">{record.employee?.department || 'N/A'}</td>
+                                    <td className="px-6 py-4">{record.employee?.department || 'N/A'}</td>
                                 </PermissionGuard>
-                                <td className="px-2 py-3">{record.attendanceDateLabel}</td>
-                                <td className="px-2 py-3">
+                                <td className="px-6 py-4">{record.attendanceDateLabel}</td>
+                                <td className="px-6 py-4">
                                     <StatusBadge type="attendance" value={record.status} label={record.statusLabel} />
                                 </td>
-                                <td className="px-2 py-3">{record.checkIn}</td>
-                                <td className="px-2 py-3">{record.checkOut}</td>
-                                <td className="px-2 py-3">{record.totalHours}</td>
-                                <td className="px-2 py-3">
+                                <td className="px-6 py-4">{record.checkIn}</td>
+                                <td className="px-6 py-4">{record.checkOut}</td>
+                                <td className="px-6 py-4">{record.totalHours}</td>
+                                <td className="px-6 py-4">
                                     <StatusBadge type="approval" value={record.approvalStatus} label={record.approvalStatusLabel} />
                                     {record.isPendingCorrection && record.correctionReason ? (
-                                        <p className="text-[11px] mt-1" style={{ color: 'var(--hr-text-muted)' }}>
+                                        <p className="text-[11px] mt-2" style={{ color: 'var(--hr-text-muted)' }}>
                                             Correction: {record.correctionReason}
                                         </p>
                                     ) : null}
                                 </td>
-                                <td className="px-2 py-3">
+                                <td className="px-6 py-4">
                                     <div className="flex items-center justify-end gap-2 flex-wrap">
                                         {record.canApprove ? (
                                             <button
@@ -212,7 +212,7 @@ export function AttendanceTable({
                 </table>
             </div>
 
-            <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+            <div className="mt-6 flex items-center justify-between gap-4 flex-wrap">
                 <p className="text-xs" style={{ color: 'var(--hr-text-muted)' }}>
                     Showing {meta?.from || 0} to {meta?.to || 0} of {meta?.total || 0}
                 </p>

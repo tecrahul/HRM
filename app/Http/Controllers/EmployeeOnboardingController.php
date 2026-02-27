@@ -121,7 +121,7 @@ class EmployeeOnboardingController extends Controller
             $viewer,
             'employee.login_credentials.sent',
             'Employee login credentials sent',
-            "{$employee->name} ({$employee->email})",
+            "{$employee->full_name} ({$employee->email})",
             '#10b981',
             $employee,
             ['password_rotated' => true]
@@ -210,7 +210,7 @@ class EmployeeOnboardingController extends Controller
         return [
             'id' => $employee->id,
             'employeeCode' => $profile?->employee_code ?: User::makeEmployeeCode($employee->id),
-            'name' => $employee->name,
+            'name' => $employee->full_name,
             'email' => $employee->email,
             'avatarUrl' => $this->resolveAvatarUrl($profile?->avatar_url),
             'department' => $profile?->department,

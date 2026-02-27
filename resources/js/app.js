@@ -10,10 +10,13 @@ import { mountDashboardGreetings } from './components/dashboard/GreetingHeader';
 import { mountSmtpSettingsPage } from './components/settings/SmtpSettingsApp';
 import { mountBranchesPageApp } from './components/branches/BranchesPageApp';
 import { mountDepartmentsPageApp } from './components/departments/DepartmentsPageApp';
+import { mountDesignationsPageApp } from './components/designations/DesignationsPageApp';
 import { mountLeaveManagementPage } from './pages/LeaveManagement/LeaveManagementPage';
 import { mountAttendancePage } from './pages/Attendance/AttendancePage';
 import { mountHolidaysPage } from './pages/Holidays/HolidaysPage';
+import { mountEmployeeDirectory } from './pages/Employees/EmployeeDirectory';
 import { mountReportsAnalytics } from './components/reports/ReportsAnalyticsApp';
+import { mountAdminWorkHoursWidgets } from './components/AdminWorkHoursWidgets';
 import { createRoot } from 'react-dom/client';
 import React from 'react';
 import Sidebar from './components/layout/Sidebar';
@@ -92,6 +95,23 @@ document.addEventListener('keydown', (event) => {
     syncLegacyModalScrollLock();
 });
 
+// Lightweight searchable select support: any input[data-filter-for="<selectId>"] will filter that select's options
+document.addEventListener('input', (event) => {
+  const input = event.target.closest('input[data-filter-for]');
+  if (!input) return;
+  const targetId = input.getAttribute('data-filter-for');
+  if (!targetId) return;
+  const select = document.getElementById(targetId);
+  if (!select) return;
+  const query = String(input.value || '').toLowerCase().trim();
+  const options = Array.from(select.options);
+  for (const opt of options) {
+    if (!opt.value) { opt.hidden = false; continue; }
+    const label = String(opt.textContent || '').toLowerCase();
+    opt.hidden = query !== '' && !label.includes(query);
+  }
+});
+
 mountAdminDashboardSummaryCards();
 mountAdminAttendanceOverview();
 mountAdminLeaveOverview();
@@ -103,10 +123,13 @@ mountDashboardGreetings();
 mountSmtpSettingsPage();
 mountBranchesPageApp();
 mountDepartmentsPageApp();
+mountDesignationsPageApp();
 mountLeaveManagementPage();
 mountAttendancePage();
 mountHolidaysPage();
+mountEmployeeDirectory();
 mountReportsAnalytics();
+mountAdminWorkHoursWidgets();
 
 // Mount Sidebar (React) if payload exists
 (() => {

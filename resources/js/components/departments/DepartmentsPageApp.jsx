@@ -521,7 +521,7 @@ function DepartmentsPageApp({ payload }) {
             ) : null}
 
             {errorMessage ? (
-                <section className="hrm-modern-surface rounded-2xl p-4">
+                <section className="hrm-modern-surface rounded-2xl p-6">
                     <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
                 </section>
             ) : null}
@@ -537,11 +537,11 @@ function DepartmentsPageApp({ payload }) {
                     pointerEvents: formOpen ? 'auto' : 'none',
                 }}
             >
-                <article className="hrm-modern-surface rounded-2xl p-5">
+                <article className="hrm-modern-surface rounded-2xl p-6">
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <h3 className="text-lg font-extrabold">{formMode === 'edit' ? 'Update Department' : 'Create Department'}</h3>
-                            <p className="text-sm mt-1" style={{ color: 'var(--hr-text-muted)' }}>
+                            <p className="text-sm mt-2" style={{ color: 'var(--hr-text-muted)' }}>
                                 Assign department identity, branch mapping, and active status.
                             </p>
                         </div>
@@ -559,7 +559,7 @@ function DepartmentsPageApp({ payload }) {
                         </button>
                     </div>
 
-                    <form className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={submitForm}>
+                    <form className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={submitForm}>
                         <DepartmentField
                             label="Department Name"
                             name="name"
@@ -641,7 +641,7 @@ function DepartmentsPageApp({ payload }) {
                             {formErrors.description ? <p className="text-xs text-red-500">{formErrors.description}</p> : null}
                         </div>
 
-                        <div className="md:col-span-2 flex items-center gap-3 pt-1">
+                        <div className="md:col-span-2 flex items-center gap-4 pt-2">
                             <button
                                 type="submit"
                                 className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
@@ -666,9 +666,9 @@ function DepartmentsPageApp({ payload }) {
                 </article>
             </section>
 
-            <section className="hrm-modern-surface rounded-2xl p-5">
-                <div className="flex flex-wrap items-center gap-3 justify-between">
-                    <div className="flex flex-wrap items-center gap-3">
+            <section className="hrm-modern-surface rounded-2xl p-6">
+                <div className="flex flex-wrap items-center gap-4 justify-between">
+                    <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-2 rounded-xl border px-3 py-2.5" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface-strong)' }}>
                             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--hr-text-muted)' }}>
                                 <circle cx="11" cy="11" r="8" />
@@ -726,7 +726,7 @@ function DepartmentsPageApp({ payload }) {
                 </div>
 
                 {listError ? (
-                    <div className="mt-4 rounded-xl border px-3 py-2 text-sm text-red-600" style={{ borderColor: 'rgb(248 113 113 / 0.4)', background: 'rgb(254 242 242 / 0.72)' }}>
+                    <div className="mt-6 rounded-xl border px-3 py-2 text-sm text-red-600" style={{ borderColor: 'rgb(248 113 113 / 0.4)', background: 'rgb(254 242 242 / 0.72)' }}>
                         <div className="flex items-center justify-between gap-2">
                             <span>{listError}</span>
                             <button
@@ -746,17 +746,17 @@ function DepartmentsPageApp({ payload }) {
                     </div>
                 ) : null}
 
-                <div className="mt-4 overflow-x-auto">
+                <div className="mt-6 overflow-x-auto">
                     <table className="w-full min-w-[980px] text-sm">
                         <thead>
                             <tr className="border-b text-left" style={{ borderColor: 'var(--hr-line)', color: 'var(--hr-text-muted)' }}>
-                                <th className="py-2.5 px-2 font-semibold">Name</th>
-                                <th className="py-2.5 px-2 font-semibold">Code</th>
-                                <th className="py-2.5 px-2 font-semibold">Branch</th>
-                                <th className="py-2.5 px-2 font-semibold">Description</th>
-                                <th className="py-2.5 px-2 font-semibold">Status</th>
-                                <th className="py-2.5 px-2 font-semibold">Created Date</th>
-                                <th className="py-2.5 px-2 font-semibold text-right">Actions</th>
+                                <th className="py-4 px-6 font-semibold">Name</th>
+                                <th className="py-4 px-6 font-semibold">Code</th>
+                                <th className="py-4 px-6 font-semibold">Branch</th>
+                                <th className="py-4 px-6 font-semibold">Description</th>
+                                <th className="py-4 px-6 font-semibold">Status</th>
+                                <th className="py-4 px-6 font-semibold">Created Date</th>
+                                <th className="py-4 px-6 font-semibold text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -778,13 +778,13 @@ function DepartmentsPageApp({ payload }) {
 
                             {!loadingList && departments.map((department) => (
                                 <tr key={department.id} className="border-b" style={{ borderColor: 'var(--hr-line)' }}>
-                                    <td className="py-3 px-2 font-semibold">{department.name}</td>
-                                    <td className="py-3 px-2">{department.code || 'N/A'}</td>
-                                    <td className="py-3 px-2">{department.branchName || 'N/A'}</td>
-                                    <td className="py-3 px-2 max-w-[280px] truncate" title={department.description || 'N/A'}>
+                                    <td className="py-4 px-6 font-semibold">{department.name}</td>
+                                    <td className="py-4 px-6">{department.code || 'N/A'}</td>
+                                    <td className="py-4 px-6">{department.branchName || 'N/A'}</td>
+                                    <td className="py-4 px-6 max-w-[280px] truncate" title={department.description || 'N/A'}>
                                         {department.descriptionShort || 'N/A'}
                                     </td>
-                                    <td className="py-3 px-2">
+                                    <td className="py-4 px-6">
                                         <span
                                             className="text-[11px] font-bold uppercase tracking-[0.08em] rounded-full px-2 py-1"
                                             style={statusBadgeStyles(Boolean(department.is_active), isDarkMode)}
@@ -792,8 +792,8 @@ function DepartmentsPageApp({ payload }) {
                                             {department.statusLabel || (department.is_active ? 'Active' : 'Inactive')}
                                         </span>
                                     </td>
-                                    <td className="py-3 px-2">{department.createdDateLabel || 'N/A'}</td>
-                                    <td className="py-3 px-2">
+                                    <td className="py-4 px-6">{department.createdDateLabel || 'N/A'}</td>
+                                    <td className="py-4 px-6">
                                         <div className="flex items-center justify-end gap-2">
                                             <button
                                                 type="button"
@@ -819,7 +819,7 @@ function DepartmentsPageApp({ payload }) {
                     </table>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
                     <p className="text-xs" style={{ color: 'var(--hr-text-muted)' }}>
                         Page {meta.currentPage} of {meta.lastPage}
                     </p>

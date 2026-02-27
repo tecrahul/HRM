@@ -12,6 +12,7 @@ export const AnalyticsBarChart = React.memo(function AnalyticsBarChart({
   palette,
   tooltipTitle,
   onBarClick,
+  valueFormatter = (v) => Number(v ?? 0).toLocaleString(),
   className = '',
 }) {
   const [mounted, setMounted] = useState(false);
@@ -40,7 +41,7 @@ export const AnalyticsBarChart = React.memo(function AnalyticsBarChart({
           <CartesianGrid stroke={CHART_STYLE.gridStroke} vertical={false} />
           <XAxis dataKey="label" stroke={CHART_STYLE.axisStroke} tick={{ fontSize: 11 }} />
           <YAxis stroke={CHART_STYLE.axisStroke} tick={{ fontSize: 11 }} />
-          <Tooltip content={<ChartTooltip title={tooltipTitle} valueFormatter={(v) => Number(v ?? 0).toLocaleString()} />} />
+          <Tooltip content={<ChartTooltip title={tooltipTitle} valueFormatter={valueFormatter} />} />
           <Legend onClick={(e) => toggle(e.dataKey)} />
           {effectiveSeries.map((s, i) => (
             <Bar
@@ -63,4 +64,3 @@ export const AnalyticsBarChart = React.memo(function AnalyticsBarChart({
 });
 
 export default AnalyticsBarChart;
-

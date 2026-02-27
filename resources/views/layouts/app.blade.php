@@ -58,18 +58,18 @@
                 <span class="hrm-nav__icon"><x-heroicon-o-clock class="h-4 w-4 text-gold-400" /></span>
                 <span>Attendance</span>
             </a>
-            <a href="{{ route('modules.attendance.overview') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.overview') ? 'is-active' : '' }}" style="padding-left: 22px;">
+            <a href="{{ route('modules.attendance.overview') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.overview') ? 'is-active' : '' }}" style="padding-left: 24px;">
                 <span class="hrm-nav__dot"></span>
                 <span>Overview</span>
             </a>
             @if ($user?->can('attendance.create') && ! ($isAdmin || $isSuperAdmin))
-                <a href="{{ route('modules.attendance.punch') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.punch') || request()->routeIs('modules.attendance.punch-in') || request()->routeIs('modules.attendance.punch-out') ? 'is-active' : '' }}" style="padding-left: 22px;">
+                <a href="{{ route('modules.attendance.punch') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.punch') || request()->routeIs('modules.attendance.punch-in') || request()->routeIs('modules.attendance.punch-out') ? 'is-active' : '' }}" style="padding-left: 24px;">
                     <span class="hrm-nav__dot"></span>
                     <span>Punch In/Out</span>
                 </a>
             @endif
             @if ($isAdmin || $isSuperAdmin)
-                <a href="{{ route('modules.attendance.overview', ['action' => 'create']) }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.overview') ? 'is-active' : '' }}" style="padding-left: 22px;">
+                <a href="{{ route('modules.attendance.overview', ['action' => 'create']) }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.overview') ? 'is-active' : '' }}" style="padding-left: 24px;">
                     <span class="hrm-nav__dot"></span>
                     <span>Mark Attendance</span>
                 </a>
@@ -103,11 +103,11 @@
                     </span>
                     <span>Reports</span>
                 </a>
-                <a href="{{ route('modules.reports.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.index') ? 'is-active' : '' }}" style="padding-left: 22px;">
+                <a href="{{ route('modules.reports.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.index') ? 'is-active' : '' }}" style="padding-left: 24px;">
                     <span class="hrm-nav__dot"></span>
                     <span>Overview</span>
                 </a>
-                <a href="{{ route('modules.reports.activity') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.activity') ? 'is-active' : '' }}" style="padding-left: 22px;">
+                <a href="{{ route('modules.reports.activity') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.activity') ? 'is-active' : '' }}" style="padding-left: 24px;">
                     <span class="hrm-nav__dot"></span>
                     <span>Activity</span>
                 </a>
@@ -125,8 +125,8 @@
         <header class="hrm-topbar">
             <div class="hrm-topbar__left">
                 <div>
+                    <p class="hrm-topbar__meta">{{ strtoupper(trim($__env->yieldContent('page_breadcrumb', 'Workspace'))) }}</p>
                     <h2 class="hrm-topbar__title">@yield('page_heading', 'Dashboard')</h2>
-                    <p class="hrm-topbar__meta">Enterprise HR workspace</p>
                 </div>
             </div>
 

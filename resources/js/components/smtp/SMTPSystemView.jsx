@@ -23,8 +23,8 @@ export function SMTPSystemView({
     );
 
     return (
-        <section className="hrm-modern-surface rounded-2xl p-5">
-            <div className="flex items-start gap-3">
+        <section className="hrm-modern-surface rounded-2xl p-6">
+            <div className="flex items-start gap-4">
                 <div>
                     <h3 className="text-base md:text-lg font-extrabold">System SMTP Configuration</h3>
                     <p className="text-sm mt-1" style={{ color: 'var(--hr-text-muted)' }}>
@@ -53,7 +53,7 @@ export function SMTPSystemView({
                     </button>
                 </div>
             </div>
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="Mail Driver" value={config.mail_driver} />
                 <Field label="Mail Host" value={config.mail_host} />
                 <Field label="Mail Port" value={String(config.mail_port || '')} />
@@ -63,7 +63,7 @@ export function SMTPSystemView({
                 <Field label="From Name" value={config.from_name} />
                 <Field label="Mail Password" value={config.has_password ? '••••••••' : 'Not set'} />
             </div>
-            <div className="mt-4 flex items-center justify-end">
+            <div className="mt-6 flex items-center justify-end">
                 <button
                     type="button"
                     className="rounded-xl px-4 py-2 text-sm font-semibold text-white"

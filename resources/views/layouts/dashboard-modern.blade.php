@@ -20,6 +20,14 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         :root {
+            /* Spacing scale (8px base) */
+            --sp-xs: 4px;   /* 4 */
+            --sp-sm: 8px;   /* 8 */
+            --sp-md: 16px;  /* 16 */
+            --sp-lg: 24px;  /* 24 */
+            --sp-xl: 32px;  /* 32 */
+            --sp-2xl: 40px; /* 40 */
+            --sp-3xl: 48px; /* 48 */
             --hr-bg-base: #f6f3ff;
             --hr-bg-grad-a: #e8dbff;
             --hr-bg-grad-b: #ffd9eb;
@@ -36,6 +44,11 @@
             /* Slightly darker header/sidebar in light mode for better content contrast */
             --hr-header-bg: linear-gradient(180deg, rgb(2 8 23 / 0.06), rgb(2 8 23 / 0.02)), var(--hr-surface);
             --hr-sidebar-bg: linear-gradient(180deg, rgb(2 8 23 / 0.05), rgb(2 8 23 / 0.02)), var(--hr-surface);
+            /* Sidebar scrollbars */
+            --hr-scrollbar-thumb: rgba(255,255,255,0.18);
+            --hr-scrollbar-thumb-hover: rgba(255,255,255,0.28);
+            /* Subtle edge fades over sidebar content */
+            --hr-scroll-fade-color: rgba(2,8,23,0.08);
         }
 
         html.dark {
@@ -53,6 +66,10 @@
             /* Keep header/sidebar parity in dark mode */
             --hr-header-bg: var(--hr-surface);
             --hr-sidebar-bg: var(--hr-surface);
+            /* Dark-mode scrollbar + fades */
+            --hr-scrollbar-thumb: rgba(255,255,255,0.22);
+            --hr-scrollbar-thumb-hover: rgba(255,255,255,0.34);
+            --hr-scroll-fade-color: rgba(255,255,255,0.08);
         }
 
         body.hrm-modern-body {
@@ -70,13 +87,13 @@
             min-height: 100vh;
             height: 100vh;
             display: grid;
-            grid-template-columns: 270px minmax(0, 1fr);
+            grid-template-columns: 232px minmax(0, 1fr);
             transition: grid-template-columns 220ms ease;
             overflow: hidden;
         }
 
         .hrm-modern-shell.is-collapsed {
-            grid-template-columns: 80px minmax(0, 1fr);
+            grid-template-columns: 72px minmax(0, 1fr);
         }
 
         /* Hide legacy sidebar when React sidebar is mounted */
@@ -84,11 +101,30 @@
             display: none !important;
         }
 
-        /* Thin, hover-visible scrollbar */
-        .hrm-sidebar-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        /* Minimal, hover-reveal sidebar scrollbar (scoped) */
+        .hrm-sidebar-scroll {
+            /* Hide by default (Firefox + WebKit), show on hover */
+            scrollbar-width: none; /* Firefox */
+            scrollbar-color: transparent transparent; /* Firefox */
+        }
+        .hrm-sidebar-scroll:hover {
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: var(--hr-scrollbar-thumb) transparent; /* Firefox */
+        }
+        .hrm-sidebar-scroll::-webkit-scrollbar { width: 0; height: 0; }
+        .hrm-sidebar-scroll:hover::-webkit-scrollbar { width: 4px; height: 4px; }
         .hrm-sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
-        .hrm-sidebar-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 6px; }
-        .hrm-sidebar-scroll:hover::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.45); }
+        .hrm-sidebar-scroll::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 8px;
+        }
+        .hrm-sidebar-scroll:hover::-webkit-scrollbar-thumb {
+            background: var(--hr-scrollbar-thumb);
+            transition: background 160ms ease;
+        }
+        .hrm-sidebar-scroll:hover::-webkit-scrollbar-thumb:hover {
+            background: var(--hr-scrollbar-thumb-hover);
+        }
 
         .hrm-modern-surface {
             background: var(--hr-surface);
@@ -111,7 +147,28 @@
             overflow-y: auto;
             overscroll-behavior: contain;
             scrollbar-gutter: stable;
+            /* Smooth, modern scrolling */
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+            will-change: scroll-position;
+            transform: translateZ(0);
+            position: relative; /* anchor gradient fades */
         }
+
+        /* Optional premium fades to hint more content */
+        .hrm-scroll-fade-top,
+        .hrm-scroll-fade-bottom {
+            pointer-events: none;
+            position: sticky;
+            z-index: 1;
+            height: 16px;
+            opacity: 1;
+            transition: opacity 160ms ease;
+        }
+        .hrm-scroll-fade-top { top: 0; margin-bottom: -16px; background: linear-gradient(to bottom, var(--hr-scroll-fade-color), rgba(0,0,0,0)); }
+        .hrm-scroll-fade-bottom { bottom: 0; margin-top: -16px; background: linear-gradient(to top, var(--hr-scroll-fade-color), rgba(0,0,0,0)); }
+        .hrm-sidebar-scroll.is-at-top .hrm-scroll-fade-top { opacity: 0; }
+        .hrm-sidebar-scroll.is-at-bottom .hrm-scroll-fade-bottom { opacity: 0; }
 
         .hrm-main-pane {
             min-height: 100vh;
@@ -126,10 +183,21 @@
 
         .hrm-modern-nav-link {
             border: 1px solid transparent;
-            transition: all 150ms ease;
-            /* Compact vertical padding overrides Tailwind py-2.5 */
-            padding-top: 0.5rem;
-            padding-bottom: 0.5rem;
+            transition: all 160ms ease; /* smooth 150–200ms */
+            /* Compact enterprise spacing: 10px vertical */
+            padding-top: 0.625rem;
+            padding-bottom: 0.625rem;
+            min-height: 42px; /* do not exceed 46px */
+            font-size: 0.86rem; /* Readable, compact */
+            line-height: 1.25;
+        }
+
+        /* Ensure consistent 18–20px icon sizing */
+        .hrm-modern-nav-link > svg,
+        .hrm-modern-nav-link .hrm-nav-icon svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
         }
 
         .hrm-modern-nav-link:hover {
@@ -146,25 +214,29 @@
         .hrm-modern-nav-link.is-active {
             border-color: var(--hr-accent-border);
             background: var(--hr-accent-soft);
+            box-shadow: inset 3px 0 0 0 var(--hr-accent-border);
         }
 
         /* Compact list gaps */
-        .hrm-modern-nav {
-            gap: 0.25rem; /* equals Tailwind gap-1 */
-        }
+        .hrm-modern-nav { gap: 0.25rem; /* 4px gap between items */ }
 
         /* Compact submenu spacing */
         .hrm-submenu-links {
             gap: 0.125rem; /* equals Tailwind gap-0.5 */
         }
         .hrm-submenu-links .hrm-modern-nav-link {
-            padding-top: 0.375rem; /* ~py-1.5 -> slightly smaller */
-            padding-bottom: 0.375rem;
-            font-size: 0.90rem; /* Increase submenu font size */
+            /* Keep submenu compact with 8px vertical rhythm */
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            min-height: 36px;
+            font-size: 0.82rem; /* Slightly smaller submenu font */
         }
         /* Ensure React-rendered submenu links also use 0.90rem */
         .hrm-modern-sidebar ul[id^="submenu-"] a {
-            font-size: 0.90rem;
+            font-size: 0.82rem;
+            padding-top: 0.5rem !important;  /* 8px */
+            padding-bottom: 0.5rem !important;
+            min-height: 36px;
         }
         /* Hover effect for submenu items rendered by React */
         .hrm-modern-sidebar ul[id^="submenu-"] a:hover {
@@ -203,6 +275,35 @@
         .hrm-modern-shell.is-collapsed .hrm-modern-nav-link {
             justify-content: center;
         }
+
+        /* Sidebar grouping + indentation */
+        .hrm-nav-section-label {
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-weight: 800;
+            color: var(--hr-text-muted);
+            padding: 0 var(--sp-sm, 8px);
+        }
+
+        .hrm-nav-l1 { padding-left: 16px; }
+        .hrm-nav-l2 { padding-left: 32px; }
+        .hrm-nav-l3 { padding-left: 48px; font-size: 0.78rem; }
+
+        .hrm-nav-bullet { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+
+        .hrm-nav-group { display: flex; flex-direction: column; gap: 6px; }
+        /* Section spacing: 16–20px range */
+        .hrm-nav-group + .hrm-nav-group { margin-top: var(--sp-md, 16px); }
+
+        /* Flyout for collapsed mode */
+        .hrm-flyout { display: none; position: absolute; left: 100%; top: 0; min-width: 220px; border-radius: 12px; border: 1px solid var(--hr-line); background: var(--hr-surface-strong); box-shadow: 0 20px 38px -28px rgb(2 8 23 / 0.86); padding: 6px; z-index: var(--z-popover, 1200); }
+        .hrm-flyout a { display: flex; align-items: center; gap: 8px; border-radius: 10px; padding: 8px 10px; font-size: 13px; font-weight: 600; color: var(--hr-text-main); }
+        .hrm-flyout a:hover { background: var(--hr-accent-soft); }
+        .hrm-has-children { position: relative; }
+        .hrm-modern-shell.is-collapsed .hrm-has-children:hover .hrm-flyout { display: block; }
+        .hrm-modern-shell.is-collapsed .hrm-nav-section-label { display: none; }
+        .hrm-modern-shell.is-collapsed .hrm-nav-label, .hrm-modern-shell.is-collapsed .hrm-nav-caret { display: none; }
 
         .hrm-brand-logo-wrap {
             width: 12rem;
@@ -264,8 +365,8 @@
 
         .hrm-header-icon-btn {
             position: relative;
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -303,7 +404,7 @@
 
         .hrm-header-divider {
             width: 1px;
-            height: 34px;
+            height: 28px;
             background: var(--hr-line);
         }
 
@@ -311,7 +412,7 @@
             border: 1px solid var(--hr-line);
             background: var(--hr-surface-strong);
             border-radius: 14px;
-            padding: 6px 8px 6px 12px;
+            padding: 5px 8px 5px 10px; /* tighter without feeling cramped */
         }
 
         .hrm-profile-trigger {
@@ -391,26 +492,26 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 8px;
-            padding: 10px 12px;
+            gap: 10px;
+            padding: 12px 14px;
             border-bottom: 1px solid var(--hr-line);
         }
 
         .hrm-notification-list {
             max-height: 320px;
             overflow-y: auto;
-            padding: 8px;
+            padding: 10px;
             display: grid;
-            gap: 8px;
+            gap: 10px;
         }
 
         .hrm-notification-item {
             border: 1px solid var(--hr-line);
             border-radius: 10px;
-            padding: 9px;
+            padding: 12px;
             background: var(--hr-surface);
             display: grid;
-            gap: 6px;
+            gap: 8px;
         }
 
         .hrm-notification-item.is-unread {
@@ -419,9 +520,10 @@
 
         .hrm-notification-foot {
             border-top: 1px solid var(--hr-line);
-            padding: 8px 12px;
+            padding: 10px 12px;
             display: flex;
             justify-content: flex-end;
+            gap: 8px;
         }
 
         .hrm-avatar-online-dot {
@@ -438,11 +540,12 @@
         .ui-alert {
             border-radius: 12px;
             border: 1px solid var(--hr-line);
-            padding: 10px 12px;
+            padding: var(--sp-md) var(--sp-lg); /* 16 vertical, 24 horizontal */
             font-size: 14px;
             font-weight: 600;
             background: var(--hr-surface-strong);
             color: var(--hr-text-main);
+            margin-bottom: var(--sp-md); /* 16px breathing room */
         }
 
         .ui-alert-success {
@@ -467,7 +570,7 @@
 
         .ui-hero {
             border-radius: 16px;
-            padding: 20px;
+            padding: var(--sp-lg);
             border: 1px solid var(--hr-line);
             background: linear-gradient(132deg, var(--hr-surface-strong), var(--hr-surface));
         }
@@ -577,6 +680,17 @@
             box-shadow: var(--hr-shadow-soft);
             padding: 20px;
         }
+        /* vertical rhythm between major blocks */
+        .ui-section + .ui-section,
+        .ui-kpi-grid + .ui-section,
+        .ui-section + .ui-kpi-grid,
+        .ui-kpi-grid + .ui-kpi-grid {
+            margin-top: var(--sp-lg); /* 24px between major sections */
+        }
+        .ui-alert + .ui-section,
+        .ui-alert + .ui-kpi-grid {
+            margin-top: var(--sp-lg); /* standardize to 24px */
+        }
 
         .ui-section-head {
             display: flex;
@@ -594,7 +708,7 @@
         }
 
         .ui-section-subtitle {
-            margin-top: 4px;
+            margin-top: var(--sp-sm); /* 8px under titles */
             font-size: 13px;
             color: var(--hr-text-muted);
         }
@@ -625,34 +739,62 @@
             color: var(--hr-text-main);
         }
 
+        /* Standard buttons */
         .ui-btn {
-            border-radius: 12px;
+            height: 40px; /* standardized height */
+            padding: 0 14px; /* vertical height handled by fixed height */
+            border-radius: 8px; /* standardized radius */
             border: 1px solid var(--hr-line);
-            padding: 9px 13px;
-            font-size: 13px;
-            line-height: 1.2;
+            font-size: 14px;
+            line-height: 1;
             font-weight: 700;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
-            transition: all 150ms ease;
+            gap: 8px;
+            transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
         }
+        /* spacing between adjacent buttons */
+        .ui-btn + .ui-btn { margin-left: 8px; }
 
-        .ui-btn:hover {
-            transform: translateY(-1px);
-        }
+        .ui-btn:hover { transform: translateY(-1px); }
 
+        /* Primary uses selected brand accent */
         .ui-btn-primary {
             color: #fff;
-            border-color: transparent;
-            background: linear-gradient(120deg, #7c3aed, #ec4899);
-            box-shadow: 0 18px 28px -22px rgb(124 58 237 / 0.85);
+            border-color: var(--hr-accent-border);
+            background: var(--hr-accent);
+            box-shadow: 0 18px 28px -22px color-mix(in oklab, var(--hr-accent), #000 24%);
+        }
+        .ui-btn-primary:hover {
+            filter: brightness(0.96);
+            box-shadow: 0 20px 30px -20px color-mix(in oklab, var(--hr-accent), #000 28%);
         }
 
-        .ui-btn-ghost {
+        /* Secondary: outline style */
+        .ui-btn-ghost,
+        .ui-btn-secondary {
             color: var(--hr-text-main);
             background: transparent;
+            border-color: var(--hr-line);
+        }
+        .ui-btn-ghost:hover,
+        .ui-btn-secondary:hover {
+            border-color: var(--hr-accent-border);
+            background: var(--hr-accent-soft);
+        }
+
+        /* Danger: consistent red */
+        .ui-btn-danger {
+            color: #fff;
+            background: #ef4444;
+            border-color: #ef4444;
+            box-shadow: 0 18px 28px -22px rgba(239, 68, 68, 0.8);
+        }
+        .ui-btn-danger:hover {
+            background: #dc2626;
+            border-color: #dc2626;
+            box-shadow: 0 20px 30px -20px rgba(239, 68, 68, 0.85);
         }
 
         .ui-tile-link {
@@ -672,7 +814,7 @@
         }
 
         .ui-table-wrap {
-            margin-top: 14px;
+            margin-top: var(--sp-lg); /* 24px above tables */
             overflow-x: auto;
             border: 1px solid var(--hr-line);
             border-radius: 14px;
@@ -688,7 +830,7 @@
 
         .ui-table th,
         .ui-table td {
-            padding: 11px 10px;
+            padding: var(--sp-md) var(--sp-lg); /* 16px vertical, 24px horizontal */
             border-bottom: 1px solid var(--hr-line);
             text-align: left;
             vertical-align: top;
@@ -776,7 +918,7 @@
             .hrm-modern-sidebar {
                 position: fixed;
                 inset: 0 auto 0 0;
-                width: 270px;
+                width: 232px;
                 z-index: var(--z-sidebar, 900);
                 transform: translateX(-108%);
                 transition: transform 220ms ease;
@@ -792,9 +934,10 @@
 <body class="h-full hrm-modern-body">
 @php
     $user = auth()->user();
-    $user?->loadMissing('profile');
+    $user?->loadMissing('profile', 'designation');
     $role = $user?->role;
     $roleLabel = $role instanceof \App\Enums\UserRole ? $role->label() : ucfirst((string) $role);
+    $designationLabel = (string) ($user?->designation?->name ?? '—');
     $resolvedAvatar = $user?->profile?->avatar_url ?? null;
     if (blank($resolvedAvatar)) {
         $resolvedAvatar = asset('images/user-avatar.svg');
@@ -840,94 +983,154 @@
     }
 @endphp
 <div id="hrmModernShell" class="hrm-modern-shell">
-    <aside id="hrmModernSidebar" class="hrm-modern-sidebar hrm-modern-surface px-4 py-5 flex flex-col gap-6">
+    <aside id="hrmModernSidebar" class="hrm-modern-sidebar hrm-modern-surface px-4 py-5 flex flex-col gap-4">
         @php
             $canSeePayroll = $user?->hasAnyRole([\App\Enums\UserRole::SUPER_ADMIN->value, \App\Enums\UserRole::ADMIN->value, \App\Enums\UserRole::HR->value, \App\Enums\UserRole::FINANCE->value]) ?? false;
             $sidebarItems = [];
+
+            // Always show Dashboard (Level 1)
             $sidebarItems[] = [ 'key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'url' => route($dashboardRoute), 'active' => request()->routeIs($dashboardRoute) ];
+
+            // Workforce (Level 2)
+            $workforceItems = [];
+            $workforceItems[] = [
+                'key' => 'employees',
+                'label' => $isEmployee ? 'Profile' : 'Employees',
+                'icon' => 'employees',
+                'url' => route('modules.employees.index'),
+                'active' => request()->routeIs('modules.employees.*'),
+            ];
             if ($canManageUsers) {
-                $usersChildren = [
-                    [ 'key' => 'users-all', 'label' => 'All Users', 'url' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.index') ],
-                    [ 'key' => 'users-invite', 'label' => 'Invite User', 'url' => route('admin.users.create'), 'active' => request()->routeIs('admin.users.create') ],
-                ];
-                $sidebarItems[] = [ 'key' => 'users', 'label' => 'Users', 'icon' => 'users', 'url' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*'), 'children' => $usersChildren ];
-
-                $departmentsChildren = [
-                    [ 'key' => 'departments-all', 'label' => 'All Departments', 'url' => route('modules.departments.index'), 'active' => request()->routeIs('modules.departments.index') ],
-                ];
-                $sidebarItems[] = [ 'key' => 'departments', 'label' => 'Departments', 'icon' => 'departments', 'url' => route('modules.departments.index'), 'active' => request()->routeIs('modules.departments.*'), 'children' => $departmentsChildren ];
-
-                if ($isAdmin) {
-                    $branchesChildren = [
-                        [ 'key' => 'branches-all', 'label' => 'All Branches', 'url' => route('modules.branches.index'), 'active' => request()->routeIs('modules.branches.index') ],
-                    ];
-                    $sidebarItems[] = [ 'key' => 'branches', 'label' => 'Branches', 'icon' => 'branches', 'url' => route('modules.branches.index'), 'active' => request()->routeIs('modules.branches.*'), 'children' => $branchesChildren ];
-                }
+                $workforceItems[] = [ 'key' => 'users', 'label' => 'Users', 'icon' => 'users', 'url' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*') ];
+                $workforceItems[] = [ 'key' => 'designations', 'label' => 'Designations', 'icon' => 'departments', 'url' => route('modules.designations.index'), 'active' => request()->routeIs('modules.designations.*') ];
             }
-            $holidaysChildren = [
-                [ 'key' => 'holidays-calendar', 'label' => 'Calendar', 'url' => route('modules.holidays.index'), 'active' => request()->routeIs('modules.holidays.index') ],
-            ];
-            $sidebarItems[] = [ 'key' => 'holidays', 'label' => 'Holidays', 'icon' => 'calendar', 'url' => route('modules.holidays.index'), 'active' => request()->routeIs('modules.holidays.*'), 'children' => $holidaysChildren ];
+            foreach ($workforceItems as $it) { $it['section'] = 'Workforce'; $sidebarItems[] = $it; }
 
-            $employeesChildren = [
-                [ 'key' => 'employees-directory', 'label' => $isEmployee ? 'My Profile' : 'Directory', 'url' => route('modules.employees.index'), 'active' => request()->routeIs('modules.employees.index') ],
-            ];
-            $sidebarItems[] = [ 'key' => 'employees', 'label' => $isEmployee ? 'Profile' : 'Employees', 'icon' => 'employees', 'url' => route('modules.employees.index'), 'active' => request()->routeIs('modules.employees.*'), 'children' => $employeesChildren ];
-            // Attendance submenu items
+            // Organization (Level 2)
+            $organizationItems = [];
+            if ($isAdmin || $isSuperAdmin) {
+                $organizationItems[] = [ 'key' => 'branches', 'label' => 'Branches', 'icon' => 'branches', 'url' => route('modules.branches.index'), 'active' => request()->routeIs('modules.branches.*') ];
+            }
+            if ($canManageUsers) {
+                $organizationItems[] = [ 'key' => 'departments', 'label' => 'Departments', 'icon' => 'departments', 'url' => route('modules.departments.index'), 'active' => request()->routeIs('modules.departments.*') ];
+            }
+            if ($user?->can('holiday.view')) {
+                $organizationItems[] = [ 'key' => 'holidays', 'label' => 'Holidays', 'icon' => 'calendar', 'url' => route('modules.holidays.index'), 'active' => request()->routeIs('modules.holidays.*') ];
+            }
+            foreach ($organizationItems as $it) { $it['section'] = 'Organization'; $sidebarItems[] = $it; }
+
+            // Operations (Level 2 + Level 3 where needed)
+            $operationsItems = [];
             $attendanceChildren = [
                 [ 'key' => 'attendance-overview', 'label' => 'Overview', 'url' => route('modules.attendance.overview'), 'active' => request()->routeIs('modules.attendance.overview') && strtolower((string) request()->query('action', '')) === '' ],
             ];
-            if (($user?->can('attendance.create') ?? false) && ! ($isAdmin || $isSuperAdmin)) {
-                $attendanceChildren[] = [ 'key' => 'attendance-punch', 'label' => 'Punch In/Out', 'url' => route('modules.attendance.punch'), 'active' => request()->routeIs('modules.attendance.punch') || request()->routeIs('modules.attendance.punch-in') || request()->routeIs('modules.attendance.punch-out') ];
-            }
             if ($isAdmin || $isSuperAdmin) {
                 $attendanceChildren[] = [ 'key' => 'attendance-mark', 'label' => 'Mark Attendance', 'url' => route('modules.attendance.overview', ['action' => 'create']), 'active' => request()->routeIs('modules.attendance.overview') && strtolower((string) request()->query('action', '')) === 'create' ];
             }
-            $sidebarItems[] = [ 'key' => 'attendance', 'label' => 'Attendance', 'icon' => 'attendance', 'url' => route('modules.attendance.overview'), 'active' => request()->routeIs('modules.attendance.*'), 'children' => $attendanceChildren ];
-            $leaveChildren = [
-                [ 'key' => 'leave-overview', 'label' => $isEmployee ? 'My Requests' : 'Overview', 'url' => route('modules.leave.index'), 'active' => request()->routeIs('modules.leave.index') ],
-            ];
-            $sidebarItems[] = [ 'key' => 'leave', 'label' => 'Leave', 'icon' => 'leave', 'url' => route('modules.leave.index'), 'active' => request()->routeIs('modules.leave.*'), 'children' => $leaveChildren ];
+            $operationsItems[] = [ 'key' => 'attendance', 'label' => 'Attendance', 'icon' => 'attendance', 'url' => route('modules.attendance.overview'), 'active' => request()->routeIs('modules.attendance.*'), 'children' => $attendanceChildren ];
+
+            $operationsItems[] = [ 'key' => 'leave', 'label' => 'Leave', 'icon' => 'leave', 'url' => route('modules.leave.index'), 'active' => request()->routeIs('modules.leave.*') ];
+
             if ($canSeePayroll) {
                 $payrollChildren = [
                     [ 'key' => 'salary-structures', 'label' => 'Salary Structures', 'url' => route('modules.payroll.salary-structures'), 'active' => request()->routeIs('modules.payroll.salary-structures') ],
                     [ 'key' => 'processing', 'label' => 'Payroll Processing', 'url' => route('modules.payroll.processing'), 'active' => request()->routeIs('modules.payroll.processing') ],
                     [ 'key' => 'history', 'label' => 'Payroll History', 'url' => route('modules.payroll.history'), 'active' => request()->routeIs('modules.payroll.history') ],
                     [ 'key' => 'payslips', 'label' => 'Payslips', 'url' => route('modules.payroll.payslips'), 'active' => request()->routeIs('modules.payroll.payslips') ],
-                    [ 'key' => 'payroll-reports', 'label' => 'Reports', 'url' => route('modules.payroll.reports'), 'active' => request()->routeIs('modules.payroll.reports') ],
-                    [ 'key' => 'payroll-settings', 'label' => 'Settings', 'url' => route('modules.payroll.settings'), 'active' => request()->routeIs('modules.payroll.settings') ],
                 ];
-                $sidebarItems[] = [ 'key' => 'payroll', 'label' => 'Payroll', 'icon' => 'payroll', 'url' => route('modules.payroll.index'), 'active' => str_starts_with((string) request()->route()?->getName(), 'modules.payroll.'), 'children' => $payrollChildren ];
+                $operationsItems[] = [ 'key' => 'payroll', 'label' => 'Payroll', 'icon' => 'payroll', 'url' => route('modules.payroll.index'), 'active' => str_starts_with((string) request()->route()?->getName(), 'modules.payroll.'), 'children' => $payrollChildren ];
             }
-            $activeCommTab = strtolower((string) request()->query('tab', 'inbox'));
-            $communicationChildren = [
-                [ 'key' => 'communication-inbox', 'label' => 'Inbox', 'url' => route('modules.communication.index', ['tab' => 'inbox']), 'active' => request()->routeIs('modules.communication.index') && ($activeCommTab === '' || $activeCommTab === 'inbox') ],
-                [ 'key' => 'communication-outbox', 'label' => 'Outbox', 'url' => route('modules.communication.index', ['tab' => 'outbox']), 'active' => request()->routeIs('modules.communication.index') && $activeCommTab === 'outbox' ],
-                [ 'key' => 'communication-drafts', 'label' => 'Drafts', 'url' => route('modules.communication.index', ['tab' => 'drafts']), 'active' => request()->routeIs('modules.communication.index') && $activeCommTab === 'drafts' ],
-                [ 'key' => 'communication-bin', 'label' => 'Bin', 'url' => route('modules.communication.index', ['tab' => 'bin']), 'active' => request()->routeIs('modules.communication.index') && $activeCommTab === 'bin' ],
-            ];
-            $sidebarItems[] = [ 'key' => 'communication', 'label' => 'Communication', 'icon' => 'communication', 'url' => route('modules.communication.index'), 'active' => request()->routeIs('modules.communication.*'), 'badge' => $unreadCommunicationCount, 'children' => $communicationChildren ];
+            foreach ($operationsItems as $it) { $it['section'] = 'Operations'; $sidebarItems[] = $it; }
 
-            $notificationsChildren = [
-                [ 'key' => 'notifications-all', 'label' => 'All', 'url' => route('notifications.index', ['status' => 'all']), 'active' => request()->routeIs('notifications.index') && strtolower((string) request()->query('status', 'all')) === 'all' ],
-                [ 'key' => 'notifications-unread', 'label' => 'Unread', 'url' => route('notifications.index', ['status' => 'unread']), 'active' => request()->routeIs('notifications.index') && strtolower((string) request()->query('status', 'all')) === 'unread' ],
-                [ 'key' => 'notifications-read', 'label' => 'Read', 'url' => route('notifications.index', ['status' => 'read']), 'active' => request()->routeIs('notifications.index') && strtolower((string) request()->query('status', 'all')) === 'read' ],
-            ];
-            $sidebarItems[] = [ 'key' => 'notifications', 'label' => 'Notifications', 'icon' => 'notifications', 'url' => route('notifications.index'), 'active' => request()->routeIs('notifications.*'), 'badge' => $unreadNotificationsCount, 'children' => $notificationsChildren ];
+            // Communication (Level 2, no third level)
+            $sidebarItems[] = [ 'key' => 'inbox', 'label' => 'Inbox', 'icon' => 'communication', 'url' => route('modules.communication.index', ['tab' => 'inbox']), 'active' => request()->routeIs('modules.communication.*'), 'badge' => $unreadCommunicationCount, 'section' => 'Communication' ];
+            $sidebarItems[] = [ 'key' => 'notifications', 'label' => 'Notifications', 'icon' => 'notifications', 'url' => route('notifications.index'), 'active' => request()->routeIs('notifications.*'), 'badge' => $unreadNotificationsCount, 'section' => 'Communication' ];
+
+            // Reports (Level 2 + Level 3)
             $reportsChildren = [
                 [ 'key' => 'reports-overview', 'label' => 'Overview', 'url' => route('modules.reports.index'), 'active' => request()->routeIs('modules.reports.index') ],
-                [ 'key' => 'reports-activity', 'label' => 'Activity', 'url' => route('modules.reports.activity'), 'active' => request()->routeIs('modules.reports.activity') ],
+                [ 'key' => 'reports-attendance', 'label' => 'Attendance Reports', 'url' => route('modules.reports.index', ['section' => 'attendance']), 'active' => request()->routeIs('modules.reports.index') && strtolower((string) request()->query('section', '')) === 'attendance' ],
+                [ 'key' => 'reports-leave', 'label' => 'Leave Reports', 'url' => route('modules.reports.index', ['section' => 'leave']), 'active' => request()->routeIs('modules.reports.index') && strtolower((string) request()->query('section', '')) === 'leave' ],
+                [ 'key' => 'reports-payroll', 'label' => 'Payroll Reports', 'url' => route('modules.reports.index', ['section' => 'payroll']), 'active' => request()->routeIs('modules.reports.index') && strtolower((string) request()->query('section', '')) === 'payroll' ],
+                [ 'key' => 'reports-activity', 'label' => 'Activity Logs', 'url' => route('modules.reports.activity'), 'active' => request()->routeIs('modules.reports.activity') ],
             ];
-            $sidebarItems[] = [ 'key' => 'reports', 'label' => 'Reports', 'icon' => 'reports', 'url' => route('modules.reports.index'), 'active' => request()->routeIs('modules.reports.*'), 'children' => $reportsChildren ];
+            $sidebarItems[] = [ 'key' => 'reports', 'label' => 'Reports', 'icon' => 'reports', 'url' => route('modules.reports.index'), 'active' => request()->routeIs('modules.reports.*'), 'children' => $reportsChildren, 'section' => 'Reports' ];
+
+            // Settings (Section with direct children; max 2 levels)
             if ($canManageUsers) {
-                $settingsChildren = [
-                    [ 'key' => 'settings-overview', 'label' => 'Overview', 'url' => route('settings.index'), 'active' => request()->routeIs('settings.index') && strtolower((string) request()->query('section', '')) === '' ],
-                    [ 'key' => 'settings-system', 'label' => 'System Setting', 'url' => route('settings.index', ['section' => 'system']), 'active' => request()->routeIs('settings.index') && strtolower((string) request()->query('section', '')) === 'system' ],
-                    [ 'key' => 'settings-company', 'label' => 'Company Setting', 'url' => route('settings.index', ['section' => 'company']), 'active' => request()->routeIs('settings.index') && strtolower((string) request()->query('section', '')) === 'company' ],
-                    [ 'key' => 'settings-smtp', 'label' => 'SMTP Settings', 'url' => route('settings.smtp.index'), 'active' => request()->routeIs('settings.smtp.*') ],
+                // Direct children under SETTINGS
+                $settingsItems = [];
+
+                $settingsItems[] = [
+                    'key' => 'settings-overview',
+                    'label' => 'Overview',
+                    'icon' => 'settings',
+                    'url' => route('settings.index'),
+                    'active' => request()->routeIs('settings.index') && strtolower((string) request()->query('section', '')) === '',
                 ];
-                $sidebarItems[] = [ 'key' => 'settings', 'label' => 'Settings', 'icon' => 'settings', 'url' => route('settings.index'), 'active' => request()->routeIs('settings.*'), 'children' => $settingsChildren, 'section' => 'Administration' ];
+
+                $settingsItems[] = [
+                    'key' => 'settings-organization',
+                    'label' => 'Organization',
+                    'icon' => 'settings',
+                    'url' => route('settings.index', ['section' => 'company']),
+                    'active' => request()->routeIs('settings.index') && strtolower((string) request()->query('section', '')) === 'company',
+                ];
+
+                // Appearance group with Themes (and Typography if available)
+                $appearanceChildren = [
+                    [
+                        'key' => 'appearance-themes',
+                        'label' => 'Themes',
+                        'url' => route('settings.themes'),
+                        'active' => request()->routeIs('settings.themes'),
+                    ],
+                ];
+                // Typography page is optional; include only if route exists
+                if (\Illuminate\Support\Facades\Route::has('settings.typography')) {
+                    $appearanceChildren[] = [
+                        'key' => 'appearance-typography',
+                        'label' => 'Typography',
+                        'url' => route('settings.typography'),
+                        'active' => request()->routeIs('settings.typography'),
+                    ];
+                }
+                $settingsItems[] = [
+                    'key' => 'settings-appearance',
+                    'label' => 'Appearance',
+                    'icon' => 'settings',
+                    'url' => route('settings.themes'),
+                    'active' => request()->routeIs('settings.themes') || collect($appearanceChildren)->contains(fn ($c) => (bool) ($c['active'] ?? false)),
+                    'children' => $appearanceChildren,
+                ];
+
+                $settingsItems[] = [
+                    'key' => 'settings-access',
+                    'label' => 'Access & Security',
+                    'icon' => 'settings',
+                    'url' => route('settings.index', ['section' => 'system']) . '#security',
+                    'active' => request()->routeIs('settings.index') && strtolower((string) request()->query('section', '')) === 'system',
+                ];
+
+                $settingsItems[] = [
+                    'key' => 'settings-system',
+                    'label' => 'System Configuration',
+                    'icon' => 'settings',
+                    'url' => route('settings.index', ['section' => 'system']),
+                    'active' => request()->routeIs('settings.index') && strtolower((string) request()->query('section', '')) === 'system',
+                ];
+
+                $settingsItems[] = [
+                    'key' => 'settings-roles',
+                    'label' => 'Roles & Permissions',
+                    'icon' => 'settings',
+                    'url' => route('admin.users.index'),
+                    'active' => request()->routeIs('admin.users.*'),
+                ];
+
+                foreach ($settingsItems as $it) { $it['section'] = 'Settings'; $sidebarItems[] = $it; }
             }
+
             $sidebarPayload = [
                 'brand' => [ 'name' => $brandCompanyName, 'logo' => $brandLogoUrl, 'tagline' => (string) ($companyProfile['brand_tagline'] ?? '') ],
                 'items' => array_map(function ($item) { $item['badge'] = (int) ($item['badge'] ?? 0); return $item; }, $sidebarItems),
@@ -962,7 +1165,224 @@
         </div>
 
         <div class="hrm-sidebar-scroll flex flex-col">
-        <nav class="hrm-modern-nav flex flex-col gap-1.5 text-sm font-semibold">
+            <div class="hrm-scroll-fade-top" aria-hidden="true"></div>
+            <!-- New Enterprise Sidebar Navigation -->
+            <nav class="hrm-modern-nav flex flex-col gap-4 text-sm font-semibold">
+                <!-- Primary -->
+                <div class="hrm-nav-group">
+                    <a href="{{ route($dashboardRoute) }}" class="hrm-modern-nav-link hrm-nav-l1 {{ request()->routeIs($dashboardRoute) ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 3l9 7.5"></path><path d="M5 9.9V21h14V9.9"></path></svg>
+                        <span class="hrm-nav-label">Dashboard</span>
+                    </a>
+                </div>
+
+                <!-- Workforce -->
+                <div class="hrm-nav-group">
+                    <p class="hrm-nav-section-label">Workforce</p>
+                    <a href="{{ route('modules.employees.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('modules.employees.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle></svg>
+                        <span class="hrm-nav-label">{{ $isEmployee ? 'Profile' : 'Employees' }}</span>
+                    </a>
+                    @if ($canManageUsers)
+                    <a href="{{ route('admin.users.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('admin.users.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path></svg>
+                        <span class="hrm-nav-label">Users</span>
+                    </a>
+                    <a href="{{ route('modules.designations.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('modules.designations.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"></path><path d="M6 3h12v18H6z"/></svg>
+                        <span class="hrm-nav-label">Designations</span>
+                    </a>
+                    @endif
+                </div>
+
+                <!-- Organization -->
+                <div class="hrm-nav-group">
+                    <p class="hrm-nav-section-label">Organization</p>
+                    @if ($isAdmin || $isSuperAdmin)
+                    <a href="{{ route('modules.branches.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('modules.branches.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16"></path><path d="M6 20V8l6-4 6 4v12"></path><path d="M10 12h4"></path><path d="M10 16h4"></path></svg>
+                        <span class="hrm-nav-label">Branches</span>
+                    </a>
+                    @endif
+                    @if ($canManageUsers)
+                    <a href="{{ route('modules.departments.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('modules.departments.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path><path d="M9 10h6"></path><path d="M9 14h6"></path></svg>
+                        <span class="hrm-nav-label">Departments</span>
+                    </a>
+                    @endif
+                    @if ($user?->can('holiday.view'))
+                    <a href="{{ route('modules.holidays.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('modules.holidays.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path></svg>
+                        <span class="hrm-nav-label">Holidays</span>
+                    </a>
+                    @endif
+                </div>
+
+                <!-- Operations -->
+                <div class="hrm-nav-group">
+                    <p class="hrm-nav-section-label">Operations</p>
+                    @php
+                        $attendanceOpen = request()->routeIs('modules.attendance.*');
+                        $attendanceAction = strtolower((string) request()->query('action', ''));
+                    @endphp
+                    <div class="hrm-has-children">
+                        <button type="button" class="hrm-modern-nav-link hrm-nav-l2 rounded-xl flex items-center gap-3 hrm-submenu-toggle {{ $attendanceOpen ? 'is-active' : '' }}" aria-expanded="{{ $attendanceOpen ? 'true' : 'false' }}">
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+                            <span class="hrm-nav-label">Attendance</span>
+                            <svg class="h-4 w-4 shrink-0 ml-auto hrm-nav-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+                        </button>
+                        <div class="hrm-submenu-links {{ $attendanceOpen ? '' : 'hidden' }}">
+                            <a href="{{ route('modules.attendance.overview') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.attendance.overview') && $attendanceAction === '' ? 'is-active' : '' }} rounded-lg flex items-center gap-2">
+                                <span class="hrm-nav-bullet" aria-hidden="true"></span>
+                                <span class="hrm-nav-label">Overview</span>
+                            </a>
+                            @if ($isAdmin || $isSuperAdmin)
+                            <a href="{{ route('modules.attendance.overview', ['action' => 'create']) }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.attendance.overview') && $attendanceAction === 'create' ? 'is-active' : '' }} rounded-lg flex items-center gap-2">
+                                <span class="hrm-nav-bullet" aria-hidden="true"></span>
+                                <span class="hrm-nav-label">Mark Attendance</span>
+                            </a>
+                            @endif
+                        </div>
+                        <div class="hrm-flyout">
+                            <a href="{{ route('modules.attendance.overview') }}">Overview</a>
+                            @if ($isAdmin || $isSuperAdmin)
+                            <a href="{{ route('modules.attendance.overview', ['action' => 'create']) }}">Mark Attendance</a>
+                            @endif
+                        </div>
+                    </div>
+
+                    <a href="{{ route('modules.leave.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('modules.leave.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path></svg>
+                        <span class="hrm-nav-label">Leave</span>
+                    </a>
+
+                    @if ($canSeePayroll)
+                    @php
+                        $payrollOpen = request()->routeIs('modules.payroll.salary-structures') || request()->routeIs('modules.payroll.processing') || request()->routeIs('modules.payroll.history') || request()->routeIs('modules.payroll.payslips');
+                    @endphp
+                    <div class="hrm-has-children">
+                        <button type="button" class="hrm-modern-nav-link hrm-nav-l2 rounded-xl flex items-center gap-3 hrm-submenu-toggle {{ $payrollOpen ? 'is-active' : '' }}" aria-expanded="{{ $payrollOpen ? 'true' : 'false' }}">
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>
+                            <span class="hrm-nav-label">Payroll</span>
+                            <svg class="h-4 w-4 shrink-0 ml-auto hrm-nav-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+                        </button>
+                        <div class="hrm-submenu-links {{ $payrollOpen ? '' : 'hidden' }}">
+                            <a href="{{ route('modules.payroll.salary-structures') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.payroll.salary-structures') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Salary Structures</span></a>
+                            <a href="{{ route('modules.payroll.processing') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.payroll.processing') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Payroll Processing</span></a>
+                            <a href="{{ route('modules.payroll.history') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.payroll.history') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Payroll History</span></a>
+                            <a href="{{ route('modules.payroll.payslips') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.payroll.payslips') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Payslips</span></a>
+                        </div>
+                        <div class="hrm-flyout">
+                            <a href="{{ route('modules.payroll.salary-structures') }}">Salary Structures</a>
+                            <a href="{{ route('modules.payroll.processing') }}">Payroll Processing</a>
+                            <a href="{{ route('modules.payroll.history') }}">Payroll History</a>
+                            <a href="{{ route('modules.payroll.payslips') }}">Payslips</a>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                <!-- Communication -->
+                <div class="hrm-nav-group">
+                    <p class="hrm-nav-section-label">Communication</p>
+                    <a href="{{ route('modules.communication.index', ['tab' => 'inbox']) }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('modules.communication.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        <span class="hrm-nav-label">Inbox</span>
+                    </a>
+                    <a href="{{ route('notifications.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('notifications.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                        <span class="hrm-nav-label">Notifications</span>
+                    </a>
+                </div>
+
+                <!-- Reports -->
+                @php $reportsOpen = request()->routeIs('modules.reports.*'); @endphp
+                <div class="hrm-nav-group">
+                    <p class="hrm-nav-section-label">Reports</p>
+                    <div class="hrm-has-children">
+                        <button type="button" class="hrm-modern-nav-link hrm-nav-l2 rounded-xl flex items-center gap-3 hrm-submenu-toggle {{ $reportsOpen ? 'is-active' : '' }}" aria-expanded="{{ $reportsOpen ? 'true' : 'false' }}">
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path></svg>
+                            <span class="hrm-nav-label">Reports</span>
+                            <svg class="h-4 w-4 shrink-0 ml-auto hrm-nav-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+                        </button>
+                        <div class="hrm-submenu-links {{ $reportsOpen ? '' : 'hidden' }}">
+                            <a href="{{ route('modules.reports.index') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.reports.index') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Overview</span></a>
+                            <a href="{{ route('modules.reports.index', ['section' => 'attendance']) }}" class="hrm-modern-nav-link hrm-nav-l3 rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Attendance Reports</span></a>
+                            <a href="{{ route('modules.reports.index', ['section' => 'leave']) }}" class="hrm-modern-nav-link hrm-nav-l3 rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Leave Reports</span></a>
+                            <a href="{{ route('modules.reports.index', ['section' => 'payroll']) }}" class="hrm-modern-nav-link hrm-nav-l3 rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Payroll Reports</span></a>
+                            <a href="{{ route('modules.reports.activity') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.reports.activity') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Activity Logs</span></a>
+                        </div>
+                        <div class="hrm-flyout">
+                            <a href="{{ route('modules.reports.index') }}">Overview</a>
+                            <a href="{{ route('modules.reports.index', ['section' => 'attendance']) }}">Attendance Reports</a>
+                            <a href="{{ route('modules.reports.index', ['section' => 'leave']) }}">Leave Reports</a>
+                            <a href="{{ route('modules.reports.index', ['section' => 'payroll']) }}">Payroll Reports</a>
+                            <a href="{{ route('modules.reports.activity') }}">Activity Logs</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                @if ($isAdmin || $isSuperAdmin)
+                @php $settingsSection = (string) request()->query('section', ''); @endphp
+                <div class="hrm-nav-group">
+                    <p class="hrm-nav-section-label">Settings</p>
+
+                    <!-- Direct children under Settings -->
+                    <a href="{{ route('settings.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('settings.index') && $settingsSection === '' ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"></path></svg>
+                        <span class="hrm-nav-label">Overview</span>
+                    </a>
+                    <a href="{{ route('settings.index', ['section' => 'company']) }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('settings.index') && $settingsSection === 'company' ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"></path></svg>
+                        <span class="hrm-nav-label">Organization</span>
+                    </a>
+
+                    @php $appearanceOpen = request()->routeIs('settings.themes') || request()->routeIs('settings.typography'); @endphp
+                    <div class="hrm-has-children">
+                        <button type="button" class="hrm-modern-nav-link hrm-nav-l2 rounded-xl flex items-center gap-3 hrm-submenu-toggle {{ $appearanceOpen ? 'is-active' : '' }}" aria-expanded="{{ $appearanceOpen ? 'true' : 'false' }}">
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"></path></svg>
+                            <span class="hrm-nav-label">Appearance</span>
+                            <svg class="h-4 w-4 shrink-0 ml-auto hrm-nav-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+                        </button>
+                        <div class="hrm-submenu-links {{ $appearanceOpen ? '' : 'hidden' }}">
+                            <a href="{{ route('settings.themes') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('settings.themes') ? 'is-active' : '' }} rounded-lg flex items-center gap-2">
+                                <span class="hrm-nav-bullet" aria-hidden="true"></span>
+                                <span class="hrm-nav-label">Themes</span>
+                            </a>
+                            @if (\Illuminate\Support\Facades\Route::has('settings.typography'))
+                            <a href="{{ route('settings.typography') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('settings.typography') ? 'is-active' : '' }} rounded-lg flex items-center gap-2">
+                                <span class="hrm-nav-bullet" aria-hidden="true"></span>
+                                <span class="hrm-nav-label">Typography</span>
+                            </a>
+                            @endif
+                        </div>
+                        <div class="hrm-flyout">
+                            <a href="{{ route('settings.themes') }}">Themes</a>
+                            @if (\Illuminate\Support\Facades\Route::has('settings.typography'))
+                                <a href="{{ route('settings.typography') }}">Typography</a>
+                            @endif
+                        </div>
+                    </div>
+
+                    <a href="{{ route('settings.index', ['section' => 'system']) }}#security" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('settings.index') && $settingsSection === 'system' ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"></path></svg>
+                        <span class="hrm-nav-label">Access & Security</span>
+                    </a>
+                    <a href="{{ route('settings.index', ['section' => 'system']) }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('settings.index') && $settingsSection === 'system' ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"></path></svg>
+                        <span class="hrm-nav-label">System Configuration</span>
+                    </a>
+                    <a href="{{ route('admin.users.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('admin.users.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"></path></svg>
+                        <span class="hrm-nav-label">Roles & Permissions</span>
+                    </a>
+                </div>
+                @endif
+            </nav>
+
+            <!-- Legacy navigation (hidden) -->
+            <nav class="hrm-modern-nav flex flex-col gap-1.5 text-sm font-semibold hidden">
             <a href="{{ route($dashboardRoute) }}" class="hrm-modern-nav-link {{ request()->routeIs($dashboardRoute) ? 'is-active' : '' }} rounded-xl px-3 py-2.5 flex items-center gap-3">
                 <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 10.5L12 3l9 7.5"></path><path d="M5 9.9V21h14V9.9"></path>
@@ -1077,9 +1497,7 @@
                         || request()->routeIs('modules.payroll.salary-structures')
                         || request()->routeIs('modules.payroll.processing')
                         || request()->routeIs('modules.payroll.history')
-                        || request()->routeIs('modules.payroll.payslips')
-                        || request()->routeIs('modules.payroll.reports')
-                        || request()->routeIs('modules.payroll.settings');
+                        || request()->routeIs('modules.payroll.payslips');
                 @endphp
                 <div id="hrmPayrollSubmenu" class="hrm-submenu flex flex-col gap-1 {{ $payrollMenuOpen ? 'is-open' : '' }}">
                     <button
@@ -1118,14 +1536,7 @@
                             <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
                             <span class="hrm-nav-label">Payslips</span>
                         </a>
-                        <a href="{{ route('modules.payroll.reports') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.reports') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
-                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
-                            <span class="hrm-nav-label">Reports</span>
-                        </a>
-                        <a href="{{ route('modules.payroll.settings') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.settings') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
-                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
-                            <span class="hrm-nav-label">Settings</span>
-                        </a>
+                        
                     </div>
                 </div>
             @endif
@@ -1203,17 +1614,21 @@
                             <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
                             <span class="hrm-nav-label">Overview</span>
                         </a>
-                        <a href="{{ route('settings.index', ['section' => 'system']) }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.index') && $settingsSection === 'system' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
-                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
-                            <span class="hrm-nav-label">System Setting</span>
-                        </a>
                         <a href="{{ route('settings.index', ['section' => 'company']) }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.index') && $settingsSection === 'company' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
                             <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
-                            <span class="hrm-nav-label">Company Setting</span>
+                            <span class="hrm-nav-label">Organization</span>
                         </a>
-                        <a href="{{ route('settings.smtp.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.smtp.*') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                        <a href="{{ route('settings.index', ['section' => 'system']) }}#security" class="hrm-modern-nav-link {{ request()->routeIs('settings.index') && $settingsSection === 'system' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
                             <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
-                            <span class="hrm-nav-label">SMTP Settings</span>
+                            <span class="hrm-nav-label">Access & Security</span>
+                        </a>
+                        <a href="{{ route('settings.index', ['section' => 'system']) }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.index') && $settingsSection === 'system' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">System Configuration</span>
+                        </a>
+                        <a href="{{ route('admin.users.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('admin.users.*') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                            <span class="hrm-nav-label">Roles & Permissions</span>
                         </a>
                     </div>
                 </div>
@@ -1224,18 +1639,19 @@
             <p class="font-bold text-[11px] uppercase tracking-[0.14em]">HR Pulse</p>
             <p class="mt-1 leading-relaxed">Live records are synced across users, attendance, leave, and payroll modules.</p>
         </div>
+        <div class="hrm-scroll-fade-bottom" aria-hidden="true"></div>
         </div>
     </aside>
 
     <div class="hrm-main-pane min-w-0 flex flex-col">
-        <header class="sticky top-0 z-40 border-b backdrop-blur px-4 py-3 md:px-6" style="background: var(--hr-header-bg); border-color: var(--hr-line); z-index: var(--z-header, 1000);">
-            <div class="flex items-center gap-3">
-                <button id="hrmSidebarMobileToggle" type="button" class="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border" style="border-color: var(--hr-line);">
+        <header class="sticky top-0 z-40 border-b backdrop-blur px-6 py-1.5" style="background: var(--hr-header-bg); border-color: var(--hr-line); z-index: var(--z-header, 1000); min-height: 64px; box-shadow: 0 6px 16px -14px rgb(2 8 23 / 0.28);">
+            <div class="flex items-center gap-4">
+                <button id="hrmSidebarMobileToggle" type="button" class="lg:hidden inline-flex h-9 w-9 items-center justify-center rounded-xl border" style="border-color: var(--hr-line);">
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path>
                     </svg>
                 </button>
-                <button id="hrmSidebarCollapse" type="button" class="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-xl border" style="border-color: var(--hr-line);" aria-label="Toggle sidebar">
+                <button id="hrmSidebarCollapse" type="button" class="hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-xl border" style="border-color: var(--hr-line);" aria-label="Toggle sidebar">
                     <svg id="hrmSidebarCollapseIcon" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M15 6l-6 6 6 6"></path>
                     </svg>
@@ -1245,12 +1661,12 @@
                 </button>
 
                 <div>
-                    <p class="text-[11px] uppercase tracking-[0.18em] font-bold" style="color: var(--hr-text-muted);">{{ $roleLabel }} Dashboard</p>
-                    <h2 class="text-lg md:text-xl font-extrabold tracking-tight">@yield('page_heading', 'Dashboard')</h2>
+                    <p class="text-[11px] uppercase tracking-[0.12em] font-medium" style="color: var(--hr-text-muted);">{{ $roleLabel }} Dashboard</p>
+                    <h2 class="text-lg md:text-xl font-semibold tracking-tight leading-tight mt-1.5">@yield('page_heading', 'Dashboard')</h2>
                 </div>
 
-                <div class="ml-auto flex items-center gap-2 md:gap-3">
-                    <div class="flex items-center gap-2">
+                <div class="ml-auto flex items-center gap-4">
+                    <div class="flex items-center gap-4">
                         <div id="hrmCommunicationMenu" class="hrm-notification-menu">
                             <button id="hrmCommunicationButton" type="button" class="hrm-header-icon-btn" aria-label="Communication" aria-haspopup="true" aria-expanded="false">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1358,7 +1774,13 @@
                             </div>
                         </div>
                         <button id="hrmThemeToggle" type="button" class="hrm-header-icon-btn" aria-label="Toggle theme">
-                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <!-- Sun icon (shown in light mode) -->
+                            <svg class="icon-sun h-4 w-4 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <circle cx="12" cy="12" r="4"></circle>
+                                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                            </svg>
+                            <!-- Moon icon (shown in dark mode) -->
+                            <svg class="icon-moon h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                 <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path>
                             </svg>
                             <span id="hrmThemeLabel" class="sr-only">Dark</span>
@@ -1370,16 +1792,16 @@
                     <div id="hrmProfileMenu" class="hrm-profile-menu">
                         <button id="hrmProfileMenuButton" type="button" class="hrm-profile-chip hrm-profile-trigger" aria-haspopup="true" aria-expanded="false">
                             <div class="hidden sm:block text-right">
-                                <p class="text-sm font-extrabold leading-tight">{{ $user?->name ?? 'User' }}</p>
+                                <p class="text-sm font-extrabold leading-tight">{{ $user?->full_name ?? 'User' }}</p>
                                 <p class="text-xs inline-flex items-center gap-1.5 mt-0.5" style="color: var(--hr-text-muted);">
-                                    <span>{{ $roleLabel }}</span>
+                                    <span>{{ $designationLabel }}</span>
                                     <svg class="h-3.5 w-3.5 hrm-profile-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="m6 9 6 6 6-6"></path>
                                     </svg>
                                 </p>
                             </div>
                             <div class="relative">
-                                <img src="{{ $resolvedAvatar }}" alt="User avatar" class="h-11 w-11 rounded-full object-cover border" style="border-color: var(--hr-line);">
+                                <img src="{{ $resolvedAvatar }}" alt="User avatar" class="h-10 w-10 rounded-full object-cover border" style="border-color: var(--hr-line);">
                                 <span class="hrm-avatar-online-dot"></span>
                             </div>
                         </button>
@@ -1409,7 +1831,7 @@
             </div>
         </header>
 
-        <main class="hrm-main-content p-4 md:p-6 lg:p-4 space-y-6">
+        <main class="hrm-main-content p-6 space-y-6">
             @yield('content')
         </main>
     </div>
@@ -1419,10 +1841,13 @@
     (() => {
         const shell = document.getElementById("hrmModernShell");
         const sidebar = document.getElementById("hrmModernSidebar");
+        const sidebarScroll = sidebar ? sidebar.querySelector('.hrm-sidebar-scroll') : null;
         const sidebarCollapse = document.getElementById("hrmSidebarCollapse");
         const mobileToggle = document.getElementById("hrmSidebarMobileToggle");
         const themeToggle = document.getElementById("hrmThemeToggle");
         const themeLabel = document.getElementById("hrmThemeLabel");
+        const themeIconSun = themeToggle ? themeToggle.querySelector('.icon-sun') : null;
+        const themeIconMoon = themeToggle ? themeToggle.querySelector('.icon-moon') : null;
         const profileMenu = document.getElementById("hrmProfileMenu");
         const profileMenuButton = document.getElementById("hrmProfileMenuButton");
         const profileDropdown = document.getElementById("hrmProfileDropdown");
@@ -1447,6 +1872,14 @@
         const settingsToggle = document.getElementById("hrmSettingsToggle");
         const settingsLinks = document.getElementById("hrmSettingsLinks");
 
+        const updateSidebarFades = () => {
+            if (!sidebarScroll) return;
+            const atTop = sidebarScroll.scrollTop <= 1;
+            const atBottom = (sidebarScroll.scrollHeight - (sidebarScroll.scrollTop + sidebarScroll.clientHeight)) <= 1;
+            sidebarScroll.classList.toggle('is-at-top', atTop);
+            sidebarScroll.classList.toggle('is-at-bottom', atBottom);
+        };
+
         const getInitialTheme = () => {
             const storedTheme = localStorage.getItem("hrm-modern-theme");
             if (storedTheme === "light" || storedTheme === "dark") {
@@ -1461,6 +1894,13 @@
             localStorage.setItem("hrm-modern-theme", theme);
             if (themeLabel) {
                 themeLabel.textContent = theme === "dark" ? "Light" : "Dark";
+            }
+            if (themeIconSun && themeIconMoon) {
+                // Show icon for the opposite (next) theme
+                const isDark = theme === 'dark';
+                // In dark mode, show sun (to switch to light). In light mode, show moon (to switch to dark).
+                themeIconSun.classList.toggle('hidden', !isDark);
+                themeIconMoon.classList.toggle('hidden', isDark);
             }
         };
 
@@ -1570,6 +2010,23 @@
             });
         };
 
+        const initEnterpriseSidebarSubmenus = () => {
+            const sidebar = document.getElementById('hrmModernSidebar');
+            if (!sidebar) return;
+            sidebar.querySelectorAll('.hrm-submenu-toggle').forEach((btn) => {
+                if (btn.dataset.bound === 'true') return;
+                btn.dataset.bound = 'true';
+                btn.addEventListener('click', () => {
+                    const container = btn.parentElement;
+                    const links = container ? container.querySelector('.hrm-submenu-links') : null;
+                    if (!links) return;
+                    const hidden = links.classList.contains('hidden');
+                    links.classList.toggle('hidden', !hidden);
+                    btn.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+                });
+            });
+        };
+
         const syncSidebarToggleState = () => {
             if (!shell || !sidebarCollapse || !sidebarCollapseIcon || !sidebarExpandIcon) {
                 return;
@@ -1597,6 +2054,11 @@
                 setCommunicationMenuOpen(false);
                 setProfileMenuOpen(!isOpen);
             });
+        }
+
+        if (sidebarScroll) {
+            sidebarScroll.addEventListener('scroll', updateSidebarFades);
+            window.addEventListener('resize', updateSidebarFades);
         }
 
         if (communicationButton) {
@@ -1732,6 +2194,8 @@
         syncSidebarToggleState();
         applyTheme(getInitialTheme());
         initPasswordToggles();
+        initEnterpriseSidebarSubmenus();
+        updateSidebarFades();
     })();
 </script>
 @stack('scripts')

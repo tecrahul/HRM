@@ -79,14 +79,14 @@ export function SMTPCustomForm({
     );
 
     return (
-        <section className="hrm-modern-surface rounded-2xl p-5">
-            <div className="flex items-start gap-3">
+        <section className="hrm-modern-surface rounded-2xl p-6">
+            <div className="flex items-start gap-4">
                 <div className="min-w-0">
                     <h3 className="text-base md:text-lg font-extrabold">Custom SMTP Configuration</h3>
-                    <p className="text-sm mt-1" style={{ color: 'var(--hr-text-muted)' }}>
+                    <p className="text-sm mt-2" style={{ color: 'var(--hr-text-muted)' }}>
                         Switching to custom mode overrides .env configuration.
                     </p>
-                    <div className="mt-2 text-xs flex gap-3" style={{ color: 'var(--hr-text-muted)' }}>
+                    <div className="mt-2 text-xs flex gap-4" style={{ color: 'var(--hr-text-muted)' }}>
                         {lastUpdatedAt ? <span>Last Updated: {new Date(lastUpdatedAt).toLocaleString()}</span> : null}
                         {configuredBy ? <span>Configured By: {configuredBy}</span> : null}
                     </div>
@@ -108,7 +108,7 @@ export function SMTPCustomForm({
              * Determine if Localhost (sendmail) is selected.
              * When using sendmail, SMTP-specific fields should be disabled.
              */}
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Row 1 */}
                 <SelectField
                     id="mail_driver"
@@ -168,7 +168,7 @@ export function SMTPCustomForm({
                 <Field id="from_name" label="From Name" value={values.from_name} onValue={(v) => onChange('from_name', v)} error={errors.from_name} />
             </div>
 
-            <div className="mt-5 flex items-center gap-3">
+            <div className="mt-6 flex items-center gap-4">
                 <button
                     type="button"
                     className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white"

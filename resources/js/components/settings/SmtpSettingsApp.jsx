@@ -380,7 +380,7 @@ function SmtpSettingsApp({ payload }) {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-2xl border px-4 py-4 flex flex-col gap-4" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface)' }}>
+            <section className="rounded-2xl border p-6 flex flex-col gap-4" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface)' }}>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <p className="text-sm font-semibold">Source Configuration</p>
@@ -390,7 +390,7 @@ function SmtpSettingsApp({ payload }) {
                             {(!useSystemMode && activeMode === 'system') ? ' • Pending activation after save' : ''}
                         </p>
                     </div>
-                    <div className="flex flex-col gap-3 items-start lg:items-end">
+                    <div className="flex flex-col gap-4 items-start lg:items-end">
                         <label className="inline-flex items-center gap-2 text-sm font-semibold">
                             <span>Use System Environment Settings (.env)</span>
                             <button
@@ -438,7 +438,7 @@ function SmtpSettingsApp({ payload }) {
                 : renderEditableFields()}
 
             {!useSystemMode && permissions.canManage ? (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                     <button
                         type="button"
                         className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white"
@@ -453,12 +453,12 @@ function SmtpSettingsApp({ payload }) {
             ) : null}
 
             <AppModalPortal open={confirmOpen} onBackdropClick={() => setConfirmOpen(false)}>
-                <div className="app-modal-panel w-full max-w-lg p-5" role="dialog" aria-modal="true">
+                <div className="app-modal-panel w-full max-w-lg p-6" role="dialog" aria-modal="true">
                     <h3 className="text-lg font-bold">Activate Custom SMTP Settings</h3>
                     <p className="mt-2 text-sm" style={{ color: 'var(--hr-text-muted)' }}>
                         Saving will encrypt credentials, activate database-based SMTP, and override the .env configuration. Continue?
                     </p>
-                    <div className="mt-5 flex items-center justify-end gap-3">
+                    <div className="mt-6 flex items-center justify-end gap-4">
                         <button type="button" className="rounded-xl px-4 py-2 text-sm font-semibold" onClick={() => setConfirmOpen(false)} style={{ border: '1px solid var(--hr-line)' }}>
                             Cancel
                         </button>
@@ -470,7 +470,7 @@ function SmtpSettingsApp({ payload }) {
             </AppModalPortal>
 
             <AppModalPortal open={testModalOpen} onBackdropClick={() => setTestModalOpen(false)}>
-                <div className="app-modal-panel w-full max-w-md p-5" role="dialog" aria-modal="true">
+                <div className="app-modal-panel w-full max-w-md p-6" role="dialog" aria-modal="true">
                     <h3 className="text-lg font-bold">Send Test Email</h3>
                     <p className="text-sm" style={{ color: 'var(--hr-text-muted)' }}>
                         Provide a recipient address to verify the currently active SMTP configuration.
@@ -492,7 +492,7 @@ function SmtpSettingsApp({ payload }) {
                         {testError ? <p className="text-xs text-red-500">{testError}</p> : null}
                         {testSuccess ? <p className="text-xs text-green-600">{testSuccess}</p> : null}
                     </div>
-                    <div className="mt-5 flex items-center justify-end gap-3">
+                    <div className="mt-6 flex items-center justify-end gap-4">
                         <button type="button" className="rounded-xl px-4 py-2 text-sm font-semibold" onClick={() => setTestModalOpen(false)} style={{ border: '1px solid var(--hr-line)' }}>
                             Close
                         </button>

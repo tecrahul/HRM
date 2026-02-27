@@ -38,12 +38,32 @@ export function LeaveForm({
 
     useEffect(() => {
         if (!editingLeave) {
-            setValues((prev) => ({
+            // Initialize form for creation; preselect start/end date from URL if provided
+            let startFromUrl = '';
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const raw = String(params.get('start_date') || '');
+                if (raw) {
+                    const parsed = new Date(raw);
+                    if (!Number.isNaN(parsed.getTime())) {
+                        startFromUrl = raw;
+                    }
+                }
+            } catch (_e) {}
+
+            const initial = {
                 ...EMPTY_FORM,
                 dayType: 'full_day',
                 employeeId: isManagement ? '' : String(currentUser?.id || ''),
                 status: isManagement ? 'pending' : '',
-            }));
+            };
+
+            if (startFromUrl) {
+                initial.startDate = startFromUrl;
+                initial.endDate = startFromUrl;
+            }
+
+            setValues(initial);
             setErrors({});
             setEmployeeQuery('');
             return;

@@ -273,7 +273,7 @@ class AuthController extends Controller
             [UserRole::ADMIN->value, UserRole::HR->value],
             "auth.signup.pending.{$user->id}",
             'New account awaiting approval',
-            "{$user->name} ({$user->email}) signed up and is waiting for activation.",
+            "{$user->full_name} ({$user->email}) signed up and is waiting for activation.",
             route('admin.users.edit', $user),
             'warning',
             0

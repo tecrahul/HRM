@@ -21,15 +21,15 @@ export function AttendanceHeader({
     const isNonAdminSelfPuncher = Boolean(punch?.canPunchSelf) && !canCreate && !canEdit;
 
     return (
-        <section className="flex items-center justify-between gap-3 flex-wrap">
+        <section className="flex items-center justify-between gap-4 flex-wrap">
             <div>
                 <h2 className="text-xl font-extrabold">Attendance</h2>
-                <p className="text-sm mt-1" style={{ color: 'var(--hr-text-muted)' }}>
+                <p className="text-sm mt-2" style={{ color: 'var(--hr-text-muted)' }}>
                     Role-aware attendance operations with approval and lock controls.
                 </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
                 <PermissionGuard allowed={canApprove}>
                     <span className="rounded-full px-3 py-1 text-xs font-semibold border" style={{ borderColor: 'var(--hr-line)', color: 'var(--hr-text-muted)' }}>
                         Pending Approvals: {pendingApprovals}

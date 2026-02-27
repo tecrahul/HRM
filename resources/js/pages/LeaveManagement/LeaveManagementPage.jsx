@@ -100,6 +100,17 @@ function BalanceIcon() {
     );
 }
 
+function CalendarIcon() {
+    return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M8 2v4" />
+            <path d="M16 2v4" />
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M3 10h18" />
+        </svg>
+    );
+}
+
 function LeaveManagementPage({ payload }) {
     const formRef = useRef(null);
     const api = useMemo(() => new LeaveApi({
@@ -151,6 +162,18 @@ function LeaveManagementPage({ payload }) {
         fetchLeaves({}, meta.currentPage || 1, true).catch(() => {});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Open create form when navigated with action=create
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const action = String(params.get('action') || '');
+            if (Boolean(payload.capabilities?.canCreate) && action === 'create') {
+                openCreateForm();
+            }
+        } catch (_e) {}
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [payload.capabilities?.canCreate]);
 
     useEffect(() => {
         if (!formOpen) {
@@ -343,6 +366,15 @@ function LeaveManagementPage({ payload }) {
                 icon: <BalanceIcon />,
                 color: 'primary',
             },
+            {
+                label: 'Next Leave',
+                value: (stats.nextLeaveDateLabel && String(stats.nextLeaveDateLabel).trim() !== '')
+                    ? stats.nextLeaveDateLabel
+                    : 'N/A',
+                note: 'Next approved start date',
+                icon: <CalendarIcon />,
+                color: 'neutral',
+            },
         ]
         : [
             {
@@ -373,20 +405,29 @@ function LeaveManagementPage({ payload }) {
                 icon: <RejectedIcon />,
                 color: 'error',
             },
+            {
+                label: 'Next Leave',
+                value: (stats.nextLeaveDateLabel && String(stats.nextLeaveDateLabel).trim() !== '')
+                    ? stats.nextLeaveDateLabel
+                    : 'N/A',
+                note: 'Earliest upcoming approved leave',
+                icon: <CalendarIcon />,
+                color: 'neutral',
+            },
         ];
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-6">
             <ToastStack toasts={toasts} onDismiss={dismissToast} />
 
-            <section className="flex items-center justify-between gap-3 flex-wrap">
+            <section className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                     <h2 className="text-xl font-extrabold">Leave Management</h2>
-                    <p className="text-sm mt-1" style={{ color: 'var(--hr-text-muted)' }}>
+                    <p className="text-sm mt-2" style={{ color: 'var(--hr-text-muted)' }}>
                         Modular leave workflows for requests, approvals, and operational tracking.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
                     {loading || submitting ? (
                         <span className="text-xs font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
                             Syncing data...
@@ -404,7 +445,7 @@ function LeaveManagementPage({ payload }) {
                                 <path d="M12 5v14" />
                                 <path d="M5 12h14" />
                             </svg>
-                            + Leave Request
+                            {payload.capabilities?.canAssign ? 'Assign Leave' : '+ Leave Request'}
                         </button>
                     ) : null}
                 </div>
@@ -424,7 +465,7 @@ function LeaveManagementPage({ payload }) {
             </QuickInfoGrid>
 
             {error ? (
-                <section className="hrm-modern-surface rounded-2xl p-4">
+                <section className="hrm-modern-surface rounded-2xl p-6">
                     <p className="text-sm font-semibold text-red-600">{error}</p>
                 </section>
             ) : null}
@@ -462,7 +503,7 @@ function LeaveManagementPage({ payload }) {
                             />
                         </section>
                     ) : (
-                        <section className="hrm-modern-surface rounded-2xl p-4">
+                        <section className="hrm-modern-surface rounded-2xl p-6">
                             <p className="text-sm font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
                                 You have read-only access to leave records.
                             </p>
@@ -522,7 +563,7 @@ function LeaveManagementPage({ payload }) {
                     setError('');
                 }}
             >
-                <div className="space-y-3">
+                <div className="space-y-4">
                     <p>
                         {rejectTarget
                             ? `Provide a rejection note for ${rejectTarget.employee?.name}.`

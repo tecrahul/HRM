@@ -52,7 +52,7 @@ class PayrollController extends Controller
         $structure = $result['structure'];
 
         $structure->loadMissing('user');
-        $employeeName = $structure->user?->name ?? 'Unknown employee';
+        $employeeName = $structure->user?->full_name ?? 'Unknown employee';
         $eventKey = $structure->wasRecentlyCreated ? 'payroll.structure_created' : 'payroll.structure_updated';
         $eventTitle = $structure->wasRecentlyCreated ? 'Salary structure created' : 'Salary structure updated';
 
@@ -344,7 +344,7 @@ class PayrollController extends Controller
             $viewer,
             'payroll.status_updated',
             'Payroll Processed',
-            "{$payroll->user?->name} • {$payroll->payroll_month?->format('M Y')}",
+            "{$payroll->user?->full_name} • {$payroll->payroll_month?->format('M Y')}",
             '#10b981',
             $payroll,
             ['status' => (string) $payroll->status]
@@ -431,7 +431,7 @@ class PayrollController extends Controller
             $viewer,
             'payroll.status_updated',
             'Payroll Paid',
-            "{$payroll->user?->name} • {$payroll->payroll_month?->format('M Y')}",
+            "{$payroll->user?->full_name} • {$payroll->payroll_month?->format('M Y')}",
             '#10b981',
             $payroll,
             ['status' => (string) $payroll->status]
@@ -532,7 +532,7 @@ class PayrollController extends Controller
                 $employeesWithErrors++;
                 $rows[] = [
                     'employeeId' => $employee->id,
-                    'employeeName' => $employee->name,
+                    'employeeName' => $employee->full_name,
                     'department' => $employee->profile?->department ?? '',
                     'gross' => 0,
                     'deductions' => 0,
@@ -554,7 +554,7 @@ class PayrollController extends Controller
 
                 $rows[] = [
                     'employeeId' => $employee->id,
-                    'employeeName' => $employee->name,
+                    'employeeName' => $employee->full_name,
                     'department' => $employee->profile?->department ?? '',
                     'gross' => $gross,
                     'deductions' => $deductions,
@@ -565,7 +565,7 @@ class PayrollController extends Controller
                 $employeesWithErrors++;
                 $rows[] = [
                     'employeeId' => $employee->id,
-                    'employeeName' => $employee->name,
+                    'employeeName' => $employee->full_name,
                     'department' => $employee->profile?->department ?? '',
                     'gross' => 0,
                     'deductions' => 0,
@@ -1077,7 +1077,7 @@ class PayrollController extends Controller
         );
 
         $history = PayrollStructureHistory::query()
-            ->with('changedBy:id,name')
+            ->with('changedBy:id,first_name,middle_name,last_name,name')
             ->where('user_id', $user->id)
             ->latest('changed_at')
             ->limit(20)
@@ -1085,7 +1085,7 @@ class PayrollController extends Controller
             ->map(fn (PayrollStructureHistory $entry): array => [
                 'id' => $entry->id,
                 'changedAt' => $entry->changed_at?->toIso8601String(),
-                'changedBy' => $entry->changedBy?->name ?? 'System',
+                'changedBy' => $entry->changedBy?->full_name ?? 'System',
                 'changeSummary' => $entry->change_summary ?? [],
             ])
             ->values()
@@ -1096,7 +1096,7 @@ class PayrollController extends Controller
             'structure' => [
                 'id' => $structure->id,
                 'userId' => $structure->user_id,
-                'userName' => $structure->user?->name ?? 'Unknown',
+                'userName' => $structure->user?->full_name ?? 'Unknown',
                 'userEmail' => $structure->user?->email ?? '',
                 'department' => $structure->user?->profile?->department ?? '',
                 'effectiveFrom' => $structure->effective_from?->format('Y-m-d'),
@@ -1129,7 +1129,7 @@ class PayrollController extends Controller
         }
 
         $history = PayrollStructureHistory::query()
-            ->with('changedBy:id,name')
+            ->with('changedBy:id,first_name,middle_name,last_name,name')
             ->where('user_id', $user->id)
             ->latest('changed_at')
             ->limit(30)
@@ -1137,7 +1137,7 @@ class PayrollController extends Controller
             ->map(fn (PayrollStructureHistory $entry): array => [
                 'id' => $entry->id,
                 'changedAt' => $entry->changed_at?->toIso8601String(),
-                'changedBy' => $entry->changedBy?->name ?? 'System',
+                'changedBy' => $entry->changedBy?->full_name ?? 'System',
                 'changeSummary' => $entry->change_summary ?? [],
             ])
             ->values()
@@ -1424,7 +1424,7 @@ class PayrollController extends Controller
                     foreach ($records as $record) {
                         fputcsv($handle, [
                             $record->payroll_month?->format('Y-m') ?? '',
-                            $record->user?->name ?? '',
+                            $record->user?->full_name ?? '',
                             $record->user?->email ?? '',
                             $record->user?->profile?->department ?? '',
                             $this->statusLabelFromDb((string) $record->status),
@@ -1607,7 +1607,7 @@ class PayrollController extends Controller
             $viewer,
             'payroll.status_updated',
             "Payroll {$statusLabel}",
-            "{$payroll->user?->name} • {$payroll->payroll_month?->format('M Y')}",
+            "{$payroll->user?->full_name} • {$payroll->payroll_month?->format('M Y')}",
             '#10b981',
             $payroll,
             ['status' => (string) $payroll->status]
@@ -1793,7 +1793,7 @@ class PayrollController extends Controller
                     'payrollMonthLabel' => $record->payroll_month?->format('M Y') ?? 'N/A',
                     'user' => [
                         'id' => $user?->id,
-                        'name' => $user?->name ?? 'Unknown',
+                        'name' => $user?->full_name ?? 'Unknown',
                         'employeeCode' => $user instanceof User
                             ? ($user->profile?->employee_code ?: User::makeEmployeeCode($user->id))
                             : null,
@@ -1853,7 +1853,7 @@ class PayrollController extends Controller
                 return [
                     'id' => $structure->id,
                     'userId' => $structure->user_id,
-                    'userName' => $structure->user?->name ?? 'Unknown',
+                    'userName' => $structure->user?->full_name ?? 'Unknown',
                     'userEmail' => $structure->user?->email ?? '',
                     'department' => $structure->user?->profile?->department ?? '',
                     'effectiveFrom' => $structure->effective_from?->format('Y-m-d'),
@@ -2368,11 +2368,11 @@ class PayrollController extends Controller
             'paymentReference' => $payroll->payment_reference,
             'paidAt' => $payroll->paid_at?->toIso8601String(),
             'approvedAt' => $payroll->approved_at?->toIso8601String(),
-            'approvedByName' => $payroll->approvedBy?->name,
+            'approvedByName' => $payroll->approvedBy?->full_name,
             'notes' => $payroll->notes,
             'user' => [
                 'id' => $payroll->user?->id,
-                'name' => $payroll->user?->name ?? 'Unknown',
+                'name' => $payroll->user?->full_name ?? 'Unknown',
                 'email' => $payroll->user?->email ?? '',
                 'department' => $payroll->user?->profile?->department ?? '',
             ],
@@ -2729,7 +2729,7 @@ class PayrollController extends Controller
             return [
                 'id' => $record->id,
                 'employeeId' => $record->user?->id,
-                'employeeName' => $record->user?->name ?? 'Unknown',
+                'employeeName' => $record->user?->full_name ?? 'Unknown',
                 'department' => $record->user?->profile?->department ?? '',
                 'gross' => (float) $record->gross_earnings,
                 'deductions' => (float) $record->total_deductions,

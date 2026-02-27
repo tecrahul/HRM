@@ -54,27 +54,39 @@ class EmployeeSearchController extends Controller
                 $query->whereRaw('LOWER(TRIM(COALESCE(profile.department, \"\"))) = ?', [mb_strtolower(trim((string) $departmentName))]);
             })
             ->where(function ($query) use ($keyword): void {
+                $kw = '%' . mb_strtolower($keyword) . '%';
                 $query
-                    ->whereRaw('LOWER(users.name) like ?', ['%' . mb_strtolower($keyword) . '%'])
-                    ->orWhereRaw('LOWER(users.email) like ?', ['%' . mb_strtolower($keyword) . '%']);
+                    ->whereRaw("LOWER(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) like ?", [$kw])
+                    ->orWhereRaw('LOWER(users.first_name) like ?', [$kw])
+                    ->orWhereRaw('LOWER(users.last_name) like ?', [$kw])
+                    ->orWhereRaw('LOWER(users.email) like ?', [$kw]);
             })
             ->select([
                 'users.id',
-                'users.name',
+                'users.first_name',
+                'users.middle_name',
+                'users.last_name',
                 'users.email',
                 DB::raw("COALESCE(profile.department, '') as department"),
                 DB::raw("COALESCE(profile.employee_code, '') as employee_code"),
             ])
             ->orderByRaw(
-                'CASE WHEN LOWER(users.name) LIKE ? THEN 0 WHEN LOWER(users.email) LIKE ? THEN 1 ELSE 2 END, users.name ASC',
+                "CASE WHEN LOWER(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) LIKE ? THEN 0 WHEN LOWER(users.email) LIKE ? THEN 1 ELSE 2 END, users.first_name ASC, users.last_name ASC",
                 [$keywordLower . '%', $keywordLower . '%']
             )
             ->limit(15)
             ->get()
             ->map(static function ($record): array {
+                $full = trim(implode(' ', array_values(array_filter([
+                    (string) ($record->first_name ?? ''),
+                    (string) ($record->middle_name ?? ''),
+                    (string) ($record->last_name ?? ''),
+                ], fn ($p) => $p !== ''))));
                 return [
                     'id' => (int) $record->id,
-                    'name' => (string) $record->name,
+                    // Keep 'name' for backward compatibility; return computed full name
+                    'name' => $full,
+                    'full_name' => $full,
                     'email' => (string) $record->email,
                     'department' => (string) ($record->department ?? ''),
                     'employee_code' => (string) (($record->employee_code ?? '') !== ''

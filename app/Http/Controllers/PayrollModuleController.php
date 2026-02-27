@@ -332,7 +332,7 @@ class PayrollModuleController extends Controller
                     'action' => (string) $log->action,
                     'actionLabel' => str((string) $log->action)->replace('.', ' ')->headline()->toString(),
                     'entityType' => (string) $log->entity_type,
-                    'performedBy' => $log->performedBy?->name ?? 'System',
+                    'performedBy' => $log->performedBy?->full_name ?? 'System',
                     'performedAt' => $log->performed_at?->toIso8601String(),
                     'metadata' => $log->metadata ?? [],
                 ];
@@ -420,7 +420,7 @@ class PayrollModuleController extends Controller
 
                 return [
                     'employeeId' => (int) $employee->id,
-                    'employeeName' => (string) $employee->name,
+                    'employeeName' => (string) $employee->full_name,
                     'employeeCode' => (string) ($employee->profile?->employee_code ?: User::makeEmployeeCode($employee->id)),
                     'email' => (string) $employee->email,
                     'department' => (string) ($employee->profile?->department ?? ''),
@@ -516,7 +516,7 @@ class PayrollModuleController extends Controller
             ->when($keyword !== '', function ($query) use ($keyword): void {
                 $query->where(function ($inner) use ($keyword): void {
                     $inner
-                        ->where('users.name', 'like', '%' . $keyword . '%')
+                        ->whereRaw("CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name) like ?", ['%' . $keyword . '%'])
                         ->orWhere('users.email', 'like', '%' . $keyword . '%')
                         ->orWhere('payrolls.payment_reference', 'like', '%' . $keyword . '%');
                 });
@@ -712,7 +712,7 @@ class PayrollModuleController extends Controller
             ->when($search !== null && $search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $innerQuery) use ($search): void {
                     $innerQuery
-                        ->where('users.name', 'like', '%' . $search . '%')
+                        ->whereRaw("CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name) like ?", ['%' . $search . '%'])
                         ->orWhere('users.email', 'like', '%' . $search . '%');
                 });
             })

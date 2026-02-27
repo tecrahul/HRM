@@ -26,9 +26,23 @@
 
         <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label for="name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Full Name</label>
-                <input id="name" name="name" type="text" value="{{ old('name', $managedUser->name ?? '') }}" maxlength="255" required class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
-                @error('name')
+                <label for="first_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">First Name</label>
+                <input id="first_name" name="first_name" type="text" value="{{ old('first_name', $managedUser->first_name ?? '') }}" maxlength="120" required class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                @error('first_name')
+                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label for="last_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Last Name</label>
+                <input id="last_name" name="last_name" type="text" value="{{ old('last_name', $managedUser->last_name ?? '') }}" maxlength="120" required class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                @error('last_name')
+                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label for="middle_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Middle Name (Optional)</label>
+                <input id="middle_name" name="middle_name" type="text" value="{{ old('middle_name', $managedUser->middle_name ?? '') }}" maxlength="120" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                @error('middle_name')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
@@ -135,6 +149,23 @@
                 <label for="alternate_phone" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Alternate Phone</label>
                 <input id="alternate_phone" name="alternate_phone" type="text" value="{{ old('alternate_phone', $profile?->alternate_phone) }}" maxlength="40" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
                 @error('alternate_phone')
+                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label for="designation_id" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Designation</label>
+                @php
+                    $currentDesignationId = (string) old('designation_id', isset($managedUser?->designation_id) ? (string) $managedUser->designation_id : '');
+                @endphp
+                <select id="designation_id" name="designation_id" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                    <option value="">Select designation</option>
+                    @foreach(($designationOptions ?? []) as $opt)
+                        <option value="{{ $opt['id'] }}" {{ $currentDesignationId === (string) $opt['id'] ? 'selected' : '' }}>
+                            {{ !empty($opt['code']) ? ($opt['name'].' ('.$opt['code'].')') : $opt['name'] }}
+                        </option>
+                    @endforeach
+                </select>
+                @error('designation_id')
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>

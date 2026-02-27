@@ -506,17 +506,17 @@ export function ProcessingPage({
     return (
         <div className="space-y-6">
             <section className="ui-section">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <p className="text-xs font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--hr-text-muted)' }}>Payroll Processing</p>
-                        <h3 className="mt-1 text-xl font-extrabold">{payrollMonthLabel}</h3>
-                        <p className="mt-1 text-sm" style={{ color: 'var(--hr-text-muted)' }}>{stepInstructions[activeStep]}</p>
+                        <h3 className="mt-2 text-xl font-extrabold">{payrollMonthLabel}</h3>
+                        <p className="mt-2 text-sm" style={{ color: 'var(--hr-text-muted)' }}>{stepInstructions[activeStep]}</p>
                     </div>
                     <StatusBadge status={overview?.header?.status || 'draft'} />
                 </div>
 
-                {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
-                {success ? <p className="mt-3 text-sm text-green-700">{success}</p> : null}
+                {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+                {success ? <p className="mt-2 text-sm text-green-700">{success}</p> : null}
 
                 <HorizontalStepper
                     steps={STEPS}
@@ -530,7 +530,7 @@ export function ProcessingPage({
             {showPayrollHeader ? (
                 <section className="ui-section">
                     <SectionHeader title="Payroll Header" subtitle="Workflow summary after payroll generation." />
-                    <QuickInfoGrid className="mt-4">
+                    <QuickInfoGrid className="mt-6">
                         <InfoCard label="Payroll Month" value={overview?.header?.payrollMonth || payrollMonth} icon="calendar" />
                         <InfoCard label="Status" value={<StatusBadge status={overview?.header?.status || 'generated'} />} icon="status" />
                         <InfoCard label="Total Employees" value={formatCount(overview?.header?.totalEmployees || 0)} icon="users" />
@@ -547,7 +547,7 @@ export function ProcessingPage({
                     <div className="mt-6 grid gap-4 md:grid-cols-2">
                         <label className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
                             Payroll Month
-                            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <select
                                     className="ui-select"
                                     value={String(selectedYear)}
@@ -581,13 +581,13 @@ export function ProcessingPage({
                             </div>
                         </label>
 
-                        <div className="rounded-xl border px-4 py-3" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface)' }}>
+                        <div className="rounded-xl border px-4 py-4" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface)' }}>
                             <p className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>Current Status</p>
                             <div className="mt-2"><StatusBadge status={overview?.header?.status || 'draft'} /></div>
                         </div>
                     </div>
 
-                    <div className="mt-6 flex flex-wrap items-center gap-2">
+                    <div className="mt-6 flex flex-wrap items-center gap-4">
                         <button type="button" className="ui-btn ui-btn-primary" onClick={onContinueStep1} disabled={isLocked || loadingOverview}>
                             {loadingOverview ? 'Checking...' : 'Continue'}
                         </button>
@@ -597,7 +597,7 @@ export function ProcessingPage({
                     </div>
 
                     {isLocked && permissions.canUnlock ? (
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-6 flex flex-wrap gap-4">
                             <input
                                 type="text"
                                 className="ui-input"
@@ -625,7 +625,7 @@ export function ProcessingPage({
                     <section className="ui-section hrm-step-content">
                         <SectionHeader title="Step 2: Preview & Generate" subtitle="Review payroll calculation before generation." />
 
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-6 flex flex-wrap gap-4">
                             <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setActiveStep(1)}>Back</button>
                             <button type="button" className="ui-btn ui-btn-ghost" onClick={onPreview} disabled={loadingPreview || isLocked}>
                                 {loadingPreview ? 'Previewing...' : 'Refresh Preview'}
@@ -634,10 +634,10 @@ export function ProcessingPage({
                                 {submitting ? 'Generating...' : 'Generate Payroll'}
                             </button>
                         </div>
-                        <label className="mt-3 block text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
+                        <label className="mt-4 block text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
                             Generation Notes
                             <textarea
-                                className="ui-textarea mt-1"
+                                className="ui-textarea mt-2"
                                 rows={3}
                                 value={generationNotes}
                                 onChange={(event) => setGenerationNotes(event.target.value)}
@@ -657,7 +657,7 @@ export function ProcessingPage({
                                     <InfoCard label="Missing Salary Structure" value={formatCount(preview?.summary?.missingSalaryStructure ?? 0)} tone="warning" icon="shield" />
                                 </QuickInfoGrid>
 
-                                <div className="ui-table-wrap mt-4">
+                                <div className="ui-table-wrap mt-0">
                                     <table className="ui-table">
                                         <thead>
                                             <tr>
@@ -741,7 +741,7 @@ export function ProcessingPage({
                         </a>
                     </div>
 
-                    <div className="ui-table-wrap mt-4">
+                    <div className="ui-table-wrap mt-0">
                         <table className="ui-table">
                             <thead>
                                 <tr>
@@ -796,7 +796,7 @@ export function ProcessingPage({
                             ) : null}
                         </table>
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-2">
+                    <div className="mt-4 flex items-center justify-between gap-4">
                         <p className="text-sm" style={{ color: 'var(--hr-text-muted)' }}>
                             Page {approvalPagination.currentPage} of {approvalPagination.lastPage} ({formatCount(approvalPagination.total)} records)
                         </p>
@@ -820,7 +820,7 @@ export function ProcessingPage({
                         </div>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                    <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
                         <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setActiveStep(2)}>Back</button>
                         <div className="flex flex-wrap gap-2">
                             <button
@@ -847,7 +847,7 @@ export function ProcessingPage({
             {activeStep === 4 ? (
                 <section className="ui-section hrm-step-content">
                     <SectionHeader title="Step 4: Pay & Lock" subtitle="Final payout confirmation with permanent workflow lock." />
-                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="mt-6 grid gap-4 md:grid-cols-3">
                         <InfoCard label="Total Net Amount" value={formatMoney(overview?.header?.totalNetPay || 0)} tone="success" icon="money" />
                         <label className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
                             Payment Method
@@ -863,10 +863,10 @@ export function ProcessingPage({
                             <input className="ui-input mt-1" value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} disabled={isLocked} />
                         </label>
                     </div>
-                    <label className="mt-3 block text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
+                    <label className="mt-4 block text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--hr-text-muted)' }}>
                         Payment Notes
                         <textarea
-                            className="ui-textarea mt-1"
+                            className="ui-textarea mt-2"
                             rows={3}
                             value={paymentNotes}
                             onChange={(event) => setPaymentNotes(event.target.value)}
@@ -878,7 +878,7 @@ export function ProcessingPage({
                         <input type="checkbox" checked={confirmLock} onChange={(event) => setConfirmLock(event.target.checked)} disabled={isLocked} />
                         I confirm payroll payment and accept that this month will be locked.
                     </label>
-                    <div className="mt-4 flex gap-2">
+                    <div className="mt-6 flex gap-4">
                         <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setActiveStep(3)} disabled={isLocked}>Back</button>
                         <button
                             type="button"
@@ -895,7 +895,7 @@ export function ProcessingPage({
                         </p>
                     ) : null}
                     {isLocked ? (
-                        <p className="mt-3 text-sm font-semibold text-red-700">Payroll is locked after payment. Editing is disabled.</p>
+                        <p className="mt-4 text-sm font-semibold text-red-700">Payroll is locked after payment. Editing is disabled.</p>
                     ) : null}
                 </section>
             ) : null}

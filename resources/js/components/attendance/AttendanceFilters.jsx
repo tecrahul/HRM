@@ -265,15 +265,15 @@ export function AttendanceFilters({
     const orgSpan = orgFieldCount === 1 ? 'xl:col-span-12' : orgFieldCount === 2 ? 'xl:col-span-6' : 'xl:col-span-4';
 
     return (
-        <article className="hrm-modern-surface rounded-2xl p-4 shadow-sm">
-            <form className="space-y-4" onSubmit={applyFilters}>
+        <article className="hrm-modern-surface rounded-2xl p-6 shadow-sm">
+            <form className="space-y-6" onSubmit={applyFilters}>
                 <div>
                     <div>
                         <h3 className="text-sm font-extrabold uppercase tracking-[0.08em]">Advance Search</h3>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4">
                     <div className="xl:col-span-8">
                         <GlobalDateRangePicker
                             idPrefix="attendance_filter"
@@ -336,7 +336,7 @@ export function AttendanceFilters({
                 </div>
 
                 {orgFieldCount > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4">
                         {canBranchFilter ? (
                             <FilterField id="attendance_filter_branch" label="Branch" className={orgSpan}>
                                 <select
@@ -445,8 +445,8 @@ export function AttendanceFilters({
                     </div>
                 ) : null}
 
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3" style={{ borderColor: 'var(--hr-line)' }}>
-                    <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-t pt-4" style={{ borderColor: 'var(--hr-line)' }}>
+                    <div className="flex items-center gap-4">
                         <button
                             type="submit"
                             className="rounded-xl px-4 py-2 text-sm font-semibold text-white"
@@ -468,7 +468,7 @@ export function AttendanceFilters({
                         </button>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-4">
                         {canExport ? (
                             <a
                                 href="#"

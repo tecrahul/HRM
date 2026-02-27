@@ -33,11 +33,11 @@ class EmployeeLoginCredentialsMail extends Mailable
         return new Content(
             view: 'emails.employee-login-credentials',
             with: [
-                'employeeName' => $this->employee->name,
+                'employeeName' => $this->employee->full_name,
                 'employeeEmail' => $this->employee->email,
                 'temporaryPassword' => $this->temporaryPassword,
                 'loginUrl' => route('login'),
-                'sentByName' => $this->sentBy->name,
+                'sentByName' => $this->sentBy->full_name,
             ],
         );
     }

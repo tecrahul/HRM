@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
+use App\Models\Designation;
 
 class UserManagementController extends Controller
 {
@@ -45,6 +46,24 @@ class UserManagementController extends Controller
             ->where('name', '!=', '')
             ->orderBy('name')
             ->get(['id', 'name', 'role']);
+    }
+
+    /**
+     * @return list<array{id:int,name:string,code:?string}>
+     */
+    private function designationOptions(): array
+    {
+        return Designation::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->map(static fn (Designation $d): array => [
+                'id' => (int) $d->id,
+                'name' => (string) $d->name,
+                'code' => $d->code !== null && trim((string) $d->code) !== '' ? (string) $d->code : null,
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -106,21 +125,26 @@ class UserManagementController extends Controller
         $search = (string) $request->string('q');
         $role = (string) $request->string('role');
         $status = (string) $request->string('status');
+        $sortBy = (string) $request->string('sort_by');
+        $sortDir = strtolower((string) $request->string('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
 
         $users = User::query()
             ->with('profile')
             ->when($search !== '', function ($query) use ($search): void {
-                $query->where(function ($innerQuery) use ($search): void {
+                $safeLike = "%".str_replace(['\\\\', '%', '_'], ['\\\\\\\\', '\\%', '\\_'], $search)."%";
+                $query->where(function ($innerQuery) use ($safeLike): void {
                     $innerQuery
-                        ->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhereHas('profile', function ($profileQuery) use ($search): void {
+                        ->where('first_name', 'like', $safeLike)
+                        ->orWhere('last_name', 'like', $safeLike)
+                        ->orWhereRaw("CONCAT_WS(' ', first_name, middle_name, last_name) LIKE ?", [$safeLike])
+                        ->orWhere('email', 'like', $safeLike)
+                        ->orWhereHas('profile', function ($profileQuery) use ($safeLike): void {
                             $profileQuery
-                                ->where('department', 'like', "%{$search}%")
-                                ->orWhere('branch', 'like', "%{$search}%")
-                                ->orWhere('job_title', 'like', "%{$search}%")
-                                ->orWhere('manager_name', 'like', "%{$search}%")
-                                ->orWhere('phone', 'like', "%{$search}%");
+                                ->where('department', 'like', $safeLike)
+                                ->orWhere('branch', 'like', $safeLike)
+                                ->orWhere('job_title', 'like', $safeLike)
+                                ->orWhere('manager_name', 'like', $safeLike)
+                                ->orWhere('phone', 'like', $safeLike);
                         });
                 });
             })
@@ -132,7 +156,15 @@ class UserManagementController extends Controller
                     $profileQuery->where('status', $status);
                 });
             })
-            ->orderByDesc('id')
+            ->when(in_array($sortBy, ['first_name', 'last_name', 'full_name'], true), function ($query) use ($sortBy, $sortDir): void {
+                if ($sortBy === 'full_name') {
+                    $query->orderByRaw("CONCAT_WS(' ', first_name, middle_name, last_name) {$sortDir}");
+                } else {
+                    $query->orderBy($sortBy, $sortDir);
+                }
+            }, function ($query): void {
+                $query->orderByDesc('id');
+            })
             ->paginate(10)
             ->withQueryString();
 
@@ -142,6 +174,8 @@ class UserManagementController extends Controller
                 'q' => $search,
                 'role' => $role,
                 'status' => $status,
+                'sort_by' => $sortBy,
+                'sort_dir' => $sortDir,
             ],
             'roleOptions' => UserRole::cases(),
             'statusOptions' => $this->profileStatuses(),
@@ -163,6 +197,7 @@ class UserManagementController extends Controller
             'departmentOptions' => $this->departmentOptions(),
             'branchOptions' => $this->branchOptions(),
             'supervisorOptions' => $this->supervisorOptions(),
+            'designationOptions' => $this->designationOptions(),
         ]);
     }
 
@@ -172,11 +207,20 @@ class UserManagementController extends Controller
         $viewer = $request->user();
 
         $createdUser = DB::transaction(function () use ($validated): User {
+            $first = trim((string) $validated['first_name']);
+            $middle = ($validated['middle_name'] ?? null) ? trim((string) $validated['middle_name']) : null;
+            $last = trim((string) $validated['last_name']);
+            $legacyFull = trim(implode(' ', array_values(array_filter([$first, $middle, $last], fn($p) => (string)$p !== ''))));
+
             $user = User::query()->create([
-                'name' => $validated['name'],
+                'first_name' => $first,
+                'middle_name' => $middle,
+                'last_name' => $last,
+                'name' => $legacyFull,
                 'email' => $validated['email'],
                 'role' => $validated['role'],
                 'password' => $validated['password'],
+                'designation_id' => $validated['designation_id'] ?? null,
             ]);
 
             $user->profile()->create($this->extractProfilePayload($validated, $user->id));
@@ -189,7 +233,7 @@ class UserManagementController extends Controller
             $viewer,
             'user.created',
             'User account created',
-            "{$createdUser->name} ({$createdUser->email})",
+            "{$createdUser->full_name} ({$createdUser->email})",
             '#7c3aed',
             $createdUser,
             ['role' => $createdUser->role instanceof UserRole ? $createdUser->role->value : (string) $createdUser->role]
@@ -219,6 +263,7 @@ class UserManagementController extends Controller
             'departmentOptions' => $this->departmentOptions(),
             'branchOptions' => $this->branchOptions(),
             'supervisorOptions' => $this->supervisorOptions($user->id),
+            'designationOptions' => $this->designationOptions(),
         ]);
     }
 
@@ -228,10 +273,19 @@ class UserManagementController extends Controller
         $viewer = $request->user();
 
         DB::transaction(function () use ($user, $validated): void {
+            $first = trim((string) $validated['first_name']);
+            $middle = ($validated['middle_name'] ?? null) ? trim((string) $validated['middle_name']) : null;
+            $last = trim((string) $validated['last_name']);
+            $legacyFull = trim(implode(' ', array_values(array_filter([$first, $middle, $last], fn($p) => (string)$p !== ''))));
+
             $userPayload = [
-                'name' => $validated['name'],
+                'first_name' => $first,
+                'middle_name' => $middle,
+                'last_name' => $last,
+                'name' => $legacyFull,
                 'email' => $validated['email'],
                 'role' => $validated['role'],
+                'designation_id' => $validated['designation_id'] ?? null,
             ];
 
             if (! empty($validated['password'])) {
@@ -246,7 +300,7 @@ class UserManagementController extends Controller
             $viewer,
             'user.updated',
             'User account updated',
-            "{$user->name} ({$user->email})",
+            "{$user->full_name} ({$user->email})",
             '#ec4899',
             $user,
             ['role' => $user->role instanceof UserRole ? $user->role->value : (string) $user->role]
@@ -273,7 +327,7 @@ class UserManagementController extends Controller
                 ->with('error', 'At least one admin account must remain.');
         }
 
-        $meta = "{$user->name} ({$user->email})";
+        $meta = "{$user->full_name} ({$user->email})";
         $userId = $user->id;
         $user->delete();
 
@@ -305,11 +359,42 @@ class UserManagementController extends Controller
             $supervisorRules[] = 'different:'.$userId;
         }
 
+        $hasActiveDesignations = Designation::query()->where('is_active', true)->exists();
+
+        // Backward compatibility for legacy 'name' field
+        $input = $request->all();
+        $hasStructured = isset($input['first_name']) || isset($input['last_name']);
+        if (! $hasStructured && isset($input['name'])) {
+            $name = trim((string) $input['name']);
+            if ($name !== '') {
+                $parts = preg_split('/\s+/', $name) ?: [];
+                if (count($parts) === 1) {
+                    $input['first_name'] = $parts[0];
+                } elseif (count($parts) > 1) {
+                    $input['first_name'] = array_shift($parts) ?? '';
+                    $input['last_name'] = trim(implode(' ', $parts));
+                }
+                $request->replace($input);
+            }
+        }
+
         return $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:120', 'not_regex:/^\d+$/'],
+            'middle_name' => ['nullable', 'string', 'max:120', 'not_regex:/^\d+$/'],
+            'last_name' => ['required', 'string', 'max:120', 'not_regex:/^\d+$/'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
             'role' => ['required', Rule::in(UserRole::values())],
             'password' => $passwordRules,
+
+            // Designation: required for all except super_admin; only allow active designations
+            'designation_id' => array_filter([
+                $hasActiveDesignations ? ('required_unless:role,' . UserRole::SUPER_ADMIN->value) : 'nullable',
+                'nullable',
+                'integer',
+                Rule::exists('designations', 'id')->where(function ($query): void {
+                    $query->where('is_active', true);
+                }),
+            ]),
 
             'phone' => ['nullable', 'string', 'max:40'],
             'alternate_phone' => ['nullable', 'string', 'max:40'],
@@ -331,6 +416,10 @@ class UserManagementController extends Controller
             'address' => ['nullable', 'string', 'max:1000'],
             'emergency_contact_name' => ['nullable', 'string', 'max:120'],
             'emergency_contact_phone' => ['nullable', 'string', 'max:40'],
+        ], [
+            'first_name.not_regex' => 'First name cannot be numbers only.',
+            'middle_name.not_regex' => 'Middle name cannot be numbers only.',
+            'last_name.not_regex' => 'Last name cannot be numbers only.',
         ]);
     }
 
@@ -347,9 +436,10 @@ class UserManagementController extends Controller
 
         $supervisorName = null;
         if ($supervisorUserId > 0) {
-            $supervisorName = User::query()
+            $supervisor = User::query()
                 ->whereKey($supervisorUserId)
-                ->value('name');
+                ->first(['first_name', 'middle_name', 'last_name', 'name']);
+            $supervisorName = $supervisor?->full_name ?? ($supervisor->name ?? null);
         }
 
         $managerName = $supervisorName ?: (($validated['manager_name'] ?? null) ?: null);

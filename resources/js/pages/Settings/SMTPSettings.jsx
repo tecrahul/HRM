@@ -168,7 +168,7 @@ export function SMTPSettingsPage({ payload }) {
     };
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
             <SMTPModeCard useSystem={useSystemMode} onToggle={handleToggle} busy={toggleBusy} renderToggle={false} />
 
             {useSystemMode ? (
@@ -205,14 +205,14 @@ export function SMTPSettingsPage({ payload }) {
             />
 
             <AppModalPortal open={Boolean(confirmToggle)} onBackdropClick={() => setConfirmToggle(null)}>
-                <div className="app-modal-panel w-full max-w-md p-5" role="dialog" aria-modal="true">
+                <div className="app-modal-panel w-full max-w-md p-6" role="dialog" aria-modal="true">
                     <h3 className="text-lg font-extrabold">Confirm Mode Switch</h3>
-                    <p className="text-sm mt-1" style={{ color: 'var(--hr-text-muted)' }}>
+                    <p className="text-sm mt-2" style={{ color: 'var(--hr-text-muted)' }}>
                         {confirmToggle === 'toSystem'
                             ? 'Switch to System mode and use .env configuration?'
                             : 'Switch to Custom mode to configure SMTP in the app?'}
                     </p>
-                    <div className="mt-5 flex items-center justify-end gap-3">
+                    <div className="mt-6 flex items-center justify-end gap-4">
                         <button type="button" className="rounded-xl px-4 py-2 text-sm font-semibold" onClick={() => setConfirmToggle(null)} style={{ border: '1px solid var(--hr-line)' }}>
                             Cancel
                         </button>

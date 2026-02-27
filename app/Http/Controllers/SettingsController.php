@@ -274,9 +274,10 @@ class SettingsController extends Controller
             'registration_number' => ['nullable', 'string', 'max:160'],
             'incorporation_country' => ['nullable', 'string', 'size:2', Rule::in($countryOptions)],
             'brand_tagline' => ['nullable', 'string', 'max:160'],
-            'brand_primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'brand_secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'brand_font_family' => ['required', Rule::in($brandFontOptions)],
+            // Brand identity is managed under Themes page now
+            'brand_primary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'brand_secondary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'brand_font_family' => ['nullable', Rule::in($brandFontOptions)],
             'company_code' => ['nullable', 'string', 'max:100'],
             'company_email' => ['nullable', 'email', 'max:255'],
             'company_phone' => ['nullable', 'string', 'max:60'],
@@ -402,6 +403,81 @@ class SettingsController extends Controller
         return redirect()
             ->route('settings.index', $redirectParameters)
             ->with('status', $isSystemUpdate ? 'System settings updated successfully.' : 'Company details updated successfully.');
+    }
+
+    public function themes(Request $request): View
+    {
+        $record = CompanySetting::query()->first();
+        $companySettings = array_merge($this->defaults(), $record?->only($this->fields()) ?? []);
+
+        return view('settings.themes', [
+            'companySettings' => $companySettings,
+            'settingsPageHeading' => 'Themes',
+        ]);
+    }
+
+    public function updateThemes(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'brand_primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'brand_secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+        ]);
+
+        $validated['brand_primary_color'] = strtoupper($validated['brand_primary_color']);
+        $validated['brand_secondary_color'] = strtoupper($validated['brand_secondary_color']);
+
+        $settings = CompanySetting::query()->firstOrNew([]);
+        $settings->fill($validated);
+        $settings->save();
+        CompanyProfile::flush();
+
+        ActivityLogger::log(
+            $request->user(),
+            'settings.theme_updated',
+            'Brand theme updated',
+            (string) ($settings->company_name ?: config('app.name')),
+            '#7c3aed',
+            $settings
+        );
+
+        return redirect()->route('settings.themes')->with('status', 'Theme updated successfully.');
+    }
+
+    public function typography(Request $request): View
+    {
+        $record = CompanySetting::query()->first();
+        $companySettings = array_merge($this->defaults(), $record?->only($this->fields()) ?? []);
+
+        return view('settings.typography', [
+            'companySettings' => $companySettings,
+            'brandFontOptions' => $this->brandFontOptions(),
+            'settingsPageHeading' => 'Typography',
+        ]);
+    }
+
+    public function updateTypography(Request $request): RedirectResponse
+    {
+        $brandFontOptions = array_keys($this->brandFontOptions());
+
+        $validated = $request->validate([
+            'brand_font_family' => ['required', Rule::in($brandFontOptions)],
+        ]);
+
+        $settings = CompanySetting::query()->firstOrNew([]);
+        $settings->fill($validated);
+        $settings->save();
+        CompanyProfile::flush();
+
+        ActivityLogger::log(
+            $request->user(),
+            'settings.typography_updated',
+            'Typography settings updated',
+            (string) ($settings->company_name ?: config('app.name')),
+            '#7c3aed',
+            $settings
+        );
+
+        return redirect()->route('settings.typography')->with('status', 'Typography updated successfully.');
     }
 
     public function companyLogo(): BinaryFileResponse|Response

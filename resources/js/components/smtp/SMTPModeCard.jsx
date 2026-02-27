@@ -10,8 +10,8 @@ export function SMTPModeCard({
     const toggleId = 'smtp-mode-toggle';
 
     return (
-        <section className="hrm-modern-surface rounded-2xl p-5 flex flex-col gap-3">
-            <div className="flex items-start gap-3">
+        <section className="hrm-modern-surface rounded-2xl p-6 flex flex-col gap-4">
+            <div className="flex items-start gap-4">
                 <div className="min-w-0">
                     <h3 className="text-base md:text-lg font-extrabold">Configuration Mode</h3>
                     <p className="text-sm mt-1" style={{ color: 'var(--hr-text-muted)' }}>
@@ -19,7 +19,7 @@ export function SMTPModeCard({
                     </p>
                 </div>
                 {renderToggle ? (
-                    <div className="ml-auto flex items-center gap-3">
+                    <div className="ml-auto flex items-center gap-4">
                         <label htmlFor={toggleId} className="text-xs font-semibold" style={{ color: 'var(--hr-text-muted)' }}>
                             Use System Environment Settings (.env)
                         </label>

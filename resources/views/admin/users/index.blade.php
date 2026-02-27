@@ -80,27 +80,121 @@
             </a>
         </div>
 
-        <form method="GET" action="{{ route('admin.users.index') }}" class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-            <input type="text" name="q" value="{{ $filters['q'] }}" placeholder="Search name, email, department, branch..." class="md:col-span-2 rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
-            <select name="role" class="rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+        <form id="usersFilterForm" method="GET" action="{{ route('admin.users.index') }}" class="mt-4 grid grid-cols-1 md:grid-cols-12 gap-4">
+            <input type="hidden" name="page" value="{{ request('page', method_exists($users, 'currentPage') ? $users->currentPage() : 1) }}" />
+            <input type="text" name="q" value="{{ $filters['q'] }}" placeholder="Search name, email, department, branch..." class="md:col-span-4 rounded-xl border px-3 h-10 bg-transparent text-[13px] md:text-[14px] placeholder:text-[var(--hr-text-muted)]" style="border-color: var(--hr-line);" />
+            <select name="role" class="md:col-span-2 rounded-xl border px-3 h-10 bg-transparent text-[13px] md:text-[14px]" style="border-color: var(--hr-line);">
                 <option value="">All Roles</option>
                 @foreach($roleOptions as $roleOption)
                     <option value="{{ $roleOption->value }}" {{ $filters['role'] === $roleOption->value ? 'selected' : '' }}>{{ $roleOption->label() }}</option>
                 @endforeach
             </select>
-            <div class="flex items-center gap-2">
-                <select name="status" class="flex-1 rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+            <div class="md:col-span-3 flex items-center gap-2">
+                <select name="sort_by" class="w-full rounded-xl border px-3 h-10 bg-transparent text-[13px] md:text-[14px]" style="border-color: var(--hr-line);">
+                    <option value="">Sort: Default</option>
+                    <option value="first_name" {{ (($filters['sort_by'] ?? '') === 'first_name') ? 'selected' : '' }}>First Name</option>
+                    <option value="last_name" {{ (($filters['sort_by'] ?? '') === 'last_name') ? 'selected' : '' }}>Last Name</option>
+                    <option value="full_name" {{ (($filters['sort_by'] ?? '') === 'full_name') ? 'selected' : '' }}>Full Name</option>
+                </select>
+                <select name="sort_dir" class="w-full rounded-xl border px-3 h-10 bg-transparent text-[13px] md:text-[14px]" style="border-color: var(--hr-line);">
+                    <option value="asc" {{ (($filters['sort_dir'] ?? 'desc') === 'asc') ? 'selected' : '' }}>Asc</option>
+                    <option value="desc" {{ (($filters['sort_dir'] ?? 'desc') === 'desc') ? 'selected' : '' }}>Desc</option>
+                </select>
+            </div>
+            <div class="md:col-span-3 flex items-center gap-2">
+                <select name="status" class="w-full rounded-xl border px-3 h-10 bg-transparent text-[13px] md:text-[14px]" style="border-color: var(--hr-line);">
                     <option value="">All Status</option>
                     @foreach($statusOptions as $statusOption)
                         <option value="{{ $statusOption }}" {{ $filters['status'] === $statusOption ? 'selected' : '' }}>{{ ucfirst($statusOption) }}</option>
                     @endforeach
                 </select>
-                <button type="submit" class="rounded-xl px-3 py-2.5 text-sm font-semibold border" style="border-color: var(--hr-line); display:inline-flex; align-items:center; gap:6px;">
+                <button id="usersFilterButton" type="submit" class="rounded-xl px-3 h-10 text-[13px] md:text-[14px] font-medium border opacity-80 hover:opacity-100" style="border-color: var(--hr-line); display:inline-flex; align-items:center; gap:6px; color: var(--hr-text-muted);">
                     <x-heroicon-o-magnifying-glass class="h-4 w-4" />
                     Filter
                 </button>
+                @if(request()->hasAny(['q','role','status','sort_by','sort_dir','page']) && (request('q') || request('role') || request('status') || request('sort_by') || request('sort_dir')))
+                    <a href="{{ route('admin.users.index') }}" class="text-xs md:text-sm font-medium underline-offset-2 hover:underline" style="color: var(--hr-text-muted);">Clear</a>
+                @endif
+                <span id="usersFilterLoading" class="ml-1 hidden" aria-live="polite" aria-label="Loading">
+                    <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" stroke-opacity="0.25" />
+                        <path d="M12 2a10 10 0 0 1 10 10" />
+                    </svg>
+                </span>
             </div>
         </form>
+
+        @push('scripts')
+        <script>
+            (function(){
+                const form = document.getElementById('usersFilterForm');
+                if (!form) return;
+                const q = form.querySelector('input[name="q"]');
+                const role = form.querySelector('select[name="role"]');
+                const status = form.querySelector('select[name="status"]');
+                const sortBy = form.querySelector('select[name="sort_by"]');
+                const sortDir = form.querySelector('select[name="sort_dir"]');
+                const page = form.querySelector('input[name="page"]');
+                const loading = document.getElementById('usersFilterLoading');
+                const filterBtn = document.getElementById('usersFilterButton');
+
+                const showLoading = () => {
+                    if (loading) loading.classList.remove('hidden');
+                    if (filterBtn) filterBtn.setAttribute('aria-busy', 'true');
+                };
+
+                const hideLoading = () => {
+                    if (loading) loading.classList.add('hidden');
+                    if (filterBtn) filterBtn.removeAttribute('aria-busy');
+                };
+
+                const debounce = (fn, delay = 450) => {
+                    let t;
+                    return (...args) => {
+                        clearTimeout(t);
+                        t = setTimeout(() => fn.apply(null, args), delay);
+                    };
+                };
+
+                const submitForm = (preservePage = true) => {
+                    try {
+                        if (preservePage) {
+                            // Keep current page if present; fallback to 1
+                            const params = new URLSearchParams(window.location.search);
+                            const current = params.get('page') || (page && page.value) || '1';
+                            if (page) page.value = current;
+                        } else {
+                            if (page) page.value = '1';
+                        }
+                    } catch (e) {
+                        // Best effort; ignore
+                    }
+                    showLoading();
+                    form.submit();
+                };
+
+                // Automatic apply when typing in search with debounce (400-500ms)
+                if (q) {
+                    const debounced = debounce(() => submitForm(true), 450);
+                    q.addEventListener('input', debounced);
+                }
+
+                // Immediate apply on select changes
+                [role, status, sortBy, sortDir].forEach(el => {
+                    if (!el) return;
+                    el.addEventListener('change', () => submitForm(true));
+                });
+
+                // Show loading on manual submit as well
+                form.addEventListener('submit', () => {
+                    showLoading();
+                });
+
+                // Hide loading if navigation prevented (unlikely here)
+                window.addEventListener('pageshow', () => hideLoading());
+            })();
+        </script>
+        @endpush
 
         <div class="mt-4 overflow-x-auto">
             <table class="w-full min-w-[840px] text-sm">
@@ -115,19 +209,11 @@
                 </tr>
                 </thead>
                 <tbody>
-                @forelse($users as $managedUser)
-                    @php
-                        $profile = $managedUser->profile;
-                        $status = $profile?->status ?? 'active';
-                        $statusStyles = match ($status) {
-                            'inactive' => 'color:#b45309;background:rgb(245 158 11 / 0.18);',
-                            'suspended' => 'color:#b91c1c;background:rgb(239 68 68 / 0.18);',
-                            default => 'color:#15803d;background:rgb(34 197 94 / 0.16);',
-                        };
-                    @endphp
+                @if($users && $users->count())
+                    @foreach($users as $managedUser)
                     <tr class="border-b" style="border-color: var(--hr-line);">
                         <td class="py-3 px-2">
-                            <p class="font-semibold">{{ $managedUser->name }}</p>
+                            <p class="font-semibold">{{ $managedUser->full_name }}</p>
                             <p class="text-xs" style="color: var(--hr-text-muted);">{{ $managedUser->email }}</p>
                         </td>
                         <td class="py-3 px-2">
@@ -136,15 +222,15 @@
                             </span>
                         </td>
                         <td class="py-3 px-2">
-                            <p class="font-semibold">{{ $profile?->department ?? 'N/A' }}</p>
-                            <p class="text-xs" style="color: var(--hr-text-muted);">{{ $profile?->branch ?? 'No branch' }}</p>
+                            <p class="font-semibold">{{ $managedUser->profile?->department ?? 'N/A' }}</p>
+                            <p class="text-xs" style="color: var(--hr-text-muted);">{{ $managedUser->profile?->branch ?? 'No branch' }}</p>
                         </td>
                         <td class="py-3 px-2">
-                            <span class="text-[11px] font-bold uppercase tracking-[0.08em] rounded-full px-2 py-1" style="{{ $statusStyles }}">
-                                {{ ucfirst($status) }}
+                            <span class="text-[11px] font-bold uppercase tracking-[0.08em] rounded-full px-2 py-1" style="{{ ($managedUser->profile?->status === 'inactive') ? 'color:#b45309;background:rgb(245 158 11 / 0.18);' : (($managedUser->profile?->status === 'suspended') ? 'color:#b91c1c;background:rgb(239 68 68 / 0.18);' : 'color:#15803d;background:rgb(34 197 94 / 0.16);') }}">
+                                {{ ucfirst($managedUser->profile?->status ?? 'active') }}
                             </span>
                         </td>
-                        <td class="py-3 px-2">{{ $profile?->joined_on?->format('M d, Y') ?? 'N/A' }}</td>
+                        <td class="py-3 px-2">{{ $managedUser->profile?->joined_on ? $managedUser->profile->joined_on->format('M d, Y') : 'N/A' }}</td>
                         <td class="py-3 px-2">
                             <div class="flex justify-end items-center gap-2">
                                 <a href="{{ route('admin.users.edit', $managedUser) }}" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border" style="border-color: var(--hr-line);">Edit</a>
@@ -156,11 +242,12 @@
                             </div>
                         </td>
                     </tr>
-                @empty
+                    @endforeach
+                @else
                     <tr>
                         <td colspan="6" class="py-6 text-center text-sm" style="color: var(--hr-text-muted);">No users found for the selected filters.</td>
                     </tr>
-                @endforelse
+                @endif
                 </tbody>
             </table>
         </div>

@@ -73,7 +73,9 @@ class ProfileController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:120', 'not_regex:/^\d+$/'],
+            'middle_name' => ['nullable', 'string', 'max:120', 'not_regex:/^\d+$/'],
+            'last_name' => ['required', 'string', 'max:120', 'not_regex:/^\d+$/'],
             'avatar' => ['nullable', 'file', 'max:4096', 'mimetypes:image/jpeg,image/png,image/webp'],
             'phone' => ['nullable', 'string', 'max:40'],
             'alternate_phone' => ['nullable', 'string', 'max:40'],
@@ -95,8 +97,16 @@ class ProfileController extends Controller
             $newAvatarUrl = $this->sanitizeAndStoreAvatar($request->file('avatar'));
         }
 
+        $first = trim((string) $validated['first_name']);
+        $middle = ($validated['middle_name'] ?? null) ? trim((string) $validated['middle_name']) : null;
+        $last = trim((string) $validated['last_name']);
+        $legacyFull = trim(implode(' ', array_values(array_filter([$first, $middle, $last], fn($p) => (string)$p !== ''))));
+
         $user->update([
-            'name' => $validated['name'],
+            'first_name' => $first,
+            'middle_name' => $middle,
+            'last_name' => $last,
+            'name' => $legacyFull,
         ]);
 
         $isEmployee = $user->profile?->is_employee ?? User::shouldTreatRoleAsEmployee(
@@ -130,7 +140,7 @@ class ProfileController extends Controller
             $user,
             'profile.updated',
             'Profile updated',
-            "{$user->name} updated personal profile",
+            "{$user->full_name} updated personal profile",
             '#ec4899',
             $user->profile
         );
@@ -166,7 +176,7 @@ class ProfileController extends Controller
             $user,
             'profile.password_updated',
             'Password updated',
-            "{$user->name} updated account password",
+            "{$user->full_name} updated account password",
             '#7c3aed',
             $user
         );
@@ -237,7 +247,7 @@ class ProfileController extends Controller
             $user,
             'profile.two_factor.enabled',
             'Two-factor authentication enabled',
-            "{$user->name} enabled two-factor authentication",
+            "{$user->full_name} enabled two-factor authentication",
             '#10b981',
             $user
         );
@@ -278,7 +288,7 @@ class ProfileController extends Controller
             $user,
             'profile.two_factor.disabled',
             'Two-factor authentication disabled',
-            "{$user->name} disabled two-factor authentication",
+            "{$user->full_name} disabled two-factor authentication",
             '#6b7280',
             $user
         );
@@ -325,7 +335,7 @@ class ProfileController extends Controller
             $user,
             'profile.two_factor.recovery_codes_regenerated',
             'Two-factor recovery codes regenerated',
-            "{$user->name} regenerated two-factor recovery codes",
+            "{$user->full_name} regenerated two-factor recovery codes",
             '#f59e0b',
             $user
         );

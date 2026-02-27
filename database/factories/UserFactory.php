@@ -24,8 +24,14 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        $first = fake()->firstName();
+        $last = fake()->lastName();
         return [
-            'name' => fake()->name(),
+            'first_name' => $first,
+            'middle_name' => null,
+            'last_name' => $last,
+            // Keep legacy name for compatibility while migrating other areas
+            'name' => $first.' '.$last,
             'email' => fake()->unique()->safeEmail(),
             'role' => fake()->randomElement(UserRole::values()),
             'email_verified_at' => now(),

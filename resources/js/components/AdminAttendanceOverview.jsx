@@ -4,6 +4,7 @@ import { fetchAdminAttendanceOverview } from '../services/adminAttendanceApi';
 import { buildDashboardSummaryQuery } from '../services/adminDashboardApi';
 import { AnalyticsDonutChart } from './common/charts/AnalyticsDonutChart';
 import { ChartLegend } from './common/charts/ChartLegend';
+import Icon from './shared/Icon';
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -95,6 +96,11 @@ function AdminAttendanceOverview({
     const [payload, setPayload] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [dayMode, setDayMode] = useState('today'); // today | yesterday | custom
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    });
 
     const queryParams = useMemo(
         () => buildDashboardSummaryQuery({
@@ -106,27 +112,29 @@ function AdminAttendanceOverview({
 
     const absentEmployeesUrl = useMemo(() => {
         const search = new URLSearchParams(queryParams);
-        if (search.toString() === '') {
-            return absentUrl;
-        }
-
-        const separator = absentUrl.includes('?') ? '&' : '?';
-        return `${absentUrl}${separator}${search.toString()}`;
-    }, [absentUrl, queryParams]);
+        search.set('attendance_date', selectedDate);
+        const base = absentUrl.split('?')[0];
+        const qp = search.toString();
+        return qp ? `${base}?${qp}` : base;
+    }, [absentUrl, queryParams, selectedDate]);
 
     const load = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
             const abortController = new AbortController();
-            const response = await fetchAdminAttendanceOverview(endpointUrl, queryParams, abortController.signal);
+            const response = await fetchAdminAttendanceOverview(
+                endpointUrl,
+                { ...queryParams, date: selectedDate },
+                abortController.signal,
+            );
             setPayload(response);
         } catch (_error) {
             setError('Unable to load attendance overview right now.');
         } finally {
             setLoading(false);
         }
-    }, [endpointUrl, queryParams]);
+    }, [endpointUrl, queryParams, selectedDate]);
 
     useEffect(() => {
         load();
@@ -160,22 +168,54 @@ function AdminAttendanceOverview({
     const displayed = useMemo(() => entries.filter((e) => !hidden.has(e.key)), [entries, hidden]);
 
     return (
-        <section className="relative rounded-xl border p-4 pt-12" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface-strong)' }}>
-            <button
-                type="button"
-                onClick={load}
-                className="ui-btn ui-btn-ghost absolute right-4 top-4"
-                disabled={loading}
-            >
-                {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
+        <section className="rounded-xl border p-4" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface-strong)' }}>
             <div className="ui-section-head">
                 <div>
                     <h3 className="ui-section-title">Attendance Overview</h3>
-                    <p className="ui-section-subtitle">Today&apos;s status mix and department-wise attendance performance.</p>
+                    <p className="ui-section-subtitle">Status mix and department-wise attendance performance.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-end gap-2">
+                    <select
+                        className="ui-select"
+                        value={dayMode}
+                        onChange={(e) => {
+                            const mode = e.target.value;
+                            setDayMode(mode);
+                            if (mode === 'today') {
+                                const d = new Date();
+                                setSelectedDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+                            } else if (mode === 'yesterday') {
+                                const d = new Date();
+                                d.setDate(d.getDate() - 1);
+                                setSelectedDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+                            }
+                        }}
+                        aria-label="Select day"
+                    >
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="custom">Custom Date</option>
+                    </select>
+                    {dayMode === 'custom' && (
+                        <input
+                            type="date"
+                            className="ui-input"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            aria-label="Choose date"
+                        />
+                    )}
                     <a href={absentEmployeesUrl} className="ui-btn ui-btn-primary">View Absent Employees</a>
+                    <button
+                        type="button"
+                        className="ui-btn ui-btn-ghost"
+                        onClick={load}
+                        disabled={loading}
+                        aria-label="Refresh"
+                        title="Refresh"
+                    >
+                        <Icon name="refresh" className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
                 </div>
             </div>
 

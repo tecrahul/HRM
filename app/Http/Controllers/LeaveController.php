@@ -92,7 +92,7 @@ class LeaveController extends Controller
                 'stats' => $stats,
                 'currentUser' => [
                     'id' => (int) $viewer->id,
-                    'name' => (string) $viewer->name,
+                    'name' => (string) $viewer->full_name,
                     'email' => (string) $viewer->email,
                 ],
                 'flash' => [
@@ -200,7 +200,7 @@ class LeaveController extends Controller
             'reviewer_id' => $capabilities['canAssign'] ? $viewer->id : null,
             'reviewed_at' => $capabilities['canAssign'] ? now() : null,
             'review_note' => $capabilities['canAssign']
-                ? ($assignNote === '' ? "Assigned by {$viewer->name}." : $assignNote)
+                ? ($assignNote === '' ? "Assigned by {$viewer->full_name}." : $assignNote)
                 : null,
             'attachment_path' => $attachmentPath,
             'attachment_name' => $attachmentName,
@@ -208,7 +208,7 @@ class LeaveController extends Controller
 
         $leaveRequest->loadMissing(['user.profile', 'reviewer']);
 
-        $targetName = $leaveRequest->user?->name ?? $viewer->name;
+        $targetName = $leaveRequest->user?->full_name ?? ($viewer->full_name ?? 'Unknown');
         $dayTypeLabel = Str::of($dayType)->replace('_', ' ')->title()->toString();
         ActivityLogger::log(
             $viewer,
@@ -364,7 +364,7 @@ class LeaveController extends Controller
             'reviewed_at' => $status === LeaveRequest::STATUS_PENDING ? null : now(),
             'review_note' => $status === LeaveRequest::STATUS_PENDING
                 ? null
-                : ($assignNote === '' ? "Updated by {$viewer->name}." : $assignNote),
+                : ($assignNote === '' ? "Updated by {$viewer->full_name}." : $assignNote),
             'attachment_path' => $attachmentPath,
             'attachment_name' => $attachmentName,
         ]);
@@ -375,7 +375,7 @@ class LeaveController extends Controller
             $viewer,
             'leave.updated',
             'Leave updated',
-            "{$leaveRequest->user?->name} • {$leaveRequest->start_date?->format('M d, Y')}",
+            "{$leaveRequest->user?->full_name} • {$leaveRequest->start_date?->format('M d, Y')}",
             '#f59e0b',
             $leaveRequest
         );
@@ -422,12 +422,12 @@ class LeaveController extends Controller
         $leaveRequest->loadMissing(['user.profile', 'reviewer']);
 
         $statusLabel = Str::of((string) $leaveRequest->status)->replace('_', ' ')->title()->toString();
-        $targetName = $leaveRequest->user?->name ?? 'Unknown employee';
+        $targetName = $leaveRequest->user?->full_name ?? 'Unknown employee';
         ActivityLogger::log(
             $viewer,
             'leave.reviewed',
             "Leave {$statusLabel}",
-            "{$targetName} • reviewed by {$viewer->name}",
+            "{$targetName} • reviewed by {$viewer->full_name}",
             '#f59e0b',
             $leaveRequest
         );
@@ -504,7 +504,7 @@ class LeaveController extends Controller
             $viewer,
             'leave.cancelled',
             'Leave cancelled',
-            "{$viewer->name} cancelled a pending leave request",
+            "{$viewer->full_name} cancelled a pending leave request",
             '#f59e0b',
             $leaveRequest
         );
@@ -695,7 +695,7 @@ class LeaveController extends Controller
             'id' => (int) $leaveRequest->id,
             'employee' => [
                 'id' => (int) ($leaveRequest->user?->id ?? 0),
-                'name' => (string) ($leaveRequest->user?->name ?? 'N/A'),
+                'name' => (string) ($leaveRequest->user?->full_name ?? 'N/A'),
                 'email' => (string) ($leaveRequest->user?->email ?? 'N/A'),
                 'department' => (string) ($leaveRequest->user?->profile?->department ?? 'N/A'),
                 'branch' => (string) ($leaveRequest->user?->profile?->branch ?? 'N/A'),
@@ -723,7 +723,7 @@ class LeaveController extends Controller
             'statusLabel' => $this->label((string) $leaveRequest->status),
             'reason' => (string) $leaveRequest->reason,
             'reviewNote' => (string) ($leaveRequest->review_note ?? ''),
-            'reviewerName' => (string) ($leaveRequest->reviewer?->name ?? ''),
+            'reviewerName' => (string) ($leaveRequest->reviewer?->full_name ?? ''),
             'reviewedAtLabel' => $leaveRequest->reviewed_at?->format('M d, Y h:i A'),
             'createdAtLabel' => $leaveRequest->created_at?->format('M d, Y h:i A'),
             'attachmentName' => (string) ($leaveRequest->attachment_name ?? ''),
@@ -750,6 +750,12 @@ class LeaveController extends Controller
                 ->where('status', LeaveRequest::STATUS_APPROVED)
                 ->sum('total_days');
 
+            $nextApprovedLeave = (clone $baseQuery)
+                ->where('status', LeaveRequest::STATUS_APPROVED)
+                ->whereDate('start_date', '>=', now()->toDateString())
+                ->orderBy('start_date')
+                ->first();
+
             return [
                 'total' => (int) (clone $baseQuery)->count(),
                 'pending' => (int) (clone $baseQuery)->where('status', LeaveRequest::STATUS_PENDING)->count(),
@@ -758,6 +764,8 @@ class LeaveController extends Controller
                 'approvedDays' => $approvedDays,
                 'remainingDays' => max(0.0, self::ANNUAL_ALLOWANCE - $approvedDays),
                 'annualAllowance' => self::ANNUAL_ALLOWANCE,
+                'nextLeaveDateIso' => $nextApprovedLeave?->start_date?->toDateString(),
+                'nextLeaveDateLabel' => $nextApprovedLeave?->start_date?->format('M d, Y') ?? '',
             ];
         }
 
@@ -765,6 +773,12 @@ class LeaveController extends Controller
         $baseQuery = LeaveRequest::query()->whereIn('user_id', $employeeIds);
         $monthStart = now()->startOfMonth()->toDateString();
         $monthEnd = now()->endOfMonth()->toDateString();
+
+        $nextApprovedLeave = (clone $baseQuery)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereDate('start_date', '>=', now()->toDateString())
+            ->orderBy('start_date')
+            ->first();
 
         return [
             'total' => (int) (clone $baseQuery)->count(),
@@ -775,6 +789,8 @@ class LeaveController extends Controller
                 ->where('status', LeaveRequest::STATUS_APPROVED)
                 ->whereBetween('start_date', [$monthStart, $monthEnd])
                 ->sum('total_days')),
+            'nextLeaveDateIso' => $nextApprovedLeave?->start_date?->toDateString(),
+            'nextLeaveDateLabel' => $nextApprovedLeave?->start_date?->format('M d, Y') ?? '',
         ];
     }
 

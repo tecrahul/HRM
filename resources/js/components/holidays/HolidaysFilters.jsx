@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { MonthSelector } from '../shared/MonthSelector';
 
 const DEFAULT_FILTERS = {
     q: '',
     year: String(new Date().getFullYear()),
+    month: '',
     branch_id: '',
     holiday_type: 'all',
     status: 'all',
@@ -23,6 +25,7 @@ export function HolidaysFilters({
         ...defaults,
         ...filters,
         year: String(filters?.year ?? defaults?.year ?? new Date().getFullYear()),
+        month: String(filters?.month ?? defaults?.month ?? ''),
     });
 
     useEffect(() => {
@@ -31,6 +34,7 @@ export function HolidaysFilters({
             ...defaults,
             ...filters,
             year: String(filters?.year ?? defaults?.year ?? new Date().getFullYear()),
+            month: String(filters?.month ?? defaults?.month ?? ''),
         });
     }, [defaults, filters]);
 
@@ -46,6 +50,7 @@ export function HolidaysFilters({
         onApply({
             ...draft,
             year: Number.parseInt(String(draft.year), 10) || new Date().getFullYear(),
+            month: String(draft.month || ''),
         });
     };
 
@@ -54,15 +59,16 @@ export function HolidaysFilters({
             ...DEFAULT_FILTERS,
             ...defaults,
             year: String(defaults?.year ?? new Date().getFullYear()),
+            month: String(defaults?.month ?? ''),
         };
         setDraft(reset);
         onClear();
     };
 
     return (
-        <section className="hrm-modern-surface rounded-2xl p-4">
-            <form className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3" onSubmit={applyFilters}>
-                <div className="xl:col-span-2">
+        <section className="hrm-modern-surface rounded-2xl p-6">
+            <form className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4" onSubmit={applyFilters}>
+                <div className="md:col-span-2 xl:col-span-2">
                     <label htmlFor="holiday_search" className="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--hr-text-muted)' }}>
                         Search
                     </label>
@@ -92,6 +98,13 @@ export function HolidaysFilters({
                             <option key={value} value={value}>{label}</option>
                         ))}
                     </select>
+                </div>
+
+                <div>
+                    <label htmlFor="holiday_month" className="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--hr-text-muted)' }}>
+                        Month
+                    </label>
+                    <MonthSelector id="holiday_month" value={draft.month} onChange={(v) => setField('month', v)} />
                 </div>
 
                 <div>
@@ -147,7 +160,7 @@ export function HolidaysFilters({
                     </select>
                 </div>
 
-                <div className="xl:col-span-6 flex items-center gap-2 justify-start">
+                <div className="xl:col-span-6 md:col-span-2 flex items-center gap-4 justify-end">
                     <button
                         type="button"
                         className="rounded-xl border px-3.5 py-2.5 text-sm font-semibold"

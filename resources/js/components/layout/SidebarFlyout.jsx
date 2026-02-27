@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function SidebarFlyout({ anchorRect, anchorEl, anchorLabelId, items = [], visible, onRequestClose }) {
   const [style, setStyle] = useState({});
   const containerRef = useRef(null);
   const itemRefs = useRef([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [entered, setEntered] = useState(false);
 
   useEffect(() => {
     if (!anchorRect || !visible) return;
@@ -90,11 +92,32 @@ export default function SidebarFlyout({ anchorRect, anchorEl, anchorLabelId, ite
     }
   };
 
-  if (!visible || items.length === 0) return null;
+  useEffect(() => {
+    if (!visible) return;
+    // trigger entrance transition
+    const t = window.setTimeout(() => setEntered(true), 0);
+    return () => window.clearTimeout(t);
+  }, [visible]);
 
-  return (
-    <div ref={containerRef} className="fixed z-[1050] transition-all duration-150" style={style} role="menu" aria-labelledby={anchorLabelId || undefined}>
-      <div className="rounded-xl border shadow-lg p-2 transition-all duration-150" style={{ background: 'var(--hr-surface)', borderColor: 'var(--hr-line)' }}>
+  const content = !visible || items.length === 0 ? null : (
+    <div
+      ref={containerRef}
+      className={`fixed transition-all duration-150 ${entered ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-1'}`}
+      style={{ ...style, zIndex: 'var(--z-popover, 1200)' }}
+      role="menu"
+      aria-labelledby={anchorLabelId || undefined}
+      onMouseLeave={(e) => {
+        const to = e.relatedTarget;
+        if (to && anchorEl && anchorEl.contains(to)) {
+          return;
+        }
+        onRequestClose?.();
+      }}
+    >
+      <div
+        className="rounded-xl border shadow-lg p-2 transition-all duration-150"
+        style={{ background: 'var(--hr-surface)', borderColor: 'var(--hr-line)' }}
+      >
         <ul className="flex flex-col gap-1">
           {items.map((item, idx) => (
             <li key={item.key}>
@@ -116,4 +139,7 @@ export default function SidebarFlyout({ anchorRect, anchorEl, anchorLabelId, ite
       </div>
     </div>
   );
+
+  if (!content) return null;
+  return createPortal(content, document.body);
 }

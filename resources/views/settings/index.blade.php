@@ -26,13 +26,7 @@
             'registration_number',
             'incorporation_country',
             'brand_tagline',
-            'branch_directory',
         ];
-        $branchDirectoryEntries = old('branch_directory', $companySettings['branch_directory'] ?? []);
-        if (! is_array($branchDirectoryEntries)) {
-            $branchDirectoryEntries = [];
-        }
-        $branchDirectoryCount = count($branchDirectoryEntries);
         $completedProfileFields = collect($profileFieldsForCompletion)->filter(
             static fn (string $field): bool => filled($companySettings[$field] ?? null)
         )->count();
@@ -50,13 +44,19 @@
         $selectedLocaleLabel = $localeOptions[$companySettings['locale']] ?? $companySettings['locale'];
         $selectedDefaultCountryLabel = $countryOptions[$companySettings['default_country']] ?? $companySettings['default_country'];
         $selectedEntityTypeLabel = $legalEntityTypes[$companySettings['legal_entity_type'] ?? ''] ?? 'Not set';
-        $primaryBranch = collect($branchDirectoryEntries)->firstWhere('is_primary', true);
         if (
             $companyLogoPath !== ''
             && \Illuminate\Support\Facades\Storage::disk('public')->exists($companyLogoPath)
         ) {
             $companyLogoUrl = route('settings.company.logo');
         }
+
+        // Branch directory helpers for the Company section
+        $branchDirectoryEntries = old('branch_directory', $companySettings['branch_directory'] ?? []);
+        if (! is_array($branchDirectoryEntries)) {
+            $branchDirectoryEntries = [];
+        }
+        $branchDirectoryCount = count($branchDirectoryEntries);
     @endphp
 
     @if (session('status'))
@@ -126,10 +126,7 @@
                     <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Localization & Coverage</p>
                     <p class="mt-2 text-3xl font-extrabold">{{ $companySettings['currency'] }}</p>
                     <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $selectedLocaleLabel }} • TZ {{ $companySettings['timezone'] }}</p>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">
-                        {{ $branchDirectoryCount }} branch {{ \Illuminate\Support\Str::plural('address', $branchDirectoryCount) }}
-                        • FY {{ $financialYearStartLabel }} → {{ $financialYearEndLabel }}
-                    </p>
+                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">FY {{ $financialYearStartLabel }} → {{ $financialYearEndLabel }}</p>
                 </div>
                 <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(245 158 11 / 0.16); color: #d97706;">
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"></path><path d="M12 6v12"></path></svg>
@@ -139,75 +136,7 @@
         </section>
     @endif
 
-    @if ($isSystemSection)
-        <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <article class="ui-section">
-            <div class="flex items-center gap-2">
-                <span class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                </span>
-                <h3 class="text-lg font-extrabold">Access & Preferences</h3>
-            </div>
-            <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Authentication and regional preferences from the saved settings.</p>
-
-            <dl class="mt-4 space-y-2 text-sm">
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Sign Up</dt>
-                    <dd class="font-semibold">{{ $companySettings['signup_enabled'] ? 'Enabled' : 'Disabled' }}</dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Password Reset</dt>
-                    <dd class="font-semibold">{{ $companySettings['password_reset_enabled'] ? 'Enabled' : 'Disabled' }}</dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Two-Factor Authentication</dt>
-                    <dd class="font-semibold">{{ $companySettings['two_factor_enabled'] ? 'Enabled' : 'Disabled' }}</dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Timezone</dt>
-                    <dd class="font-semibold">{{ $companySettings['timezone'] }}</dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Locale</dt>
-                    <dd class="font-semibold">{{ $selectedLocaleLabel }}</dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Date Format</dt>
-                    <dd class="font-semibold">{{ $dateFormatOptions[$companySettings['date_format']] ?? $companySettings['date_format'] }}</dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Time Format</dt>
-                    <dd class="font-semibold">{{ $timeFormatOptions[$companySettings['time_format']] ?? $companySettings['time_format'] }}</dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Currency</dt>
-                    <dd class="font-semibold">{{ $companySettings['currency'] }}</dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Financial Year Start</dt>
-                    <dd class="font-semibold">{{ $financialYearStartLabel }} → {{ $financialYearEndLabel }}</dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Default Country</dt>
-                    <dd class="font-semibold">{{ $selectedDefaultCountryLabel }}</dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Primary Branch</dt>
-                    <dd class="font-semibold">
-                        {{ $primaryBranch['label'] ?? 'Not assigned' }}
-                        @if (filled($primaryBranch['address'] ?? null))
-                            <span class="block text-[11px] font-normal" style="color: var(--hr-text-muted);">{{ $primaryBranch['address'] }}</span>
-                        @endif
-                    </dd>
-                </div>
-                <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
-                    <dt style="color: var(--hr-text-muted);">Edit Access</dt>
-                    <dd class="font-semibold">{{ $canManageCompanyDetails ? 'Admin' : 'Read only' }}</dd>
-                </div>
-            </dl>
-            </article>
-        </section>
-    @elseif ($isOverviewSection)
+    @if ($isOverviewSection)
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <article class="ui-section">
                 <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -313,6 +242,62 @@
                     <span class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                     </span>
+                    <h3 class="text-lg font-extrabold">Access & Preferences</h3>
+                </div>
+                <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Authentication and regional preferences from the saved settings.</p>
+
+                <dl class="mt-4 space-y-2 text-sm">
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Sign Up</dt>
+                        <dd class="font-semibold">{{ $companySettings['signup_enabled'] ? 'Enabled' : 'Disabled' }}</dd>
+                    </div>
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Password Reset</dt>
+                        <dd class="font-semibold">{{ $companySettings['password_reset_enabled'] ? 'Enabled' : 'Disabled' }}</dd>
+                    </div>
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Two-Factor Authentication</dt>
+                        <dd class="font-semibold">{{ $companySettings['two_factor_enabled'] ? 'Enabled' : 'Disabled' }}</dd>
+                    </div>
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Timezone</dt>
+                        <dd class="font-semibold">{{ $companySettings['timezone'] }}</dd>
+                    </div>
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Locale</dt>
+                        <dd class="font-semibold">{{ $selectedLocaleLabel }}</dd>
+                    </div>
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Date Format</dt>
+                        <dd class="font-semibold">{{ $dateFormatOptions[$companySettings['date_format']] ?? $companySettings['date_format'] }}</dd>
+                    </div>
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Time Format</dt>
+                        <dd class="font-semibold">{{ $timeFormatOptions[$companySettings['time_format']] ?? $companySettings['time_format'] }}</dd>
+                    </div>
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Currency</dt>
+                        <dd class="font-semibold">{{ $companySettings['currency'] }}</dd>
+                    </div>
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Financial Year</dt>
+                        <dd class="font-semibold">{{ $financialYearStartLabel }} → {{ $financialYearEndLabel }}</dd>
+                    </div>
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Default Country</dt>
+                        <dd class="font-semibold">{{ $selectedDefaultCountryLabel }}</dd>
+                    </div>
+                    <div class="rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2" style="border-color: var(--hr-line);">
+                        <dt style="color: var(--hr-text-muted);">Edit Access</dt>
+                        <dd class="font-semibold">{{ $canManageCompanyDetails ? 'Admin' : 'Read only' }}</dd>
+                    </div>
+                </dl>
+            </article>
+            <article class="ui-section">
+                <div class="flex items-center gap-2">
+                    <span class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: var(--hr-accent-soft); color: var(--hr-accent);">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    </span>
                     <h3 class="text-lg font-extrabold">System Settings</h3>
                 </div>
                 <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Configure authentication controls, locale, currency, and financial year preferences.</p>
@@ -351,23 +336,6 @@
             @csrf
             <input type="hidden" name="settings_section" value="{{ $isSystemSection ? 'system' : 'company' }}">
             @if ($isCompanySection)
-            <div class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h4 class="text-sm font-extrabold">Security Controls</h4>
-                        <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Two-factor authentication can be globally enabled or disabled from Authentication Access.</p>
-                    </div>
-                    <span class="text-[11px] font-bold uppercase tracking-[0.1em] rounded-full px-2.5 py-1" style="background: var(--hr-accent-soft); color: var(--hr-accent); border: 1px solid var(--hr-line);">
-                        2FA: {{ ($companySettings['two_factor_enabled'] ?? true) ? 'Enabled' : 'Disabled' }}
-                    </span>
-                </div>
-                <div class="mt-3">
-                    <a href="{{ route('settings.index', ['section' => 'system']) }}" class="text-xs font-semibold inline-flex items-center gap-2" style="color: var(--hr-accent);">
-                        Open System Settings
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                    </a>
-                </div>
-            </div>
             <div>
                 <label for="company_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Company Name</label>
                 <input id="company_name" name="company_name" type="text" value="{{ old('company_name', $companySettings['company_name']) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
@@ -423,6 +391,8 @@
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
+            @if(false)
+            @if(false)
             <div class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
                 <div class="flex flex-wrap items-start gap-4">
                     <div class="h-20 w-20 rounded-xl border p-2 flex items-center justify-center overflow-hidden" style="border-color: var(--hr-line); background: #fff;">
@@ -448,6 +418,7 @@
                     </div>
                 </div>
             </div>
+            @endif
             <div class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
                 <div class="flex items-center justify-between gap-3 flex-wrap">
                     <div>
@@ -777,11 +748,11 @@
                         <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
-                <div id="branchDirectoryList" class="mt-4 space-y-3" data-next-index="{{ count($branchDirectoryEntries) }}" data-max="{{ $branchDirectoryLimit }}">
-                    <p data-branch-empty class="{{ $branchDirectoryCount > 0 ? 'hidden' : '' }} text-sm" style="color: var(--hr-text-muted);">
+                <div id="branchDirectoryList" class="mt-4 space-y-3" data-next-index="{{ count($branchDirectoryEntries ?? []) }}" data-max="{{ $branchDirectoryLimit }}">
+                    <p data-branch-empty class="{{ ($branchDirectoryCount ?? 0) > 0 ? 'hidden' : '' }} text-sm" style="color: var(--hr-text-muted);">
                         No branch addresses yet. Click “Add Branch Address” to register an office or region.
                     </p>
-                    @foreach($branchDirectoryEntries as $idx => $branchEntry)
+                    @foreach(($branchDirectoryEntries ?? []) as $idx => $branchEntry)
                         @php
                             $branchLabel = old("branch_directory.$idx.label", $branchEntry['label'] ?? '');
                             $branchCode = old("branch_directory.$idx.code", $branchEntry['code'] ?? '');
@@ -892,6 +863,7 @@
                     </div>
                 </template>
             </div>
+            @endif
             @endif
 
             @if ($isSystemSection)

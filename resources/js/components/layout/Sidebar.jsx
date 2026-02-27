@@ -4,6 +4,7 @@ import SidebarFlyout from './SidebarFlyout';
 
 export default function Sidebar({ payload }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [openSections, setOpenSections] = useState({});
   const [flyout, setFlyout] = useState({ open: false, anchorRect: null, items: [], parentKey: null, anchorEl: null, anchorLabelId: null });
 
   const brand = payload?.brand || {};
@@ -30,6 +31,22 @@ export default function Sidebar({ payload }) {
     }
     return map;
   }, [items]);
+
+  // Initialize open sections: open the one that has an active item
+  useEffect(() => {
+    const next = {};
+    let anyActive = false;
+    Object.entries(sections).forEach(([section, arr]) => {
+      const hasActive = arr.some((i) => i.active || (Array.isArray(i.children) && i.children.some((c) => c.active)));
+      if (hasActive) { next[section] = true; anyActive = true; }
+    });
+    // If none active, open the first section
+    if (!anyActive) {
+      const first = Object.keys(sections)[0];
+      if (first) next[first] = true;
+    }
+    setOpenSections(next);
+  }, [sections]);
 
   const openFlyout = (item, anchorRect, anchorEl = null, anchorLabelId = null) => {
     if (!item.children || item.children.length === 0) return;
@@ -72,20 +89,48 @@ export default function Sidebar({ payload }) {
 
       <nav className="flex-1 min-h-0">
         <div className="hrm-sidebar-scroll pr-1" style={{ maxHeight: 'calc(100vh - 220px)' }}>
-          <ul className="flex flex-col gap-0.5">
+          <ul className="flex flex-col gap-1">
             {topItems.map((it) => (
-              <SidebarItem key={it.key} item={it} isCollapsed={isCollapsed} onOpenFlyout={openFlyout} isFlyoutOpenForKey={flyout.open && flyout.parentKey === it.key} />
+              <SidebarItem
+                key={it.key}
+                item={it}
+                isCollapsed={isCollapsed}
+                onOpenFlyout={openFlyout}
+                isFlyoutOpenForKey={flyout.open && flyout.parentKey === it.key}
+                level={1}
+              />
             ))}
           </ul>
 
           {Object.keys(sections).map((section) => (
-            <div key={section} className="mt-2">
+            <div key={section} className="mt-4">
               {!isCollapsed && (
-                <p className="px-2 text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--hr-text-muted)' }}>{section}</p>
+                <button type="button" className="w-full flex items-center justify-between px-2 py-1 mb-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"
+                        style={{ color: 'var(--hr-text-muted)' }}
+                        onClick={() => {
+                          // Only one major group expanded at a time
+                          setOpenSections((prev) => {
+                            const next = {};
+                            Object.keys(prev).forEach((k) => { next[k] = false; });
+                            next[section] = !prev[section];
+                            return next;
+                          });
+                        }}
+                >
+                  <span>{section}</span>
+                  <svg className={`h-3 w-3 transition-transform ${openSections[section] ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
               )}
-              <ul className="flex flex-col gap-0.5 mt-0.5">
+              <ul className={`flex flex-col gap-1 mt-1.5 ${(!isCollapsed && openSections[section] === false) ? 'hidden' : ''}`}>
                 {sections[section].map((it) => (
-                  <SidebarItem key={it.key} item={it} isCollapsed={isCollapsed} onOpenFlyout={openFlyout} isFlyoutOpenForKey={flyout.open && flyout.parentKey === it.key} />
+                  <SidebarItem
+                    key={it.key}
+                    item={it}
+                    isCollapsed={isCollapsed}
+                    onOpenFlyout={openFlyout}
+                    isFlyoutOpenForKey={flyout.open && flyout.parentKey === it.key}
+                    level={2}
+                  />
                 ))}
               </ul>
             </div>

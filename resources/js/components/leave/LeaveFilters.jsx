@@ -107,7 +107,7 @@ export function LeaveFilters({
     return (
         <form
             onSubmit={submit}
-            className={`rounded-2xl border p-4 grid grid-cols-1 md:grid-cols-2 ${canFilterByEmployee ? 'xl:grid-cols-7' : 'xl:grid-cols-6'} gap-3`}
+            className={`rounded-2xl border p-6 grid grid-cols-1 md:grid-cols-2 ${canFilterByEmployee ? 'xl:grid-cols-7' : 'xl:grid-cols-6'} gap-4`}
             style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface-strong)' }}
         >
             <div className="xl:col-span-2">
@@ -170,10 +170,10 @@ export function LeaveFilters({
                         autoComplete="off"
                     />
                     {employeeLoading ? (
-                        <p className="text-xs mt-1" style={{ color: 'var(--hr-text-muted)' }}>Searching employees...</p>
+                        <p className="text-xs mt-2" style={{ color: 'var(--hr-text-muted)' }}>Searching employees...</p>
                     ) : null}
                     {employeeOptions.length > 0 && localFilters.employee_id === '' ? (
-                        <div className="absolute z-20 mt-1 w-full rounded-xl border p-2 max-h-40 overflow-auto" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface-strong)' }}>
+                        <div className="absolute z-20 mt-2 w-full rounded-xl border p-2 max-h-40 overflow-auto" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface-strong)' }}>
                             {employeeOptions.map((employee) => (
                                 <button
                                     key={employee.id}
@@ -194,7 +194,7 @@ export function LeaveFilters({
                 </div>
             ) : null}
 
-            <div className={`${canFilterByEmployee ? 'xl:col-span-2' : 'xl:col-span-3'} grid grid-cols-1 md:grid-cols-2 gap-3`}>
+            <div className={`${canFilterByEmployee ? 'xl:col-span-2' : 'xl:col-span-3'} grid grid-cols-1 md:grid-cols-2 gap-4`}>
                 <div>
                     <label htmlFor="leave_filter_date_from" className="text-xs font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--hr-text-muted)' }}>
                         From
@@ -239,7 +239,7 @@ export function LeaveFilters({
                 </div>
             </div>
 
-            <div className="md:col-span-2 xl:col-span-full flex items-center gap-2">
+            <div className="md:col-span-2 xl:col-span-full flex items-center gap-4">
                 <button
                     type="submit"
                     className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white"

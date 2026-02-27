@@ -325,7 +325,7 @@ class CommunicationController extends Controller
             $viewer,
             'communication.direct.sent',
             'Direct message sent',
-            "{$viewer->name} -> {$receiver->name}",
+            "{$viewer->full_name} -> {$receiver->full_name}",
             '#3b82f6',
             $receiver
         );

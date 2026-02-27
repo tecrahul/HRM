@@ -8,6 +8,9 @@ import { HolidaysInfoCards } from '../../components/holidays/HolidaysInfoCards';
 import { HolidaysFilters } from '../../components/holidays/HolidaysFilters';
 import { HolidayForm } from '../../components/holidays/HolidayForm';
 import { HolidaysTable } from '../../components/holidays/HolidaysTable';
+import { HolidayCalendarHeader } from '../../components/holidays/HolidayCalendarHeader';
+import { HolidayCalendarView } from '../../components/holidays/HolidayCalendarView';
+import { HolidayDetailModal } from '../../components/holidays/HolidayDetailModal';
 
 const EMPTY_FORM = {
     name: '',
@@ -163,6 +166,25 @@ function HolidaysPage({ payload }) {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [isDarkMode, setIsDarkMode] = useState(readDarkMode);
 
+    // View state: 'list' | 'calendar'
+    const [view, setView] = useState(() => {
+        try {
+            const v = localStorage.getItem('holidays.view') || 'list';
+            return v === 'calendar' ? 'calendar' : 'list';
+        } catch (_e) {
+            return 'list';
+        }
+    });
+
+    // Calendar detail modal
+    const [detailOpen, setDetailOpen] = useState(false);
+    const [detailHoliday, setDetailHoliday] = useState(null);
+
+    // Calendar cursor synchronized with filters
+    const initialMonth = Number.parseInt(String(filters?.month || new Date().getMonth() + 1), 10);
+    const [calendarYear, setCalendarYear] = useState(filters.year || new Date().getFullYear());
+    const [calendarMonth, setCalendarMonth] = useState(initialMonth);
+
     const [toasts, setToasts] = useState(() => {
         const initial = [];
         if (payload.flash?.status) {
@@ -173,6 +195,30 @@ function HolidaysPage({ payload }) {
         }
         return initial;
     });
+
+    // Open create form when navigated with action=create and prefill date
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const action = String(params.get('action') || '');
+            if (Boolean(capabilities.canCreate) && action === 'create') {
+                const dateParam = String(params.get('holiday_date') || params.get('start_date') || '');
+                const parsed = dateParam ? new Date(dateParam) : null;
+                const isValid = parsed && !Number.isNaN(parsed.getTime());
+
+                setFormMode('create');
+                setEditingHoliday(null);
+                setFormValues({
+                    ...EMPTY_FORM,
+                    holiday_date: isValid ? dateParam : '',
+                    is_active: true,
+                });
+                setFormErrors({});
+                setFormOpen(true);
+            }
+        } catch (_e) {}
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [capabilities.canCreate]);
 
     useEffect(() => {
         if (!formOpen) {
@@ -203,6 +249,18 @@ function HolidaysPage({ payload }) {
 
         return () => observer.disconnect();
     }, []);
+
+    // Ensure correct data shape when opening directly in calendar view
+    useEffect(() => {
+        if (view !== 'calendar') return;
+        const m = Number.parseInt(String(filters.month || new Date().getMonth() + 1), 10);
+        const y = filters.year || new Date().getFullYear();
+        setCalendarMonth(m);
+        setCalendarYear(y);
+        // Load calendar data without mutating filter values
+        fetchHolidays({ month: String(m), year: y, per_page: 500 }, 1, true, true).catch(() => {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [view]);
 
     const pushToast = (message, tone = 'success') => {
         const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -278,13 +336,29 @@ function HolidaysPage({ payload }) {
     };
 
     const handleApplyFilters = (nextFilters) => {
-        fetchHolidays(nextFilters, 1).catch((apiError) => {
+        // If month changed via filter and in calendar view, sync header cursor
+        if (view === 'calendar') {
+            const monthNum = Number.parseInt(String(nextFilters.month || calendarMonth), 10) || calendarMonth;
+            setCalendarMonth(monthNum);
+            setCalendarYear(Number.parseInt(String(nextFilters.year || calendarYear), 10) || calendarYear);
+        }
+
+        const payload = view === 'calendar'
+            ? { ...nextFilters, per_page: 500 }
+            : nextFilters;
+
+        fetchHolidays(payload, 1).catch((apiError) => {
             pushToast(apiError.message || 'Unable to apply filters.', 'danger');
         });
     };
 
     const handleClearFilters = () => {
-        fetchHolidays(defaults, 1).catch((apiError) => {
+        const payload = view === 'calendar' ? { ...defaults, month: String(new Date().getMonth() + 1), per_page: 500 } : defaults;
+        if (view === 'calendar') {
+            setCalendarMonth(new Date().getMonth() + 1);
+            setCalendarYear(new Date().getFullYear());
+        }
+        fetchHolidays(payload, 1).catch((apiError) => {
             pushToast(apiError.message || 'Unable to clear filters.', 'danger');
         });
     };
@@ -300,6 +374,59 @@ function HolidaysPage({ payload }) {
         fetchHolidays({}, page).catch((apiError) => {
             pushToast(apiError.message || 'Unable to load page.', 'danger');
         });
+    };
+
+    const handleViewChange = (next) => {
+        setView(next);
+        try { localStorage.setItem('holidays.view', next); } catch (_e) {}
+        // When switching to calendar, ensure a month is set and load month-only data
+        if (next === 'calendar') {
+            const m = Number.parseInt(String(filters.month || new Date().getMonth() + 1), 10);
+            const y = filters.year || new Date().getFullYear();
+            setCalendarMonth(m);
+            setCalendarYear(y);
+            // Load calendar data without syncing into filters
+            fetchHolidays({ month: String(m), year: y, per_page: 500 }, 1, false, true).catch((apiError) => {
+                pushToast(apiError.message || 'Unable to load calendar.', 'danger');
+            });
+        }
+    };
+
+    const gotoMonth = (y, m) => {
+        setCalendarYear(y);
+        setCalendarMonth(m);
+        // Navigate calendar months without mutating filter state
+        fetchHolidays({ month: String(m), year: y, per_page: 500 }, 1, false, true).catch((apiError) => {
+            pushToast(apiError.message || 'Unable to load month.', 'danger');
+        });
+    };
+
+    const handlePrevMonth = () => {
+        let y = calendarYear;
+        let m = calendarMonth - 1;
+        if (m < 1) { m = 12; y -= 1; }
+        gotoMonth(y, m);
+    };
+
+    const handleNextMonth = () => {
+        let y = calendarYear;
+        let m = calendarMonth + 1;
+        if (m > 12) { m = 1; y += 1; }
+        gotoMonth(y, m);
+    };
+
+    const handleToday = () => {
+        const d = new Date();
+        gotoMonth(d.getFullYear(), d.getMonth() + 1);
+    };
+
+    const openDetail = (holiday) => {
+        setDetailHoliday(holiday);
+        setDetailOpen(true);
+    };
+    const closeDetail = () => {
+        setDetailOpen(false);
+        setDetailHoliday(null);
     };
 
     const handleSubmit = async (event) => {
@@ -356,6 +483,8 @@ function HolidaysPage({ payload }) {
                 canCreate={capabilities.canCreate}
                 onCreate={openCreateForm}
                 disabledCreate={submitting}
+                view={view}
+                onViewChange={handleViewChange}
             />
 
             <HolidaysInfoCards stats={stats} />
@@ -401,31 +530,77 @@ function HolidaysPage({ payload }) {
                 loading={loading || initialLoading}
             />
 
-            <HolidaysTable
-                holidays={holidays}
-                meta={meta}
-                loading={loading || initialLoading}
-                listError={error}
-                sort={filters.sort}
-                isDarkMode={isDarkMode}
+            {/* Views with smooth transitions */}
+            <section
+                className="transition-all"
+                style={{
+                    maxHeight: view === 'list' ? '2000px' : '0px',
+                    opacity: view === 'list' ? 1 : 0,
+                    transform: view === 'list' ? 'translateY(0)' : 'translateY(-8px)',
+                    overflow: 'hidden',
+                }}
+            >
+                <HolidaysTable
+                    holidays={holidays}
+                    meta={meta}
+                    loading={loading || initialLoading}
+                    listError={error}
+                    sort={filters.sort}
+                    isDarkMode={isDarkMode}
+                    canEdit={capabilities.canEdit}
+                    canDelete={capabilities.canDelete}
+                    onToggleSort={handleToggleSort}
+                    onEdit={openEditForm}
+                    onDelete={(holiday) => setDeleteTarget(holiday)}
+                    onRetry={() => fetchHolidays({}, meta.currentPage || 1).catch(() => {})}
+                    onPageChange={handlePageChange}
+                />
+            </section>
+
+            <section
+                className="hrm-modern-surface rounded-2xl p-6 overflow-hidden transition-all"
+                style={{
+                    maxHeight: view === 'calendar' ? '2000px' : '0px',
+                    opacity: view === 'calendar' ? 1 : 0,
+                    transform: view === 'calendar' ? 'translateY(0)' : 'translateY(-8px)',
+                    pointerEvents: view === 'calendar' ? 'auto' : 'none',
+                }}
+            >
+                <HolidayCalendarHeader
+                    year={calendarYear}
+                    month={calendarMonth}
+                    onPrev={handlePrevMonth}
+                    onNext={handleNextMonth}
+                    onToday={handleToday}
+                />
+                <HolidayCalendarView
+                    holidays={holidays}
+                    year={calendarYear}
+                    month={calendarMonth}
+                    holidayIndexUrl={capabilities.canCreate ? payload.routes?.list : ''}
+                    onSelectHoliday={openDetail}
+                />
+            </section>
+
+            <HolidayDetailModal
+                open={detailOpen}
+                holiday={detailHoliday}
                 canEdit={capabilities.canEdit}
                 canDelete={capabilities.canDelete}
-                onToggleSort={handleToggleSort}
-                onEdit={openEditForm}
-                onDelete={(holiday) => setDeleteTarget(holiday)}
-                onRetry={() => fetchHolidays({}, meta.currentPage || 1).catch(() => {})}
-                onPageChange={handlePageChange}
+                onEdit={(h) => { closeDetail(); openEditForm(h); }}
+                onDelete={(h) => { closeDetail(); setDeleteTarget(h); }}
+                onClose={closeDetail}
             />
 
             {deleteTarget ? (
                 <AppModalPortal>
                     <div className="fixed inset-0 z-[2200] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center px-4">
-                        <div className="w-full max-w-md rounded-2xl border shadow-xl p-5 bg-[var(--hr-surface)]" style={{ borderColor: 'var(--hr-line)' }}>
+                        <div className="w-full max-w-md rounded-2xl border shadow-xl p-6 bg-[var(--hr-surface)]" style={{ borderColor: 'var(--hr-line)' }}>
                             <h4 className="text-base font-extrabold">Delete Holiday</h4>
                             <p className="text-sm mt-2" style={{ color: 'var(--hr-text-muted)' }}>
                                 Are you sure you want to delete <span className="font-semibold">{deleteTarget.name}</span>? This action cannot be undone.
                             </p>
-                            <div className="mt-4 flex items-center justify-end gap-2">
+                            <div className="mt-6 flex items-center justify-end gap-4">
                                 <button
                                     type="button"
                                     className="rounded-xl border px-3 py-2 text-sm font-semibold"

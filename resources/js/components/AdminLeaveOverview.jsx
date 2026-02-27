@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { fetchAdminLeaveOverview } from '../services/adminLeaveOverviewApi';
 import { buildDashboardSummaryQuery } from '../services/adminDashboardApi';
+import Icon from './shared/Icon';
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -102,6 +103,11 @@ function AdminLeaveOverview({ endpointUrl, initialBranchId = '', initialDepartme
     const [payload, setPayload] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [dayMode, setDayMode] = useState('today'); // today | yesterday | custom
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    });
 
     const queryParams = useMemo(
         () => buildDashboardSummaryQuery({
@@ -117,14 +123,18 @@ function AdminLeaveOverview({ endpointUrl, initialBranchId = '', initialDepartme
 
         try {
             const abortController = new AbortController();
-            const response = await fetchAdminLeaveOverview(endpointUrl, queryParams, abortController.signal);
+            const response = await fetchAdminLeaveOverview(
+                endpointUrl,
+                { ...queryParams, date: selectedDate },
+                abortController.signal,
+            );
             setPayload(response);
         } catch (_error) {
             setError('Unable to load leave overview right now.');
         } finally {
             setLoading(false);
         }
-    }, [endpointUrl, queryParams]);
+    }, [endpointUrl, queryParams, selectedDate]);
 
     useEffect(() => {
         load();
@@ -141,20 +151,53 @@ function AdminLeaveOverview({ endpointUrl, initialBranchId = '', initialDepartme
     }, [payload]);
 
     return (
-        <section className="relative rounded-xl border p-4 pt-12" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface-strong)' }}>
-            <button
-                type="button"
-                onClick={load}
-                className="ui-btn ui-btn-ghost absolute right-4 top-4"
-                disabled={loading}
-            >
-                {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
-
+        <section className="rounded-xl border p-4" style={{ borderColor: 'var(--hr-line)', background: 'var(--hr-surface-strong)' }}>
             <div className="ui-section-head">
                 <div>
                     <h3 className="ui-section-title">Leave Overview</h3>
-                    <p className="ui-section-subtitle">Pending approvals, approved leaves, leave mix, and who is on leave today.</p>
+                    <p className="ui-section-subtitle">Pending approvals, approved leaves, leave mix, and who is on leave.</p>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <select
+                        className="ui-select"
+                        value={dayMode}
+                        onChange={(e) => {
+                            const mode = e.target.value;
+                            setDayMode(mode);
+                            if (mode === 'today') {
+                                const d = new Date();
+                                setSelectedDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+                            } else if (mode === 'yesterday') {
+                                const d = new Date();
+                                d.setDate(d.getDate() - 1);
+                                setSelectedDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+                            }
+                        }}
+                        aria-label="Select day"
+                    >
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="custom">Custom Date</option>
+                    </select>
+                    {dayMode === 'custom' && (
+                        <input
+                            type="date"
+                            className="ui-input"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            aria-label="Choose date"
+                        />
+                    )}
+                    <button
+                        type="button"
+                        className="ui-btn ui-btn-ghost"
+                        onClick={load}
+                        disabled={loading}
+                        aria-label="Refresh"
+                        title="Refresh"
+                    >
+                        <Icon name="refresh" className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
                 </div>
             </div>
 

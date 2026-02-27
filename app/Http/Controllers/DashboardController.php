@@ -38,7 +38,6 @@ class DashboardController extends BaseController
         return view('dashboard.admin', [
             ...$sharedData,
             'latestUsers' => $this->latestUsers(),
-            'adminCharts' => $this->adminCharts(),
             'dashboardFilterOptions' => [
                 'branches' => Branch::query()
                     ->where('is_active', true)
@@ -87,6 +86,224 @@ class DashboardController extends BaseController
         abort_unless($request->user() !== null, 403);
 
         return response()->json($this->adminLeaveOverviewPayload($request));
+    }
+
+    public function adminWorkHoursAvg(Request $request): \Illuminate\Http\JsonResponse
+    {
+        abort_unless($request->user() !== null, 403);
+
+        $validatedFilters = $this->validatedAdminEmployeeFilters($request);
+        $filterContext = $this->resolveAdminEmployeeFilterContext(
+            $validatedFilters['branch_id'],
+            $validatedFilters['department_id'],
+        );
+        $employeeIds = $this->filteredEmployeeIds($filterContext);
+
+        $range = (string) $request->query('range', '30d');
+        $fromParam = (string) $request->query('from', '');
+        $toParam = (string) $request->query('to', '');
+
+        $today = now()->startOfDay();
+        $from = $today->copy()->subDays(29);
+        $to = $today->copy();
+        $label = 'Last 30 Days';
+
+        if ($range === '7d') {
+            $from = $today->copy()->subDays(6);
+            $to = $today->copy();
+            $label = 'Last 7 Days';
+        } elseif ($range === 'month') {
+            $from = now()->copy()->startOfMonth()->startOfDay();
+            $to = now()->copy()->endOfMonth()->startOfDay();
+            $label = 'This Month';
+        } elseif ($range === 'custom') {
+            try {
+                $from = $fromParam !== '' ? \Carbon\Carbon::parse($fromParam)->startOfDay() : $from;
+                $to = $toParam !== '' ? \Carbon\Carbon::parse($toParam)->startOfDay() : $to;
+                if ($from->gt($to)) {
+                    [$from, $to] = [$to, $from];
+                }
+                $label = 'Custom Range';
+            } catch (\Throwable) {
+                // fall back silently
+            }
+        }
+
+        $periodDays = max(1, $from->copy()->diffInDays($to->copy()) + 1);
+
+        // Build day buckets for the range (inclusive)
+        $dayBuckets = collect(range(0, $periodDays - 1))
+            ->mapWithKeys(function (int $offset) use ($from): array {
+                $day = $from->copy()->addDays($offset);
+                $key = $day->toDateString();
+                return [
+                    $key => [
+                        'date' => $day,
+                        'sum_minutes' => 0,
+                        'count_records' => 0,
+                    ],
+                ];
+            });
+
+        if ($employeeIds->count() > 0) {
+            $rows = Attendance::query()
+                ->whereIn('user_id', $employeeIds)
+                ->whereBetween('attendance_date', [$from->toDateString(), $to->toDateString()])
+                ->whereNotNull('work_minutes')
+                ->selectRaw('DATE(attendance_date) as day')
+                ->selectRaw('COALESCE(SUM(work_minutes), 0) as sum_minutes')
+                ->selectRaw('COUNT(work_minutes) as records_count')
+                ->groupBy('day')
+                ->get();
+
+            foreach ($rows as $row) {
+                $key = (string) ($row->day ?? '');
+                if ($key === '' || ! $dayBuckets->has($key)) continue;
+                $bucket = (array) $dayBuckets->get($key);
+                $bucket['sum_minutes'] = (int) ($row->sum_minutes ?? 0);
+                $bucket['count_records'] = (int) ($row->records_count ?? 0);
+                $dayBuckets->put($key, $bucket);
+            }
+        }
+
+        $series = $dayBuckets->values()->map(function (array $item): array {
+            $sum = (int) ($item['sum_minutes'] ?? 0);
+            $count = (int) ($item['count_records'] ?? 0);
+            $avgHours = $count > 0 ? round(($sum / $count) / 60, 2) : 0.0;
+            return [
+                'iso' => $item['date']->toDateString(),
+                'label' => $item['date']->format('M d'),
+                'avg_hours' => $avgHours,
+            ];
+        })->values();
+
+        $totalSum = (int) $dayBuckets->sum('sum_minutes');
+        $totalCount = (int) $dayBuckets->sum('count_records');
+        $overallAvgHours = $totalCount > 0 ? round(($totalSum / $totalCount) / 60, 2) : 0.0;
+
+        // Previous comparable period for trend
+        $prevFrom = $from->copy()->subDays($periodDays);
+        $prevTo = $from->copy()->subDay();
+        $prevTotalSum = 0;
+        $prevTotalCount = 0;
+        if ($employeeIds->count() > 0) {
+            $prevAgg = Attendance::query()
+                ->whereIn('user_id', $employeeIds)
+                ->whereBetween('attendance_date', [$prevFrom->toDateString(), $prevTo->toDateString()])
+                ->whereNotNull('work_minutes')
+                ->selectRaw('COALESCE(SUM(work_minutes), 0) as sum_minutes')
+                ->selectRaw('COUNT(work_minutes) as records_count')
+                ->first();
+            $prevTotalSum = (int) ($prevAgg?->sum_minutes ?? 0);
+            $prevTotalCount = (int) ($prevAgg?->records_count ?? 0);
+        }
+        $prevAvgHours = $prevTotalCount > 0 ? ($prevTotalSum / $prevTotalCount) / 60 : 0.0;
+        $trendPct = $prevAvgHours > 0 ? round((($overallAvgHours - $prevAvgHours) / $prevAvgHours) * 100, 1) : null;
+        $trendDirection = $trendPct === null ? 'flat' : ($trendPct > 0 ? 'up' : ($trendPct < 0 ? 'down' : 'flat'));
+
+        $payload = [
+            'generatedAt' => now()->toIso8601String(),
+            'period' => [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'label' => $label,
+                'range' => $range,
+            ],
+            'metric' => [
+                'valueHours' => $overallAvgHours,
+                'trendPct' => $trendPct,
+                'trendDirection' => $trendDirection,
+            ],
+            'chart' => [
+                'series' => $series,
+                'benchmarkHours' => 8.0,
+            ],
+        ];
+
+        return response()->json($payload);
+    }
+
+    public function adminWorkHoursMonthly(Request $request): \Illuminate\Http\JsonResponse
+    {
+        abort_unless($request->user() !== null, 403);
+
+        $validatedFilters = $this->validatedAdminEmployeeFilters($request);
+        $filterContext = $this->resolveAdminEmployeeFilterContext(
+            $validatedFilters['branch_id'],
+            $validatedFilters['department_id'],
+        );
+        $employeeIds = $this->filteredEmployeeIds($filterContext);
+
+        $months = collect(range(0, 11))
+            ->map(fn (int $offset) => now()->copy()->startOfMonth()->subMonths(11 - $offset));
+        $from = $months->first()->copy()->startOfMonth();
+        $to = $months->last()->copy()->endOfMonth();
+
+        $baselineMinutes = 8 * 60; // 8 hours per day
+
+        $buckets = $months->mapWithKeys(function ($month) {
+            $key = $month->format('Y-m');
+            return [
+                $key => [
+                    'month' => $month,
+                    'work_minutes' => 0,
+                    'overtime_minutes' => 0,
+                ],
+            ];
+        });
+
+        if ($employeeIds->count() > 0) {
+            $rows = Attendance::query()
+                ->whereIn('user_id', $employeeIds)
+                ->whereBetween('attendance_date', [$from->toDateString(), $to->toDateString()])
+                ->whereNotNull('work_minutes')
+                ->get(['attendance_date', 'work_minutes']);
+
+            foreach ($rows as $row) {
+                $date = optional($row->attendance_date)->copy() ?: now();
+                $key = $date->format('Y-m');
+                if (! $buckets->has($key)) continue;
+                $wm = (int) ($row->work_minutes ?? 0);
+                $bucket = (array) $buckets->get($key);
+                $bucket['work_minutes'] += $wm;
+                $bucket['overtime_minutes'] += max(0, $wm - $baselineMinutes);
+                $buckets->put($key, $bucket);
+            }
+        }
+
+        $formatHm = function (int $minutes): string {
+            $h = intdiv($minutes, 60);
+            $m = $minutes % 60;
+            return sprintf('%dh %02dm', $h, $m);
+        };
+
+        $series = $buckets->values()->map(function (array $item): array {
+            return [
+                'label' => $item['month']->format('M y'),
+                'work_hours' => round(($item['work_minutes'] ?? 0) / 60, 1),
+                'overtime_hours' => round(($item['overtime_minutes'] ?? 0) / 60, 1),
+            ];
+        })->values();
+
+        $currentKey = now()->format('Y-m');
+        $current = (array) ($buckets->get($currentKey) ?? ['work_minutes' => 0, 'overtime_minutes' => 0]);
+
+        $payload = [
+            'generatedAt' => now()->toIso8601String(),
+            'period' => [
+                'fromMonth' => $from->format('Y-m'),
+                'toMonth' => $to->format('Y-m'),
+            ],
+            'summary' => [
+                'workTimeLabel' => $formatHm((int) ($current['work_minutes'] ?? 0)),
+                'overtimeLabel' => $formatHm((int) ($current['overtime_minutes'] ?? 0)),
+            ],
+            'chart' => [
+                'series' => $series,
+            ],
+        ];
+
+        return response()->json($payload);
     }
 
     public function hr(): View
@@ -409,7 +626,12 @@ class DashboardController extends BaseController
         );
         $employeeIds = $this->filteredEmployeeIds($filterContext);
 
-        $today = now()->toDateString();
+        try {
+            $contextDate = \Carbon\Carbon::parse((string) $request->query('date', ''));
+        } catch (\Throwable) {
+            $contextDate = now();
+        }
+        $today = $contextDate->toDateString();
         $monthStart = now()->startOfMonth();
         $monthEnd = now()->endOfMonth();
 
@@ -510,7 +732,12 @@ class DashboardController extends BaseController
             $validatedFilters['department_id'],
         );
 
-        $today = now()->toDateString();
+        try {
+            $contextDate = \Carbon\Carbon::parse((string) $request->query('date', ''));
+        } catch (\Throwable) {
+            $contextDate = now();
+        }
+        $today = $contextDate->toDateString();
         $employeeIds = $this->filteredEmployeeIds($filterContext);
 
         $totalEmployees = $employeeIds->count();
@@ -660,9 +887,14 @@ class DashboardController extends BaseController
         );
         $employeeIds = $this->filteredEmployeeIds($filterContext);
 
-        $today = now()->toDateString();
-        $monthStart = now()->startOfMonth()->toDateString();
-        $monthEnd = now()->endOfMonth()->toDateString();
+        try {
+            $contextDate = \Carbon\Carbon::parse((string) $request->query('date', ''));
+        } catch (\Throwable $e) {
+            $contextDate = now();
+        }
+        $today = $contextDate->toDateString();
+        $monthStart = $contextDate->copy()->startOfMonth()->toDateString();
+        $monthEnd = $contextDate->copy()->endOfMonth()->toDateString();
 
         $pendingApprovals = LeaveRequest::query()
             ->whereIn('user_id', $employeeIds)
@@ -759,125 +991,7 @@ class DashboardController extends BaseController
     /**
      * @return array<string, mixed>
      */
-    private function adminCharts(): array
-    {
-        $employeeIds = User::query()
-            ->workforce()
-            ->pluck('id');
-        $employeeCount = $employeeIds->count();
-
-        $periodEnd = now()->startOfDay();
-        $periodStart = $periodEnd->copy()->subDays(13);
-
-        $dayBuckets = collect(range(0, 13))
-            ->mapWithKeys(function (int $offset) use ($periodStart): array {
-                $day = $periodStart->copy()->addDays($offset);
-                $key = $day->toDateString();
-
-                return [
-                    $key => [
-                        'date' => $day,
-                        'attendance_marked' => 0,
-                        'present_units' => 0.0,
-                        'leave_created' => 0,
-                        'leave_approved' => 0,
-                    ],
-                ];
-            });
-
-        if ($employeeCount > 0) {
-            $attendanceRows = Attendance::query()
-                ->whereIn('user_id', $employeeIds)
-                ->whereBetween('attendance_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
-                ->selectRaw('DATE(attendance_date) as day')
-                ->selectRaw('COUNT(*) as marked_count')
-                ->selectRaw("COALESCE(SUM(CASE WHEN status IN ('present', 'remote') THEN 1 WHEN status = 'half_day' THEN 0.5 ELSE 0 END), 0) as present_units")
-                ->groupBy('day')
-                ->get();
-
-            foreach ($attendanceRows as $row) {
-                $key = (string) ($row->day ?? '');
-                if ($key === '' || ! $dayBuckets->has($key)) {
-                    continue;
-                }
-
-                $bucket = (array) $dayBuckets->get($key);
-                $bucket['attendance_marked'] = (int) ($row->marked_count ?? 0);
-                $bucket['present_units'] = round((float) ($row->present_units ?? 0), 1);
-                $dayBuckets->put($key, $bucket);
-            }
-
-            $leaveRows = LeaveRequest::query()
-                ->whereIn('user_id', $employeeIds)
-                ->whereBetween('created_at', [$periodStart->startOfDay(), $periodEnd->copy()->endOfDay()])
-                ->selectRaw('DATE(created_at) as day')
-                ->selectRaw('COUNT(*) as request_count')
-                ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count")
-                ->groupBy('day')
-                ->get();
-
-            foreach ($leaveRows as $row) {
-                $key = (string) ($row->day ?? '');
-                if ($key === '' || ! $dayBuckets->has($key)) {
-                    continue;
-                }
-
-                $bucket = (array) $dayBuckets->get($key);
-                $bucket['leave_created'] = (int) ($row->request_count ?? 0);
-                $bucket['leave_approved'] = (int) ($row->approved_count ?? 0);
-                $dayBuckets->put($key, $bucket);
-            }
-        }
-
-        $days = $dayBuckets->values()
-            ->map(function (array $item) use ($employeeCount): array {
-                $date = $item['date'];
-                $presentUnits = (float) ($item['present_units'] ?? 0);
-                $coverage = $employeeCount > 0
-                    ? round(min(100, max(0, ($presentUnits / $employeeCount) * 100)), 1)
-                    : 0.0;
-
-                return [
-                    'iso' => $date->toDateString(),
-                    'label' => $date->format('M d'),
-                    'short_label' => $date->format('d M'),
-                    'attendance_marked' => (int) ($item['attendance_marked'] ?? 0),
-                    'present_units' => $presentUnits,
-                    'attendance_coverage' => $coverage,
-                    'leave_created' => (int) ($item['leave_created'] ?? 0),
-                    'leave_approved' => (int) ($item['leave_approved'] ?? 0),
-                ];
-            })
-            ->values();
-
-        $avgCoverage = round((float) ($days->avg('attendance_coverage') ?? 0), 1);
-        $latestCoverage = (float) ($days->last()['attendance_coverage'] ?? 0);
-        $bestCoverage = (float) ($days->max('attendance_coverage') ?? 0);
-        $leaveTotal = (int) $days->sum('leave_created');
-        $leaveApproved = (int) $days->sum('leave_approved');
-        $leavePeak = (int) max(1, (int) ($days->max('leave_created') ?? 1));
-        $leaveApprovalRate = $leaveTotal > 0
-            ? round(($leaveApproved / $leaveTotal) * 100, 1)
-            : 0.0;
-
-        return [
-            'periodLabel' => "{$periodStart->format('M d')} - {$periodEnd->format('M d')}",
-            'employeeCount' => $employeeCount,
-            'days' => $days,
-            'attendance' => [
-                'averageCoverage' => $avgCoverage,
-                'latestCoverage' => $latestCoverage,
-                'bestCoverage' => $bestCoverage,
-                'latestMarked' => (int) ($days->last()['attendance_marked'] ?? 0),
-            ],
-            'leave' => [
-                'totalRequests' => $leaveTotal,
-                'approvedRequests' => $leaveApproved,
-                'approvalRate' => $leaveApprovalRate,
-                'peakRequests' => $leavePeak,
-            ],
-        ];
-    }
+    // Legacy adminCharts() removed as part of dashboard cleanup.
 
     /**
      * @return Collection<int, User>
@@ -953,7 +1067,7 @@ class DashboardController extends BaseController
 
                 return [
                     'title' => "{$roleLabel} account created",
-                    'meta' => "{$user->name} • {$occurredAt->diffForHumans()}",
+                    'meta' => "{$user->full_name} • {$occurredAt->diffForHumans()}",
                     'tone' => '#7c3aed',
                     'occurred_at' => $occurredAt,
                 ];
@@ -966,7 +1080,7 @@ class DashboardController extends BaseController
             ->limit(10)
             ->get()
             ->map(function (UserProfile $profile): array {
-                $name = $profile->user?->name ?? 'Unknown user';
+                $name = $profile->user?->full_name ?? 'Unknown user';
                 $occurredAt = $profile->updated_at ?? now();
 
                 return [
@@ -984,7 +1098,7 @@ class DashboardController extends BaseController
             ->limit(10)
             ->get()
             ->map(function (UserProfile $profile): array {
-                $name = $profile->user?->name ?? 'Unknown user';
+                $name = $profile->user?->full_name ?? 'Unknown user';
                 $joinedOn = $profile->joined_on?->startOfDay() ?? now();
 
                 return [
@@ -1001,7 +1115,7 @@ class DashboardController extends BaseController
             ->limit(10)
             ->get()
             ->map(function (Attendance $attendance): array {
-                $name = $attendance->user?->name ?? 'Unknown employee';
+                $name = $attendance->user?->full_name ?? 'Unknown employee';
                 $occurredAt = $attendance->updated_at ?? now();
                 $status = str($attendance->status)->replace('_', ' ')->title();
 
@@ -1019,7 +1133,7 @@ class DashboardController extends BaseController
             ->limit(10)
             ->get()
             ->map(function (LeaveRequest $leaveRequest): array {
-                $name = $leaveRequest->user?->name ?? 'Unknown employee';
+                $name = $leaveRequest->user?->full_name ?? 'Unknown employee';
                 $occurredAt = $leaveRequest->updated_at ?? now();
                 $status = str($leaveRequest->status)->replace('_', ' ')->title();
 
@@ -1039,7 +1153,7 @@ class DashboardController extends BaseController
                 ->limit(10)
                 ->get()
                 ->map(function (Payroll $payroll): array {
-                    $name = $payroll->user?->name ?? 'Unknown employee';
+                    $name = $payroll->user?->full_name ?? 'Unknown employee';
                     $occurredAt = $payroll->updated_at ?? now();
                     $status = str($payroll->status)->replace('_', ' ')->title();
 

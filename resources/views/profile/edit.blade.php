@@ -189,9 +189,23 @@
                 <div id="avatarClientError" class="hidden md:col-span-2 rounded-xl px-3 py-2 text-xs border" style="border-color: #ef444455; background: #ef444412; color: #991b1b;"></div>
 
                 <div>
-                    <label for="name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Full Name</label>
-                    <input id="name" name="name" type="text" value="{{ old('name', $user?->name) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
-                    @error('name')
+                    <label for="first_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">First Name</label>
+                    <input id="first_name" name="first_name" type="text" value="{{ old('first_name', $user?->first_name) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                    @error('first_name')
+                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label for="last_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Last Name</label>
+                    <input id="last_name" name="last_name" type="text" value="{{ old('last_name', $user?->last_name) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                    @error('last_name')
+                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label for="middle_name" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Middle Name (Optional)</label>
+                    <input id="middle_name" name="middle_name" type="text" value="{{ old('middle_name', $user?->middle_name) }}" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                    @error('middle_name')
                         <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                     @enderror
                 </div>

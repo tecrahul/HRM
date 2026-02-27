@@ -506,7 +506,7 @@ class ReportController extends Controller
 
         return [
             'id' => $employee->id,
-            'name' => $employee->name,
+            'name' => $employee->full_name,
             'email' => $employee->email,
             'department' => $employee->profile?->department ?? '',
             'employee_code' => $employee->profile?->employee_code ?: User::makeEmployeeCode($employee->id),
@@ -594,7 +594,7 @@ class ReportController extends Controller
                     : 'N/A';
 
                 return [
-                    'name' => (string) $employee->name,
+                    'name' => (string) $employee->full_name,
                     'email' => (string) $employee->email,
                     'department' => (string) ($profile?->department ?? 'Unassigned'),
                     'branch' => (string) ($profile?->branch ?? 'Unassigned'),

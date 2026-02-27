@@ -16,6 +16,7 @@ export function useHolidays(api, initialPayload = {}) {
     const [filters, setFilters] = useState(initialPayload.filters ?? {
         q: '',
         year: new Date().getFullYear(),
+        month: '',
         branch_id: '',
         holiday_type: 'all',
         status: 'all',
@@ -26,16 +27,25 @@ export function useHolidays(api, initialPayload = {}) {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
-    const queryParams = useMemo(() => ({
-        q: filters.q || undefined,
-        year: filters.year || undefined,
-        branch_id: filters.branch_id || undefined,
-        holiday_type: filters.holiday_type || 'all',
-        status: filters.status || 'all',
-        sort: filters.sort || 'date_asc',
-    }), [filters.branch_id, filters.holiday_type, filters.q, filters.sort, filters.status, filters.year]);
+    const queryParams = useMemo(() => {
+        const pad2 = (n) => String(n).padStart(2, '0');
+        const month = filters.month;
+        const monthParam = month ? pad2(parseInt(String(month), 10)) : undefined;
+        return ({
+            q: filters.q || undefined,
+            year: filters.year || undefined,
+            month: monthParam,
+            branch_id: filters.branch_id || undefined,
+            holiday_type: filters.holiday_type || 'all',
+            status: filters.status || 'all',
+            sort: filters.sort || 'date_asc',
+        });
+    }, [filters.branch_id, filters.holiday_type, filters.month, filters.q, filters.sort, filters.status, filters.year]);
 
-    const fetchHolidays = useCallback(async (overrides = {}, page = 1, useInitialLoader = false) => {
+    // Fetch holidays with optional control over UI side-effects
+    // useInitialLoader: when true, shows the initial loading state instead of inline loading
+    // skipFilterUpdate: when true, do not sync fetched/override filters into the filter state
+    const fetchHolidays = useCallback(async (overrides = {}, page = 1, useInitialLoader = false, skipFilterUpdate = false) => {
         if (!api) {
             return null;
         }
@@ -52,17 +62,19 @@ export function useHolidays(api, initialPayload = {}) {
                 ...queryParams,
                 ...overrides,
                 page,
-                per_page: meta.perPage || 12,
+                per_page: (typeof overrides.per_page === 'number' ? overrides.per_page : (meta.perPage || 12)),
             });
 
             setHolidays(response.data ?? []);
             setMeta(response.meta ?? INITIAL_META);
             setStats(response.stats ?? { total: 0, upcoming: 0, past: 0 });
-            setFilters((prev) => ({
-                ...prev,
-                ...(response.filters ?? {}),
-                ...overrides,
-            }));
+            if (!skipFilterUpdate) {
+                setFilters((prev) => ({
+                    ...prev,
+                    ...(response.filters ?? {}),
+                    ...overrides,
+                }));
+            }
 
             return response;
         } catch (apiError) {

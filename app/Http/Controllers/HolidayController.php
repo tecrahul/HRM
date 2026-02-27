@@ -25,7 +25,8 @@ class HolidayController extends Controller
         $viewer = $this->ensurePermission($request, 'holiday.view');
 
         $filters = $this->extractFilters($request);
-        $perPage = max(5, min(50, (int) $request->integer('per_page', 12)));
+        // Allow larger page sizes for calendar view; still guard extremes
+        $perPage = max(5, min(500, (int) $request->integer('per_page', 12)));
         $holidays = $this->paginateHolidays($filters, max(1, (int) $request->integer('page', 1)), $perPage);
         $holidaysPayload = $this->serializePaginator($holidays, $filters);
         $stats = $this->buildStats($filters);
@@ -50,6 +51,8 @@ class HolidayController extends Controller
                     'create' => route('modules.holidays.store'),
                     'updateTemplate' => $this->holidayRouteTemplate('modules.holidays.update'),
                     'deleteTemplate' => $this->holidayRouteTemplate('modules.holidays.destroy'),
+                    // Link to Leave module for cross-navigation from calendar
+                    'leaveIndex' => route('modules.leave.index'),
                 ],
                 'filters' => $filters,
                 'defaults' => $this->defaultFilters(),
@@ -226,6 +229,16 @@ class HolidayController extends Controller
             $year = $currentYear;
         }
 
+        $monthRaw = trim((string) $request->query('month', ''));
+        // Allow "" or "all" as all months; otherwise expect 1-12
+        $month = '';
+        if ($monthRaw !== '' && strtolower($monthRaw) !== 'all') {
+            $parsed = (int) $monthRaw;
+            if ($parsed >= 1 && $parsed <= 12) {
+                $month = (string) $parsed;
+            }
+        }
+
         $status = Str::lower(trim((string) $request->query('status', 'all')));
         if (! in_array($status, ['all', 'active', 'inactive'], true)) {
             $status = 'all';
@@ -246,6 +259,7 @@ class HolidayController extends Controller
         return [
             'q' => trim((string) $request->query('q', '')),
             'year' => $year,
+            'month' => $month, // '' means all months
             'branch_id' => $branchId > 0 ? (string) $branchId : '',
             'holiday_type' => $holidayType,
             'status' => $status,
@@ -270,14 +284,31 @@ class HolidayController extends Controller
     {
         $search = trim((string) ($filters['q'] ?? ''));
         $year = (int) ($filters['year'] ?? now()->year);
+        $month = (string) ($filters['month'] ?? '');
         $branchId = $this->parseBranchFilterId((string) ($filters['branch_id'] ?? ''));
         $status = (string) ($filters['status'] ?? 'all');
         $holidayType = (string) ($filters['holiday_type'] ?? 'all');
         $sort = (string) ($filters['sort'] ?? 'date_asc');
 
-        return Holiday::query()
-            ->with('branch:id,name')
-            ->whereYear('holiday_date', $year)
+        $query = Holiday::query()
+            ->with('branch:id,name');
+
+        // If a month filter is provided, include any holiday that overlaps the month window
+        if ($month !== '') {
+            $monthInt = max(1, min(12, (int) $month));
+            $startOfMonth = Carbon::create($year, $monthInt, 1)->startOfDay()->toDateString();
+            $endOfMonth = Carbon::create($year, $monthInt, 1)->endOfMonth()->endOfDay()->toDateString();
+
+            $query->whereRaw(
+                'DATE(holiday_date) <= ? AND DATE(COALESCE(end_date, holiday_date)) >= ?',
+                [$endOfMonth, $startOfMonth]
+            );
+        } else {
+            // Year-only filter (list view): restrict to holidays starting this year
+            $query->whereYear('holiday_date', $year);
+        }
+
+        return $query
             ->when($branchId !== null, fn (Builder $query): Builder => $query->where('branch_id', $branchId))
             ->when($holidayType !== 'all', fn (Builder $query): Builder => $query->where('holiday_type', $holidayType))
             ->when($status === 'active', fn (Builder $query): Builder => $query->where('is_active', true))
@@ -562,6 +593,7 @@ class HolidayController extends Controller
         return [
             'q' => '',
             'year' => now()->year,
+            'month' => '',
             'branch_id' => '',
             'holiday_type' => 'all',
             'status' => 'all',

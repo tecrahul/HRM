@@ -22,10 +22,13 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'first_name',
+        'middle_name',
+        'last_name',
         'email',
         'password',
         'role',
+        'designation_id',
     ];
 
     /**
@@ -55,6 +58,27 @@ class User extends Authenticatable
             'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_enabled_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Append computed full_name to array/JSON output.
+     *
+     * @var list<string>
+     */
+    protected $appends = ['full_name'];
+
+    public function getFullNameAttribute(): string
+    {
+        $parts = [
+            trim((string) $this->first_name),
+            trim((string) $this->middle_name),
+            trim((string) $this->last_name),
+        ];
+        $parts = array_values(array_filter($parts, static fn ($p) => $p !== ''));
+        $full = trim(implode(' ', $parts));
+
+        // Fallback to legacy column if needed
+        return $full !== '' ? $full : (string) ($this->attributes['name'] ?? '');
     }
 
     public function hasTwoFactorEnabled(): bool
@@ -260,6 +284,11 @@ class User extends Authenticatable
     public function profile(): HasOne
     {
         return $this->hasOne(UserProfile::class);
+    }
+
+    public function designation()
+    {
+        return $this->belongsTo(Designation::class);
     }
 
     public function attendances(): HasMany

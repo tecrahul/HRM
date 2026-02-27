@@ -225,7 +225,7 @@
         .emp-kpi-grid {
             display: grid;
             grid-template-columns: repeat(1, minmax(0, 1fr));
-            gap: 0.85rem;
+            gap: 1rem; /* 16px */
         }
 
         @media (min-width: 768px) {
@@ -244,7 +244,7 @@
             border: 1px solid var(--emp-card-border);
             background: var(--emp-panel-bg);
             border-radius: 1rem;
-            padding: 0.95rem;
+            padding: 1.5rem; /* 24px */
             box-shadow: 0 18px 36px -28px rgb(2 8 23 / 0.88);
         }
 
@@ -257,7 +257,7 @@
         }
 
         .emp-kpi-value {
-            margin-top: 0.45rem;
+            margin-top: 0.5rem; /* 8px */
             font-size: 1.7rem;
             line-height: 1.1;
             font-weight: 800;
@@ -265,7 +265,7 @@
         }
 
         .emp-kpi-meta {
-            margin-top: 0.35rem;
+            margin-top: 0.5rem; /* 8px */
             font-size: 0.74rem;
             color: var(--emp-text-muted);
         }
@@ -289,7 +289,7 @@
         }
 
         .emp-kpi-progress {
-            margin-top: 0.6rem;
+            margin-top: 0.5rem; /* 8px */
             height: 0.3rem;
             width: 100%;
             overflow: hidden;
@@ -319,7 +319,7 @@
         .emp-list-table th,
         .emp-list-table td {
             border-bottom: 1px solid var(--emp-panel-border);
-            padding: 0.82rem 0.75rem;
+            padding: 1rem 1.5rem; /* 16px v, 24px h */
             text-align: left;
             vertical-align: middle;
         }
@@ -417,23 +417,23 @@
 
     <div class="emp-admin-theme space-y-6">
         @if (session('status'))
-            <section class="rounded-2xl px-4 py-3 border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 text-sm font-semibold">
+            <section class="rounded-2xl px-4 py-4 border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 text-sm font-semibold">
                 {{ session('status') }}
             </section>
         @endif
 
         @if (session('error'))
-            <section class="rounded-2xl px-4 py-3 border border-red-400/40 bg-red-500/10 text-red-200 text-sm font-semibold">
+            <section class="rounded-2xl px-4 py-4 border border-red-400/40 bg-red-500/10 text-red-200 text-sm font-semibold">
                 {{ session('error') }}
             </section>
         @endif
 
-        <section class="emp-admin-hero rounded-3xl p-4 md:p-5">
+        <section class="emp-admin-hero rounded-3xl p-6">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div>
                     <p class="text-xs uppercase tracking-[0.1em] font-semibold emp-muted">Employee Summary</p>
-                    <h3 class="mt-1 text-xl md:text-2xl font-extrabold emp-main-text">People Insights At A Glance</h3>
-                    <p class="text-sm emp-muted mt-1">Track headcount, active workforce, monthly onboarding, and leave load.</p>
+                    <h3 class="mt-2 text-xl md:text-2xl font-extrabold emp-main-text">People Insights At A Glance</h3>
+                    <p class="text-sm emp-muted mt-2">Track headcount, active workforce, monthly onboarding, and leave load.</p>
                 </div>
 
                 @if ($canManageUsers)
@@ -450,9 +450,9 @@
                 @endif
             </div>
 
-            <div class="emp-kpi-grid mt-5">
+            <div class="emp-kpi-grid mt-6">
                 <article class="emp-kpi-card">
-                    <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-start justify-between gap-4">
                         <div>
                             <p class="emp-kpi-label">Total Employees</p>
                             <p class="emp-kpi-value">{{ number_format($totalEmployees) }}</p>
@@ -474,7 +474,7 @@
                 </article>
 
                 <article class="emp-kpi-card">
-                    <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-start justify-between gap-4">
                         <div>
                             <p class="emp-kpi-label">Active Employees</p>
                             <p class="emp-kpi-value">{{ number_format($activeEmployees) }}</p>
@@ -493,7 +493,7 @@
                 </article>
 
                 <article class="emp-kpi-card">
-                    <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-start justify-between gap-4">
                         <div>
                             <p class="emp-kpi-label">New Joiners (Month)</p>
                             <p class="emp-kpi-value">{{ number_format($newJoinersThisMonth) }}</p>
@@ -513,7 +513,7 @@
                 </article>
 
                 <article class="emp-kpi-card">
-                    <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-start justify-between gap-4">
                         <div>
                             <p class="emp-kpi-label">On Leave Today</p>
                             <p class="emp-kpi-value">{{ number_format($onLeaveToday) }}</p>
@@ -536,12 +536,15 @@
             </div>
         </section>
 
-        <section class="emp-toolbar rounded-3xl p-4 md:p-5">
+        <div id="employee-directory-root" data-api-url="{{ route('api.employees.index') }}"></div>
+
+        {{-- LEGACY_SSR_DIRECTORY_START
+        <section class="emp-toolbar rounded-3xl p-6">
             <form id="employeeFiltersForm" method="GET" action="{{ route('modules.employees.index') }}" class="space-y-4">
                 <input type="hidden" name="view" value="{{ $viewMode }}">
 
-                <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                    <div class="flex items-center gap-5 text-sm font-semibold">
+                <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div class="flex items-center gap-4 text-sm font-semibold">
                         <a href="{{ route('modules.employees.index', array_merge($baseQuery, ['view' => $viewMode])) }}" class="emp-tab-link {{ request()->routeIs('modules.employees.index') ? 'is-active' : '' }} pb-1">
                             Employee
                         </a>
@@ -550,7 +553,7 @@
                         </a>
                     </div>
 
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
                         <div class="flex items-center rounded-xl p-1" style="border: 1px solid var(--emp-control-border); background: var(--emp-control-bg);">
                             <a href="{{ route('modules.employees.index', array_merge($baseQuery, ['view' => 'grid'])) }}" class="emp-view-toggle {{ $viewMode === 'grid' ? 'is-active' : '' }} inline-flex h-9 w-9 items-center justify-center rounded-lg" aria-label="Grid view">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -591,7 +594,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <select name="department" data-auto-submit="true" class="emp-filter-select rounded-xl px-3 py-2.5 text-sm outline-none">
                         <option value="">All Departments</option>
                         @foreach ($departmentOptions as $departmentOption)
@@ -621,8 +624,8 @@
             </form>
         </section>
 
-        <section class="emp-directory rounded-3xl p-4 md:p-5">
-            <div class="flex items-center justify-between gap-3">
+        <section class="emp-directory rounded-3xl p-6">
+            <div class="flex items-center justify-between gap-4">
                 <div>
                     <h4 class="text-lg font-extrabold emp-main-text">Employee Directory</h4>
                     <p class="text-sm emp-muted mt-1">Showing {{ $employees->count() }} of {{ number_format((int) ($stats['total'] ?? 0)) }} employee records.</p>
@@ -630,7 +633,7 @@
             </div>
 
             @if ($viewMode === 'list')
-                <div class="mt-5 overflow-x-auto">
+                <div class="mt-6 overflow-x-auto">
                     <table class="emp-list-table">
                         <thead>
                             <tr>
@@ -671,10 +674,10 @@
 
                                 <tr class="{{ $isSelected ? 'is-selected' : '' }}">
                                     <td>
-                                        <div class="flex items-center gap-3">
-                                            <img src="{{ $avatarUrl }}" alt="{{ $employee->name }} profile" class="h-10 w-10 rounded-full border object-cover" style="border-color: var(--emp-card-border);">
+                                        <div class="flex items-center gap-4">
+                                            <img src="{{ $avatarUrl }}" alt="{{ $employee->full_name }} profile" class="h-10 w-10 rounded-full border object-cover" style="border-color: var(--emp-card-border);">
                                             <div>
-                                                <p class="text-sm font-bold emp-main-text">{{ $employee->name }}</p>
+                                                <p class="text-sm font-bold emp-main-text">{{ $employee->full_name }}</p>
                                                 <p class="text-xs font-semibold" style="color: var(--emp-job-color);">{{ $profile?->job_title ?? 'Employee' }}</p>
                                             </div>
                                         </div>
@@ -720,7 +723,7 @@
                     </table>
                 </div>
             @else
-                <div id="employeeCardGrid" class="emp-card-grid mt-5">
+                <div id="employeeCardGrid" class="emp-card-grid mt-6">
                     @forelse ($employees as $employee)
                         @php
                             $profile = $employee->profile;
@@ -746,8 +749,8 @@
                             $isSelected = $resolvedSelectedId !== null && (int) $employee->id === (int) $resolvedSelectedId;
                         @endphp
 
-                        <article class="emp-card {{ $isSelected ? 'is-selected' : '' }} p-4 md:p-5">
-                            <div class="flex items-start justify-between gap-3">
+                        <article class="emp-card {{ $isSelected ? 'is-selected' : '' }} p-6">
+                            <div class="flex items-start justify-between gap-4">
                                 <span class="emp-status {{ $statusClass }}">{{ $statusLabel }}</span>
 
                                 <details class="relative">
@@ -772,26 +775,26 @@
                                 </details>
                             </div>
 
-                            <div class="mt-4 flex items-center gap-3">
-                                <img src="{{ $avatarUrl }}" alt="{{ $employee->name }} profile" class="h-14 w-14 rounded-full border object-cover" style="border-color: var(--emp-card-border);">
+                            <div class="mt-4 flex items-center gap-4">
+                                <img src="{{ $avatarUrl }}" alt="{{ $employee->full_name }} profile" class="h-14 w-14 rounded-full border object-cover" style="border-color: var(--emp-card-border);">
                                 <div>
-                                    <h5 class="text-base font-bold emp-main-text">{{ $employee->name }}</h5>
+                                    <h5 class="text-base font-bold emp-main-text">{{ $employee->full_name }}</h5>
                                     <p class="text-sm font-semibold" style="color: var(--emp-job-color);">{{ $profile?->job_title ?? 'Employee' }}</p>
                                 </div>
                             </div>
 
-                            <div class="mt-4 grid grid-cols-2 gap-2.5 text-sm">
-                                <div class="emp-info-tile rounded-xl p-3">
+                            <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+                                <div class="emp-info-tile rounded-xl p-4">
                                     <p class="text-[11px] uppercase tracking-[0.08em] emp-muted">Department</p>
                                     <p class="mt-1 font-semibold emp-main-text">{{ $profile?->department ?? 'Unassigned' }}</p>
                                 </div>
-                                <div class="emp-info-tile rounded-xl p-3">
+                                <div class="emp-info-tile rounded-xl p-4">
                                     <p class="text-[11px] uppercase tracking-[0.08em] emp-muted">Hired Date</p>
                                     <p class="mt-1 font-semibold emp-main-text">{{ $profile?->joined_on?->format('M d, Y') ?? 'Not set' }}</p>
                                 </div>
                             </div>
 
-                            <div class="emp-contact-row mt-4 space-y-2 pt-3 text-sm">
+                            <div class="emp-contact-row mt-4 space-y-2 pt-4 text-sm">
                                 <p class="inline-flex w-full items-center gap-2 truncate emp-main-text">
                                     <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/15 text-sky-400">
                                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -819,13 +822,15 @@
                 </div>
             @endif
 
-            <div class="mt-5">
+            <div class="mt-6">
                 {{ $employees->links() }}
             </div>
         </section>
 
-        <section class="emp-breakdown rounded-3xl p-4 md:p-5">
-            <div class="flex items-center justify-between gap-3">
+        --}}
+
+        <section class="emp-breakdown rounded-3xl p-6">
+            <div class="flex items-center justify-between gap-4">
                 <h4 class="text-lg font-extrabold emp-main-text">Department Breakdown</h4>
                 <p class="text-xs uppercase tracking-[0.08em] emp-muted">Live distribution</p>
             </div>
@@ -861,7 +866,7 @@
             @endphp
 
             @if ($departmentItems->isNotEmpty())
-                <div class="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+                <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
                     <div class="flex justify-center xl:justify-start">
                         <div class="h-56 w-56 rounded-full p-4" style="background: {{ $pieBackground }};">
                             <div class="h-full w-full rounded-full flex flex-col items-center justify-center text-center" style="background: var(--emp-control-bg); border: 1px solid var(--emp-card-border);">
@@ -879,8 +884,8 @@
                                     ? round(((int) $departmentItem['count'] / $departmentTotal) * 100, 1)
                                     : 0.0;
                             @endphp
-                            <div class="rounded-xl border p-3" style="border-color: var(--emp-card-border); background: var(--emp-control-bg);">
-                                <div class="flex items-center justify-between gap-3 text-sm">
+                            <div class="rounded-xl border p-4" style="border-color: var(--emp-card-border); background: var(--emp-control-bg);">
+                                <div class="flex items-center justify-between gap-4 text-sm">
                                     <p class="font-semibold emp-main-text inline-flex items-center gap-2">
                                         <span class="h-2.5 w-2.5 rounded-full" style="background: {{ $departmentItem['color'] }};"></span>
                                         {{ $departmentItem['label'] }}
@@ -906,60 +911,6 @@
 
 @push('scripts')
     <script>
-        (() => {
-            const form = document.getElementById('employeeFiltersForm');
-            if (!form) {
-                return;
-            }
-
-            const searchInput = document.getElementById('employeeSearchInput');
-            const selectFilters = form.querySelectorAll('select[data-auto-submit="true"]');
-            const submitButton = document.getElementById('employeeFilterSubmit');
-
-            let searchTimer;
-            let autoSubmitTimer;
-
-            const markAttention = () => {
-                if (submitButton) {
-                    submitButton.classList.add('is-attention');
-                }
-            };
-
-            const clearAttention = () => {
-                if (submitButton) {
-                    submitButton.classList.remove('is-attention');
-                }
-            };
-
-            const submitFilters = (delayMs = 200) => {
-                window.clearTimeout(autoSubmitTimer);
-                autoSubmitTimer = window.setTimeout(() => {
-                    if (typeof form.requestSubmit === 'function') {
-                        form.requestSubmit();
-                    } else {
-                        form.submit();
-                    }
-                }, delayMs);
-            };
-
-            selectFilters.forEach((field) => {
-                field.addEventListener('change', () => {
-                    markAttention();
-                    submitFilters(120);
-                });
-            });
-
-            if (searchInput) {
-                searchInput.addEventListener('input', () => {
-                    markAttention();
-                    window.clearTimeout(searchTimer);
-                    searchTimer = window.setTimeout(() => {
-                        submitFilters(0);
-                    }, 420);
-                });
-            }
-
-            form.addEventListener('submit', clearAttention);
-        })();
+        // React SPA (Employee Directory) mounts via resources/js/app.js
     </script>
 @endpush

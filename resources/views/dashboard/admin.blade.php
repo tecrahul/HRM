@@ -18,22 +18,22 @@
     @endphp
 
     <section class="ui-hero">
-        <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
             <div>
                 <p class="ui-kpi-label">Platform Overview</p>
                 @include('dashboard.partials.greeting-header', ['functionalTitle' => 'Admin Command Center'])
                 <p class="ui-section-subtitle">Monitor users, employees, attendance, leave, payroll, departments, and branches from one dashboard.</p>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto">
-                <a href="{{ route('admin.users.index') }}" class="ui-btn ui-btn-primary">
+            <div class="flex flex-col items-stretch gap-2 w-full md:w-56">
+                <a href="{{ route('admin.users.index') }}" class="ui-btn ui-btn-primary w-full">
                     <x-heroicon-o-users class="h-4 w-4" />
                     Manage Users
                 </a>
-                <a href="{{ route('modules.employees.index') }}" class="ui-btn ui-btn-ghost">
+                <a href="{{ route('modules.employees.index') }}" class="ui-btn ui-btn-ghost w-full">
                     <x-heroicon-o-users class="h-4 w-4" />
                     Employee Directory
                 </a>
-                <a href="{{ route('modules.payroll.index') }}" class="ui-btn ui-btn-ghost">
+                <a href="{{ route('modules.payroll.index') }}" class="ui-btn ui-btn-ghost w-full">
                     <x-heroicon-o-banknotes class="h-4 w-4" />
                     Run Payroll
                 </a>
@@ -95,117 +95,18 @@
         </div>
     </section>
 
-    @php
-        $usersTotal = (int) $moduleStats['usersTotal'];
-        $adminPct = $usersTotal > 0 ? round(((int) $moduleStats['adminsTotal'] / $usersTotal) * 100, 1) : 0.0;
-        $hrPct = $usersTotal > 0 ? round(((int) $moduleStats['hrTotal'] / $usersTotal) * 100, 1) : 0.0;
-        $employeePct = $usersTotal > 0 ? round(((int) $moduleStats['employeesTotal'] / $usersTotal) * 100, 1) : 0.0;
-        $adminArcEnd = $adminPct;
-        $hrArcEnd = $adminPct + $hrPct;
-        $roleDonutStyle = $usersTotal > 0
-            ? "conic-gradient(#2563eb 0% {$adminArcEnd}%, #7c3aed {$adminArcEnd}% {$hrArcEnd}%, #16a34a {$hrArcEnd}% 100%)"
-            : 'conic-gradient(rgb(148 163 184 / 0.25) 0 100%)';
-
-        $employeesTotal = (int) $moduleStats['employeesTotal'];
-        $attendanceCoveragePct = $employeesTotal > 0
-            ? round(min(100, ((int) $moduleStats['attendanceMarkedToday'] / $employeesTotal) * 100), 1)
-            : 0.0;
-        $leaveHandledTotal = (int) $moduleStats['leavePending'] + (int) $moduleStats['leaveApprovedMonth'];
-        $leaveClearPct = $leaveHandledTotal > 0
-            ? round(min(100, ((int) $moduleStats['leaveApprovedMonth'] / $leaveHandledTotal) * 100), 1)
-            : 0.0;
-        $payrollPaidPct = (int) $moduleStats['payrollGeneratedMonth'] > 0
-            ? round(min(100, ((int) $moduleStats['payrollPaidMonth'] / (int) $moduleStats['payrollGeneratedMonth']) * 100), 1)
-            : 0.0;
-    @endphp
-
-    <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <article class="ui-section">
-            <div class="ui-section-head">
-                <div>
-                    <h3 class="ui-section-title">User Role Distribution</h3>
-                    <p class="ui-section-subtitle">Breakdown of platform users by role.</p>
-                </div>
+    <section>
+        <div
+            id="admin-dashboard-work-hours-root"
+            data-avg-endpoint="{{ route('api.dashboard.admin.work-hours.avg') }}"
+            data-monthly-endpoint="{{ route('api.dashboard.admin.work-hours.monthly') }}"
+            data-branch-id="{{ $selectedBranchId }}"
+            data-department-id="{{ $selectedDepartmentId }}"
+        >
+            <div class="rounded-xl border p-4 text-sm font-semibold" style="border-color: var(--hr-line); background: var(--hr-surface-strong); color: var(--hr-text-muted);">
+                Loading work hours widgets...
             </div>
-
-            <div class="mt-4 flex flex-col md:flex-row md:items-center gap-5">
-                <div class="h-36 w-36 rounded-full p-3 shrink-0" style="background: {{ $roleDonutStyle }};">
-                    <div class="h-full w-full rounded-full flex flex-col items-center justify-center text-center" style="background: var(--hr-surface-strong);">
-                        <p class="text-[11px] uppercase tracking-[0.12em] font-bold" style="color: var(--hr-text-muted);">Users</p>
-                        <p class="text-2xl font-extrabold">{{ $moduleStats['usersTotal'] }}</p>
-                    </div>
-                </div>
-
-                <div class="w-full space-y-3 text-sm">
-                    <div>
-                        <div class="flex items-center justify-between gap-3 mb-1">
-                            <p class="font-semibold">Admins</p>
-                            <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ $moduleStats['adminsTotal'] }} • {{ number_format($adminPct, 1) }}%</p>
-                        </div>
-                        <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
-                            <div class="h-full rounded-full" style="width: {{ $adminPct }}%; background: #2563eb;"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex items-center justify-between gap-3 mb-1">
-                            <p class="font-semibold">HR</p>
-                            <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ $moduleStats['hrTotal'] }} • {{ number_format($hrPct, 1) }}%</p>
-                        </div>
-                        <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
-                            <div class="h-full rounded-full" style="width: {{ $hrPct }}%; background: #7c3aed;"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex items-center justify-between gap-3 mb-1">
-                            <p class="font-semibold">Employees</p>
-                            <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ $moduleStats['employeesTotal'] }} • {{ number_format($employeePct, 1) }}%</p>
-                        </div>
-                        <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
-                            <div class="h-full rounded-full" style="width: {{ $employeePct }}%; background: #16a34a;"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </article>
-
-        <article class="ui-section">
-            <div class="ui-section-head">
-                <div>
-                    <h3 class="ui-section-title">Operations Completion</h3>
-                    <p class="ui-section-subtitle">Daily and monthly completion indicators.</p>
-                </div>
-            </div>
-
-            <div class="mt-4 space-y-4 text-sm">
-                <div>
-                    <div class="flex items-center justify-between gap-3 mb-1">
-                        <p class="font-semibold">Attendance capture today</p>
-                        <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ number_format($attendanceCoveragePct, 1) }}%</p>
-                    </div>
-                    <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
-                        <div class="h-full rounded-full" style="width: {{ $attendanceCoveragePct }}%; background: #0284c7;"></div>
-                    </div>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between gap-3 mb-1">
-                        <p class="font-semibold">Leave queue cleared</p>
-                        <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ number_format($leaveClearPct, 1) }}%</p>
-                    </div>
-                    <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
-                        <div class="h-full rounded-full" style="width: {{ $leaveClearPct }}%; background: #d97706;"></div>
-                    </div>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between gap-3 mb-1">
-                        <p class="font-semibold">Payroll paid this month</p>
-                        <p class="text-xs font-bold" style="color: var(--hr-text-muted);">{{ number_format($payrollPaidPct, 1) }}%</p>
-                    </div>
-                    <div class="h-2 rounded-full overflow-hidden" style="background: rgb(148 163 184 / 0.16);">
-                        <div class="h-full rounded-full" style="width: {{ $payrollPaidPct }}%; background: #7c3aed;"></div>
-                    </div>
-                </div>
-            </div>
-        </article>
+        </div>
     </section>
 
     <section>

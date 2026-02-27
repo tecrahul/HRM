@@ -31,7 +31,7 @@ class SmtpSettingsController extends Controller
             'mode' => $active['source'],
             'systemConfig' => $this->presentConfig($systemConfig),
             'customConfig' => $latestRecord ? $this->presentConfig(array_merge($latestRecord->toArray(), [
-                'configured_by' => (string) ($latestRecord->updatedBy?->name ?? ''),
+                'configured_by' => (string) ($latestRecord->updatedBy?->full_name ?? ''),
             ]), true) : null,
             'routes' => [
                 'saveCustom' => route('settings.smtp.custom'),
@@ -153,7 +153,7 @@ class SmtpSettingsController extends Controller
         $mailConfigurationManager->applyRuntimeConfiguration();
 
         try {
-            Mail::to($recipient)->send(new SmtpTestMail($viewer?->name ?? 'System Admin'));
+        Mail::to($recipient)->send(new SmtpTestMail($viewer?->full_name ?? 'System Admin'));
         } catch (Throwable $exception) {
             if ($viewer) {
                 AuditLog::query()->create([
