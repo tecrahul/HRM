@@ -88,6 +88,10 @@ class DatabaseSeeder extends Seeder
                 'brand_primary_color' => '#2F8F72',
                 'brand_secondary_color' => '#D8AF6D',
                 'brand_font_family' => 'manrope',
+                'light_bg_color' => '#F5F5F5',
+                'light_sidebar_color' => '#FFFFFF',
+                'light_header_color' => '#FFFFFF',
+                'light_bg_image_path' => null,
                 'branch_directory' => [
                     [
                         'label' => 'New York HQ',

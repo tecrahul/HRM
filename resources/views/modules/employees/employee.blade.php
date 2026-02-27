@@ -68,8 +68,8 @@
                         <p class="text-sm mt-1" style="color: var(--hr-text-muted);">Personal and employment information visible to HR operations.</p>
                     </div>
                 </div>
-                <a href="{{ route('profile.edit') }}" class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white inline-flex items-center gap-2" style="background: linear-gradient(120deg, #7c3aed, #ec4899);">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                <a href="{{ route('profile.edit') }}" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-pencil-square class="h-4 w-4" />
                     Update Profile
                 </a>
             </div>

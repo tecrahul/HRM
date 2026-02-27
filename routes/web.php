@@ -411,4 +411,14 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
     Route::post('/api/attendance/punch', [AttendanceController::class, 'punch'])
         ->middleware('permission:attendance.create')
         ->name('api.attendance.punch');
+
+    // Admin User Creation Wizard APIs (JSON)
+    Route::prefix('api/admin/users/wizard')->name('api.admin.users.wizard.')->middleware('role:super_admin,admin,hr')->group(function (): void {
+        Route::post('/account', [\App\Http\Controllers\Admin\UserWizardController::class, 'storeAccount'])
+            ->name('account');
+        Route::put('/{user}/employment', [\App\Http\Controllers\Admin\UserWizardController::class, 'updateEmployment'])
+            ->name('employment');
+        Route::put('/{user}/personal', [\App\Http\Controllers\Admin\UserWizardController::class, 'updatePersonal'])
+            ->name('personal');
+    });
 });

@@ -919,7 +919,7 @@
 
             <div class="md:col-span-2 mt-1 flex flex-wrap items-center gap-2">
                 @if ($canManageCompanyDetails)
-                    <button type="submit" class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white" style="background: linear-gradient(120deg, #7c3aed, #ec4899);">{{ $isSystemSection ? 'Save System Settings' : 'Save Company Details' }}</button>
+                    <button type="submit" class="ui-btn ui-btn-primary">{{ $isSystemSection ? 'Save System Settings' : 'Save Company Details' }}</button>
                 @endif
                 <button type="reset" class="rounded-xl px-3.5 py-2 text-sm font-semibold border" style="border-color: var(--hr-line);">Reset</button>
                 <span class="text-xs" style="color: var(--hr-text-muted);">Saved values are loaded from the database.</span>

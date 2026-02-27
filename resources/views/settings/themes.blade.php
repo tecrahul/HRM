@@ -25,7 +25,7 @@
             </div>
         </div>
 
-        <form id="themeStudioForm" method="POST" action="{{ route('settings.themes.update') }}" class="mt-5 grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+        <form id="themeStudioForm" method="POST" action="{{ route('settings.themes.update') }}" enctype="multipart/form-data" class="mt-5 grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
             @csrf
             @php
                 $currentPrimaryColor = strtoupper((string) old('brand_primary_color', $companySettings['brand_primary_color']));
@@ -35,6 +35,18 @@
                 $currentSecondaryColor = strtoupper((string) old('brand_secondary_color', $companySettings['brand_secondary_color']));
                 if (! preg_match('/^#[0-9A-F]{6}$/', $currentSecondaryColor)) {
                     $currentSecondaryColor = '#5EEAD4';
+                }
+                $currentLightBg = strtoupper((string) old('light_bg_color', $companySettings['light_bg_color'] ?? '#F5F5F5'));
+                if (! preg_match('/^#[0-9A-F]{6}$/', $currentLightBg)) {
+                    $currentLightBg = '#F5F5F5';
+                }
+                $currentLightSidebar = strtoupper((string) old('light_sidebar_color', $companySettings['light_sidebar_color'] ?? '#FFFFFF'));
+                if (! preg_match('/^#[0-9A-F]{6}$/', $currentLightSidebar)) {
+                    $currentLightSidebar = '#FFFFFF';
+                }
+                $currentLightHeader = strtoupper((string) old('light_header_color', $companySettings['light_header_color'] ?? '#FFFFFF'));
+                if (! preg_match('/^#[0-9A-F]{6}$/', $currentLightHeader)) {
+                    $currentLightHeader = '#FFFFFF';
                 }
                 $brandColorPresets = [
                     ['name' => 'Violet + Mint', 'primary' => '#7C3AED', 'secondary' => '#5EEAD4'],
@@ -178,7 +190,56 @@
                                 </div>
                             </div>
 
-                            <div class="flex flex-wrap items-center gap-2">
+                            <div class="space-y-4 mt-4">
+                                <h5 class="text-xs font-extrabold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Appearance (Light Mode)</h5>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Background Color</label>
+                                        <div class="flex items-center gap-2">
+                                            <input id="light_bg_color" name="light_bg_color" type="text" value="{{ $currentLightBg }}" class="ui-input" placeholder="#F5F5F5">
+                                            <input type="color" value="{{ $currentLightBg }}" onchange="document.getElementById('light_bg_color').value = this.value.toUpperCase();" class="h-9 w-10 border rounded-md" style="border-color: var(--hr-line);" />
+                                        </div>
+                                        @error('light_bg_color')
+                                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Sidebar Color</label>
+                                        <div class="flex items-center gap-2">
+                                            <input id="light_sidebar_color" name="light_sidebar_color" type="text" value="{{ $currentLightSidebar }}" class="ui-input" placeholder="#FFFFFF">
+                                            <input type="color" value="{{ $currentLightSidebar }}" onchange="document.getElementById('light_sidebar_color').value = this.value.toUpperCase();" class="h-9 w-10 border rounded-md" style="border-color: var(--hr-line);" />
+                                        </div>
+                                        @error('light_sidebar_color')
+                                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Header Color</label>
+                                        <div class="flex items-center gap-2">
+                                            <input id="light_header_color" name="light_header_color" type="text" value="{{ $currentLightHeader }}" class="ui-input" placeholder="#FFFFFF">
+                                            <input type="color" value="{{ $currentLightHeader }}" onchange="document.getElementById('light_header_color').value = this.value.toUpperCase();" class="h-9 w-10 border rounded-md" style="border-color: var(--hr-line);" />
+                                        </div>
+                                        @error('light_header_color')
+                                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Background Image</label>
+                                        <input type="file" name="light_bg_image" accept="image/*" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
+                                        @if (!empty($companySettings['light_bg_image_path']))
+                                            <div class="mt-2 flex items-center gap-3">
+                                                <img src="{{ asset('storage/' . $companySettings['light_bg_image_path']) }}" alt="Background preview" class="h-10 w-16 object-cover rounded-lg border" style="border-color: var(--hr-line);">
+                                                <label class="inline-flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" name="remove_light_bg_image" value="1"> Remove image</label>
+                                            </div>
+                                        @endif
+                                        @error('light_bg_image')
+                                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-2 mt-4">
                                 <button type="button" class="ui-btn ui-btn-secondary" id="previewChangesBtn">Preview Changes</button>
                                 <button type="submit" class="ui-btn ui-btn-primary" id="applyThemeBtn">Apply Theme</button>
                                 <button type="reset" class="ui-btn ui-btn-ghost">Reset</button>

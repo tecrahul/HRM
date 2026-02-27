@@ -19,7 +19,7 @@
         </p>
 
         <div class="mt-5 flex flex-wrap gap-2">
-            <a href="{{ route(auth()->user()?->dashboardRouteName() ?? 'dashboard') }}" class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white inline-flex items-center gap-2" style="background: linear-gradient(120deg, #7c3aed, #ec4899);">
+            <a href="{{ route(auth()->user()?->dashboardRouteName() ?? 'dashboard') }}" class="ui-btn ui-btn-primary">
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5L12 3l9 7.5"></path><path d="M5 9.9V21h14V9.9"></path></svg>
                 Back to Dashboard
             </a>

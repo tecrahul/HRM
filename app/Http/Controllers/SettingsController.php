@@ -421,13 +421,34 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'brand_primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'brand_secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'light_bg_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'light_sidebar_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'light_header_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'light_bg_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
+            'remove_light_bg_image' => ['nullable', 'boolean'],
         ]);
 
         $validated['brand_primary_color'] = strtoupper($validated['brand_primary_color']);
         $validated['brand_secondary_color'] = strtoupper($validated['brand_secondary_color']);
+        $validated['light_bg_color'] = strtoupper($validated['light_bg_color']);
+        $validated['light_sidebar_color'] = strtoupper($validated['light_sidebar_color']);
+        $validated['light_header_color'] = strtoupper($validated['light_header_color']);
 
         $settings = CompanySetting::query()->firstOrNew([]);
-        $settings->fill($validated);
+        $settings->fill(collect($validated)->except(['light_bg_image', 'remove_light_bg_image'])->all());
+
+        if ($request->boolean('remove_light_bg_image') && filled($settings->light_bg_image_path)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete((string) $settings->light_bg_image_path);
+            $settings->light_bg_image_path = null;
+        }
+
+        if ($request->hasFile('light_bg_image')) {
+            $newPath = $request->file('light_bg_image')->store('branding/backgrounds', 'public');
+            if (filled($settings->light_bg_image_path) && $settings->light_bg_image_path !== $newPath) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete((string) $settings->light_bg_image_path);
+            }
+            $settings->light_bg_image_path = $newPath;
+        }
         $settings->save();
         CompanyProfile::flush();
 

@@ -24,15 +24,7 @@
             color: var(--hr-text-muted);
         }
 
-        .att-action-btn {
-            margin-top: 0.7rem;
-            width: 100%;
-            justify-content: center;
-            border: 1px solid rgb(192 132 252 / 0.72);
-            color: #ecfeff;
-            box-shadow: 0 20px 38px -24px rgb(124 58 237 / 0.9);
-            background: linear-gradient(120deg, #7c3aed, #ec4899);
-        }
+        /* Use global themed primary button classes for actions */
 
         .att-note-wrap {
             margin-top: 0.75rem;
@@ -80,7 +72,7 @@
                         @csrf
                         <p class="att-action-title">Quick Check-In</p>
                         <p class="att-action-subtitle">Record your start time first, then leave any optional context note.</p>
-                        <button type="submit" class="ui-btn att-action-btn">
+                        <button type="submit" class="ui-btn ui-btn-primary w-full mt-3">
                             <x-heroicon-o-clock class="h-4 w-4" />
                             Check In
                         </button>
@@ -104,7 +96,7 @@
                         @csrf
                         <p class="att-action-title">Quick Check-Out</p>
                         <p class="att-action-subtitle">Record your end time first, then leave any optional context note.</p>
-                        <button type="submit" class="ui-btn att-action-btn">
+                        <button type="submit" class="ui-btn ui-btn-primary w-full mt-3">
                             <x-heroicon-o-clock class="h-4 w-4" />
                             Check Out
                         </button>

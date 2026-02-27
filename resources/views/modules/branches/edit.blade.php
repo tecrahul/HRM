@@ -71,8 +71,8 @@
             </div>
 
             <div class="md:col-span-2 flex items-center gap-2">
-                <button type="submit" class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white inline-flex items-center gap-2" style="background: linear-gradient(120deg, #7c3aed, #ec4899);">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>
+                <button type="submit" class="ui-btn ui-btn-primary">
+                    <x-heroicon-o-check class="h-4 w-4" />
                     Update Branch
                 </button>
                 <a href="{{ route('modules.branches.index') }}" class="rounded-xl px-3.5 py-2 text-sm font-semibold border inline-flex items-center gap-2" style="border-color: var(--hr-line);">

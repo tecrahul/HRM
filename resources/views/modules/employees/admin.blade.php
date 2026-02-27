@@ -303,12 +303,7 @@
             border-radius: inherit;
         }
 
-        .emp-add-employee-btn {
-            border: 1px solid rgb(192 132 252 / 0.72);
-            color: #ecfeff;
-            box-shadow: 0 20px 38px -24px rgb(124 58 237 / 0.95);
-            background: linear-gradient(120deg, #7c3aed, #ec4899);
-        }
+        /* Use global .ui-btn .ui-btn-primary for primary actions */
 
         .emp-list-table {
             width: 100%;
@@ -439,12 +434,9 @@
                 @if ($canManageUsers)
                     <a
                         href="{{ route('admin.users.create', ['role' => \App\Enums\UserRole::EMPLOYEE->value]) }}"
-                        class="emp-add-employee-btn inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold"
+                        class="ui-btn ui-btn-primary w-full sm:w-auto"
                     >
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 5v14"></path>
-                            <path d="M5 12h14"></path>
-                        </svg>
+                        <x-heroicon-o-plus class="h-4 w-4" />
                         Add Employee
                     </a>
                 @endif

@@ -323,7 +323,7 @@
                 </div>
 
                 <div class="md:col-span-2 flex flex-wrap gap-2 pt-1">
-                    <button type="submit" class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white" style="background: linear-gradient(120deg, #7c3aed, #ec4899);">Save Changes</button>
+                    <button type="submit" class="ui-btn ui-btn-primary">Save Changes</button>
                     <a href="{{ route($user?->dashboardRouteName() ?? 'dashboard') }}" class="rounded-xl px-3.5 py-2 text-sm font-semibold border" style="border-color: var(--hr-line);">Back to Dashboard</a>
                 </div>
             </form>
@@ -420,7 +420,7 @@
                 </div>
 
                 <div class="md:col-span-2 flex flex-wrap gap-2 pt-1">
-                    <button id="passwordUpdateSubmit" type="submit" class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-55" style="background: linear-gradient(120deg, #7c3aed, #ec4899);" disabled aria-disabled="true">Update Password</button>
+                    <button id="passwordUpdateSubmit" type="submit" class="ui-btn ui-btn-primary disabled:cursor-not-allowed disabled:opacity-55" disabled aria-disabled="true">Update Password</button>
                 </div>
             </form>
         </article>
@@ -738,7 +738,7 @@
                                         @enderror
                                     </div>
                                     <div class="md:col-span-2">
-                                        <button type="submit" class="rounded-xl px-3.5 py-2 text-sm font-semibold text-white" style="background: linear-gradient(120deg, #7c3aed, #ec4899);">Verify and Enable 2FA</button>
+                                        <button type="submit" class="ui-btn ui-btn-primary">Verify and Enable 2FA</button>
                                     </div>
                                 </form>
                             </div>
@@ -797,7 +797,7 @@
                         <button id="avatarCropCancel" type="button" class="rounded-xl px-3 py-2 text-sm font-semibold border" style="border-color: var(--hr-line);">
                             Cancel
                         </button>
-                        <button id="avatarCropApply" type="button" class="rounded-xl px-3 py-2 text-sm font-semibold text-white" style="background: linear-gradient(120deg, #7c3aed, #ec4899);">
+                        <button id="avatarCropApply" type="button" class="ui-btn ui-btn-primary">
                             Apply Crop
                         </button>
                     </div>

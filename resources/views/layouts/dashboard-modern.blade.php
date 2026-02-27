@@ -7,6 +7,13 @@
     $brandAccentBorder = \App\Support\CompanyProfile::accentBorderColor();
     $brandSecondary = \App\Support\CompanyProfile::secondaryColor();
     $brandSecondarySoft = \App\Support\CompanyProfile::secondaryAccentSoftColor();
+    $lightBgColor = strtoupper((string) ($companyProfile['light_bg_color'] ?? '#F5F5F5'));
+    if (!preg_match('/^#[0-9A-F]{6}$/', $lightBgColor)) { $lightBgColor = '#F5F5F5'; }
+    $lightSidebarColor = strtoupper((string) ($companyProfile['light_sidebar_color'] ?? '#FFFFFF'));
+    if (!preg_match('/^#[0-9A-F]{6}$/', $lightSidebarColor)) { $lightSidebarColor = '#FFFFFF'; }
+    $lightHeaderColor = strtoupper((string) ($companyProfile['light_header_color'] ?? '#FFFFFF'));
+    if (!preg_match('/^#[0-9A-F]{6}$/', $lightHeaderColor)) { $lightHeaderColor = '#FFFFFF'; }
+    $lightBgImageUrl = !empty($companyProfile['light_bg_image_path']) ? asset('storage/' . $companyProfile['light_bg_image_path']) : null;
 @endphp
 <html lang="{{ str_replace('_', '-', $companyProfile['locale'] ?? 'en-US') }}" class="h-full">
 <head>
@@ -28,9 +35,10 @@
             --sp-xl: 32px;  /* 32 */
             --sp-2xl: 40px; /* 40 */
             --sp-3xl: 48px; /* 48 */
-            --hr-bg-base: #f6f3ff;
+            --hr-bg-base: {{ $lightBgColor }};
             --hr-bg-grad-a: #e8dbff;
             --hr-bg-grad-b: #ffd9eb;
+            --hr-bg-image: {{ $lightBgImageUrl ? "url('" . $lightBgImageUrl . "') center/cover fixed no-repeat" : 'none' }};
             --hr-surface: rgb(255 255 255 / 0.88);
             --hr-surface-strong: #fff;
             --hr-line: rgb(231 226 244 / 0.95);
@@ -41,9 +49,9 @@
             --hr-accent-border: {{ $brandAccentBorder }};
             --hr-font-family: <?php echo $brandFontStack; ?>;
             --hr-shadow-soft: 0 24px 46px -30px rgb(57 26 94 / 0.38);
-            /* Slightly darker header/sidebar in light mode for better content contrast */
-            --hr-header-bg: linear-gradient(180deg, rgb(2 8 23 / 0.06), rgb(2 8 23 / 0.02)), var(--hr-surface);
-            --hr-sidebar-bg: linear-gradient(180deg, rgb(2 8 23 / 0.05), rgb(2 8 23 / 0.02)), var(--hr-surface);
+            /* Light mode header/sidebar colors (configurable) */
+            --hr-header-bg: {{ $lightHeaderColor }};
+            --hr-sidebar-bg: {{ $lightSidebarColor }};
             /* Sidebar scrollbars */
             --hr-scrollbar-thumb: rgba(255,255,255,0.18);
             --hr-scrollbar-thumb-hover: rgba(255,255,255,0.28);
@@ -55,6 +63,7 @@
             --hr-bg-base: #0b1326;
             --hr-bg-grad-a: #182c46;
             --hr-bg-grad-b: #2b1f44;
+            --hr-bg-image: none;
             --hr-surface: rgb(17 28 48 / 0.86);
             --hr-surface-strong: #131f36;
             --hr-line: rgb(125 150 185 / 0.24);
@@ -77,6 +86,7 @@
             min-height: 100vh;
             font-family: var(--hr-font-family, "Manrope", ui-sans-serif, system-ui, sans-serif);
             background:
+                var(--hr-bg-image),
                 radial-gradient(1100px 600px at -10% -10%, var(--hr-bg-grad-a), transparent 55%),
                 radial-gradient(900px 600px at 110% 0%, var(--hr-bg-grad-b), transparent 55%),
                 var(--hr-bg-base);

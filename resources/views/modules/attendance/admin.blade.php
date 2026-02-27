@@ -97,12 +97,7 @@
             border-radius: inherit;
         }
 
-        .att-hero-btn {
-            border: 1px solid rgb(192 132 252 / 0.72);
-            color: #ecfeff;
-            box-shadow: 0 20px 38px -24px rgb(124 58 237 / 0.9);
-            background: linear-gradient(120deg, #7c3aed, #ec4899);
-        }
+        /* Use global themed primary buttons instead of custom gradients */
 
         .att-create-btn {
             display: inline-flex;
@@ -349,14 +344,11 @@
             <div class="flex flex-col sm:flex-row gap-2.5">
                 <button
                     type="button"
-                    class="att-hero-btn inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold"
+                    class="ui-btn ui-btn-primary"
                     data-attendance-form-open
                     aria-expanded="{{ $shouldOpenForm ? 'true' : 'false' }}"
                 >
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 5v14"></path>
-                        <path d="M5 12h14"></path>
-                    </svg>
+                    <x-heroicon-o-plus class="h-4 w-4" />
                     <span data-attendance-form-open-label>Mark Attendance</span>
                 </button>
                     <a href="#attendance-directory" class="ui-btn ui-btn-ghost">
@@ -601,14 +593,11 @@
             </div>
             <button
                 type="button"
-                class="att-create-btn"
+                class="ui-btn ui-btn-primary"
                 data-attendance-form-open
                 aria-expanded="{{ $shouldOpenForm ? 'true' : 'false' }}"
             >
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 5v14"></path>
-                    <path d="M5 12h14"></path>
-                </svg>
+                <x-heroicon-o-plus class="h-4 w-4" />
                 <span data-attendance-form-open-label>+ Mark Attendance</span>
             </button>
         </div>
