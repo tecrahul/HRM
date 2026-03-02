@@ -267,7 +267,8 @@ class RbacSeeder extends Seeder
 
             UserRole::HR->value => [
                 // HR focuses on employee, attendance, leave management
-                'users.view', 'users.view.all',
+                // User Management (create & edit employees only, role hierarchy prevents managing higher roles)
+                'users.view', 'users.view.all', 'users.create', 'users.edit',
                 'employees.view', 'employees.view.all', 'employees.create', 'employees.edit', 'employees.view.profile', 'employees.edit.profile',
                 'departments.view', 'departments.create', 'departments.edit',
                 'designations.view', 'designations.create', 'designations.edit',
@@ -290,7 +291,7 @@ class RbacSeeder extends Seeder
                 'departments.view',
                 'designations.view',
                 'branches.view',
-                'attendance.view', 'attendance.view.self', 'attendance.view.department', 'attendance.export',
+                'attendance.view', 'attendance.view.self', 'attendance.view.department', 'attendance.create', 'attendance.export',
                 'leave.view',
                 'payroll.view', 'payroll.view.all', 'payroll.generate', 'payroll.approve', 'payroll.pay', 'payroll.edit', 'payroll.manage_structure', 'payroll.export',
                 'reports.view', 'reports.export', 'reports.view.analytics', 'reports.payroll', 'reports.attendance',

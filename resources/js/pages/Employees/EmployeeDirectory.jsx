@@ -199,10 +199,6 @@ export function EmployeeDirectory({ apiUrl = '/api/employees' }) {
       {/* Toolbar */}
       <section className="rounded-3xl p-6" style={{ background: 'var(--hr-surface)', border: '1px solid var(--hr-line)', boxShadow: 'var(--hr-shadow-soft)' }}>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-4 text-sm font-semibold">
-            <span className="emp-tab-link is-active pb-1">Employee</span>
-            <a href={window.routes?.leaveIndex || '/modules/leave'} className="emp-tab-link pb-1">Leave Request</a>
-          </div>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="flex items-center rounded-xl p-1" style={{ border: '1px solid var(--hr-line)', background: 'var(--hr-surface-strong)' }}>
               <button type="button" className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${viewMode === 'grid' ? 'emp-view-toggle is-active' : 'emp-view-toggle'}`} aria-label="Grid view" onClick={() => switchView('grid')}>▦</button>

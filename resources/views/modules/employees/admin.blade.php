@@ -536,15 +536,6 @@
                 <input type="hidden" name="view" value="{{ $viewMode }}">
 
                 <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                    <div class="flex items-center gap-4 text-sm font-semibold">
-                        <a href="{{ route('modules.employees.index', array_merge($baseQuery, ['view' => $viewMode])) }}" class="emp-tab-link {{ request()->routeIs('modules.employees.index') ? 'is-active' : '' }} pb-1">
-                            Employee
-                        </a>
-                        <a href="{{ route('modules.leave.index') }}" class="emp-tab-link pb-1">
-                            Leave Request
-                        </a>
-                    </div>
-
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
                         <div class="flex items-center rounded-xl p-1" style="border: 1px solid var(--emp-control-border); background: var(--emp-control-bg);">
                             <a href="{{ route('modules.employees.index', array_merge($baseQuery, ['view' => 'grid'])) }}" class="emp-view-toggle {{ $viewMode === 'grid' ? 'is-active' : '' }} inline-flex h-9 w-9 items-center justify-center rounded-lg" aria-label="Grid view">

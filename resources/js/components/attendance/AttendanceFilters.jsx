@@ -449,7 +449,7 @@ export function AttendanceFilters({
                     <div className="flex items-center gap-4">
                         <button
                             type="submit"
-                            className="rounded-xl px-4 py-2 text-sm font-semibold text-white"
+                            className="rounded-xl px-4 py-2 text-sm font-semibold text-white flex items-center gap-2"
                             style={{ background: '#0f766e' }}
                             disabled={loading || submitting}
                         >
@@ -458,7 +458,7 @@ export function AttendanceFilters({
                         </button>
                         <button
                             type="button"
-                            className="rounded-xl border px-4 py-2 text-sm font-semibold"
+                            className="rounded-xl border px-4 py-2 text-sm font-semibold flex items-center gap-2"
                             style={{ borderColor: 'var(--hr-line)' }}
                             onClick={clearFilters}
                             disabled={loading || submitting}
@@ -472,7 +472,7 @@ export function AttendanceFilters({
                         {canExport ? (
                             <a
                                 href="#"
-                                className="rounded-xl border px-3 py-2 text-xs font-semibold"
+                                className="rounded-xl border px-3 py-2 text-xs font-semibold flex items-center gap-2"
                                 style={{ borderColor: 'var(--hr-line)' }}
                                 onClick={(event) => {
                                     event.preventDefault();
@@ -488,7 +488,7 @@ export function AttendanceFilters({
                             !selectedMonthLocked ? (
                                 <button
                                     type="button"
-                                    className="rounded-xl px-3 py-2 text-xs font-semibold text-white"
+                                    className="rounded-xl px-3 py-2 text-xs font-semibold text-white flex items-center gap-2"
                                     style={{ background: '#b45309' }}
                                     onClick={() => onLockMonth(selectedMonth)}
                                     disabled={loading || submitting}
@@ -506,7 +506,7 @@ export function AttendanceFilters({
                         {canUnlockMonth && selectedMonthLocked ? (
                             <button
                                 type="button"
-                                className="rounded-xl px-3 py-2 text-xs font-semibold text-white"
+                                className="rounded-xl px-3 py-2 text-xs font-semibold text-white flex items-center gap-2"
                                 style={{ background: '#1d4ed8' }}
                                 onClick={() => onUnlockMonth(selectedMonth)}
                                 disabled={loading || submitting}

@@ -214,7 +214,7 @@ class User extends Authenticatable
 
             try {
                 // Use Spatie's hasPermissionTo method from HasPermissions trait (via HasRoles)
-                $result = parent::hasPermissionTo($permission, $guard);
+                $result = $this->hasPermissionTo($permission, $guard);
                 self::$permissionCheckCache[$cacheKey] = $result;
 
                 return $result;
@@ -245,43 +245,6 @@ class User extends Authenticatable
         return $this->hasAnyRole(array_values(array_filter($allowedRoles, 'is_string')));
     }
 
-    /**
-     * Check if user has any of the given permissions.
-     * Supports both RBAC (Spatie) and legacy permission config.
-     *
-     * @param array|\Spatie\Permission\Contracts\Permission $permissions
-     */
-    public function hasAnyPermission($permissions, ?string $guard = null): bool
-    {
-        // If RBAC is active, use Spatie's implementation
-        if (self::rbacActive()) {
-            try {
-                // Use Spatie's hasAnyPermission method from HasPermissions trait (via HasRoles)
-                return parent::hasAnyPermission($permissions, $guard);
-            } catch (\Throwable $e) {
-                // Fall back to legacy if Spatie check fails
-                $permissionsArray = is_array($permissions) ? $permissions : [$permissions];
-                foreach ($permissionsArray as $permission) {
-                    if ($this->hasPermissionLegacy(is_string($permission) ? $permission : $permission->name)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-        }
-
-        // Fall back to legacy permission config check
-        $permissionsArray = is_array($permissions) ? $permissions : [$permissions];
-
-        foreach ($permissionsArray as $permission) {
-            if ($this->hasPermissionLegacy(is_string($permission) ? $permission : $permission->name)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /**
      * @return list<string>

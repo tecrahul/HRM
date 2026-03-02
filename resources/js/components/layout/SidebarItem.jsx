@@ -113,7 +113,7 @@ export default function SidebarItem({ item, isCollapsed, onOpenFlyout, activeCol
             <li key={child.key}>
               <a
                 href={child.url}
-                className={`flex items-center gap-2 rounded-lg pl-3 pr-3 text-xs font-semibold hover:opacity-90 ${child.active ? 'ring-1' : ''}`}
+                className={`flex items-center gap-2 rounded-lg pl-6 pr-3 text-xs font-semibold hover:opacity-90 ${child.active ? 'ring-1' : ''}`}
                 style={{ color: 'var(--hr-text-main)', borderColor: 'var(--hr-accent)' }}
                 role="menuitem"
               >

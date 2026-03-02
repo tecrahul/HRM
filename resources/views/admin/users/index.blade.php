@@ -16,48 +16,157 @@
         </section>
     @endif
 
+    <style>
+        /* Info Card Theme Variables */
+        .info-card-blue {
+            --card-bg: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            --card-border: rgba(59, 130, 246, 0.2);
+            --card-accent: radial-gradient(circle, #3b82f6 0%, transparent 70%);
+            --card-title: #1e40af;
+            --card-value: #1e3a8a;
+            --card-subtitle: #3b82f6;
+            --card-icon-bg: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+        .info-card-purple {
+            --card-bg: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+            --card-border: rgba(139, 92, 246, 0.2);
+            --card-accent: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
+            --card-title: #5b21b6;
+            --card-value: #4c1d95;
+            --card-subtitle: #7c3aed;
+            --card-icon-bg: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+        .info-card-rose {
+            --card-bg: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+            --card-border: rgba(236, 72, 153, 0.2);
+            --card-accent: radial-gradient(circle, #ec4899 0%, transparent 70%);
+            --card-title: #9d174d;
+            --card-value: #831843;
+            --card-subtitle: #db2777;
+            --card-icon-bg: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+        }
+        .info-card-emerald {
+            --card-bg: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            --card-border: rgba(16, 185, 129, 0.2);
+            --card-accent: radial-gradient(circle, #10b981 0%, transparent 70%);
+            --card-title: #047857;
+            --card-value: #064e3b;
+            --card-subtitle: #059669;
+            --card-icon-bg: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        /* Dark Mode Overrides */
+        .dark .info-card-blue {
+            --card-bg: linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(30, 64, 175, 0.2) 100%);
+            --card-border: rgba(59, 130, 246, 0.3);
+            --card-accent: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, transparent 70%);
+            --card-title: #93c5fd;
+            --card-value: #bfdbfe;
+            --card-subtitle: #60a5fa;
+        }
+        .dark .info-card-purple {
+            --card-bg: linear-gradient(135deg, rgba(76, 29, 149, 0.3) 0%, rgba(91, 33, 182, 0.2) 100%);
+            --card-border: rgba(139, 92, 246, 0.3);
+            --card-accent: radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, transparent 70%);
+            --card-title: #c4b5fd;
+            --card-value: #ddd6fe;
+            --card-subtitle: #a78bfa;
+        }
+        .dark .info-card-rose {
+            --card-bg: linear-gradient(135deg, rgba(136, 19, 55, 0.3) 0%, rgba(159, 18, 57, 0.2) 100%);
+            --card-border: rgba(236, 72, 153, 0.3);
+            --card-accent: radial-gradient(circle, rgba(236, 72, 153, 0.4) 0%, transparent 70%);
+            --card-title: #fbcfe8;
+            --card-value: #fce7f3;
+            --card-subtitle: #f9a8d4;
+        }
+        .dark .info-card-emerald {
+            --card-bg: linear-gradient(135deg, rgba(6, 78, 59, 0.3) 0%, rgba(4, 120, 87, 0.2) 100%);
+            --card-border: rgba(16, 185, 129, 0.3);
+            --card-accent: radial-gradient(circle, rgba(16, 185, 129, 0.4) 0%, transparent 70%);
+            --card-title: #6ee7b7;
+            --card-value: #a7f3d0;
+            --card-subtitle: #34d399;
+        }
+
+        .info-card {
+            background: var(--card-bg);
+            border-color: var(--card-border);
+        }
+        .info-card .card-accent {
+            background: var(--card-accent);
+        }
+        .info-card .card-title {
+            color: var(--card-title);
+        }
+        .info-card .card-value {
+            color: var(--card-value);
+        }
+        .info-card .card-subtitle {
+            color: var(--card-subtitle);
+        }
+        .info-card .card-icon {
+            background: var(--card-icon-bg);
+        }
+    </style>
+
     <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <article class="hrm-modern-surface rounded-2xl p-4">
-            <div class="flex items-start justify-between gap-3">
+        <!-- Total Users Card - Blue Theme -->
+        <article class="info-card info-card-blue relative overflow-hidden rounded-2xl p-5 border transition-all duration-200 hover:shadow-lg">
+            <div class="card-accent absolute top-0 right-0 w-24 h-24 opacity-10" style="transform: translate(30%, -30%);"></div>
+            <div class="flex items-start justify-between gap-3 relative z-10">
                 <div>
-                    <p class="text-xs uppercase tracking-[0.1em] font-semibold" style="color: var(--hr-text-muted);">Total Users</p>
-                    <p class="mt-2 text-3xl font-extrabold">{{ $stats['total'] }}</p>
+                    <p class="card-title text-xs uppercase tracking-[0.12em] font-bold">Total Users</p>
+                    <p class="card-value mt-3 text-4xl font-black">{{ $stats['total'] }}</p>
+                    <p class="card-subtitle mt-1 text-xs font-medium">All registered accounts</p>
                 </div>
-                <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(59 130 246 / 0.16); color: #2563eb;">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-3-3.87"></path><path d="M7 21v-2a4 4 0 0 1 3-3.87"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                <span class="card-icon h-12 w-12 rounded-xl flex items-center justify-center shadow-sm text-white">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-3-3.87"></path><path d="M7 21v-2a4 4 0 0 1 3-3.87"></path><circle cx="12" cy="7" r="4"></circle></svg>
                 </span>
             </div>
         </article>
-        <article class="hrm-modern-surface rounded-2xl p-4">
-            <div class="flex items-start justify-between gap-3">
+
+        <!-- Admins Card - Purple Theme -->
+        <article class="info-card info-card-purple relative overflow-hidden rounded-2xl p-5 border transition-all duration-200 hover:shadow-lg">
+            <div class="card-accent absolute top-0 right-0 w-24 h-24 opacity-10" style="transform: translate(30%, -30%);"></div>
+            <div class="flex items-start justify-between gap-3 relative z-10">
                 <div>
-                    <p class="text-xs uppercase tracking-[0.1em] font-semibold" style="color: var(--hr-text-muted);">Admins</p>
-                    <p class="mt-2 text-3xl font-extrabold">{{ $stats['admins'] }}</p>
+                    <p class="card-title text-xs uppercase tracking-[0.12em] font-bold">Admins</p>
+                    <p class="card-value mt-3 text-4xl font-black">{{ $stats['admins'] }}</p>
+                    <p class="card-subtitle mt-1 text-xs font-medium">System administrators</p>
                 </div>
-                <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(124 58 237 / 0.16); color: #7c3aed;">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.5 4.5L19 8l-3.5 3 1 4.5-4.5-2.5L7.5 15.5l1-4.5L5 8l4.5-.5L12 3z"></path></svg>
+                <span class="card-icon h-12 w-12 rounded-xl flex items-center justify-center shadow-sm text-white">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                 </span>
             </div>
         </article>
-        <article class="hrm-modern-surface rounded-2xl p-4">
-            <div class="flex items-start justify-between gap-3">
+
+        <!-- HR Card - Rose/Pink Theme -->
+        <article class="info-card info-card-rose relative overflow-hidden rounded-2xl p-5 border transition-all duration-200 hover:shadow-lg">
+            <div class="card-accent absolute top-0 right-0 w-24 h-24 opacity-10" style="transform: translate(30%, -30%);"></div>
+            <div class="flex items-start justify-between gap-3 relative z-10">
                 <div>
-                    <p class="text-xs uppercase tracking-[0.1em] font-semibold" style="color: var(--hr-text-muted);">HR</p>
-                    <p class="mt-2 text-3xl font-extrabold">{{ $stats['hr'] }}</p>
+                    <p class="card-title text-xs uppercase tracking-[0.12em] font-bold">HR Managers</p>
+                    <p class="card-value mt-3 text-4xl font-black">{{ $stats['hr'] }}</p>
+                    <p class="card-subtitle mt-1 text-xs font-medium">Human resources team</p>
                 </div>
-                <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(236 72 153 / 0.16); color: #db2777;">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"></circle><path d="M5.5 21a8.5 8.5 0 0 1 13 0"></path></svg>
+                <span class="card-icon h-12 w-12 rounded-xl flex items-center justify-center shadow-sm text-white">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
                 </span>
             </div>
         </article>
-        <article class="hrm-modern-surface rounded-2xl p-4">
-            <div class="flex items-start justify-between gap-3">
+
+        <!-- Employees Card - Emerald/Green Theme -->
+        <article class="info-card info-card-emerald relative overflow-hidden rounded-2xl p-5 border transition-all duration-200 hover:shadow-lg">
+            <div class="card-accent absolute top-0 right-0 w-24 h-24 opacity-10" style="transform: translate(30%, -30%);"></div>
+            <div class="flex items-start justify-between gap-3 relative z-10">
                 <div>
-                    <p class="text-xs uppercase tracking-[0.1em] font-semibold" style="color: var(--hr-text-muted);">Employees</p>
-                    <p class="mt-2 text-3xl font-extrabold">{{ $stats['employees'] }}</p>
+                    <p class="card-title text-xs uppercase tracking-[0.12em] font-bold">Employees</p>
+                    <p class="card-value mt-3 text-4xl font-black">{{ $stats['employees'] }}</p>
+                    <p class="card-subtitle mt-1 text-xs font-medium">Active workforce</p>
                 </div>
-                <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(16 185 129 / 0.16); color: #059669;">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle></svg>
+                <span class="card-icon h-12 w-12 rounded-xl flex items-center justify-center shadow-sm text-white">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                 </span>
             </div>
         </article>
@@ -233,12 +342,21 @@
                         <td class="py-3 px-2">{{ $managedUser->profile?->joined_on ? $managedUser->profile->joined_on->format('M d, Y') : 'N/A' }}</td>
                         <td class="py-3 px-2">
                             <div class="flex justify-end items-center gap-2">
-                                <a href="{{ route('admin.users.edit', $managedUser) }}" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border" style="border-color: var(--hr-line);">Edit</a>
-                                <form method="POST" action="{{ route('admin.users.destroy', $managedUser) }}" onsubmit="return confirm('Delete this user?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border text-red-600" style="border-color: rgb(239 68 68 / 0.45);">Delete</button>
-                                </form>
+                                @can('update', $managedUser)
+                                    <a href="{{ route('admin.users.edit', $managedUser) }}" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border" style="border-color: var(--hr-line);">Edit</a>
+                                @endcan
+                                @can('delete', $managedUser)
+                                    <form method="POST" action="{{ route('admin.users.destroy', $managedUser) }}" onsubmit="return confirm('Delete this user?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold border text-red-600" style="border-color: rgb(239 68 68 / 0.45);">Delete</button>
+                                    </form>
+                                @endcan
+                                @cannot('update', $managedUser)
+                                    @cannot('delete', $managedUser)
+                                        <span class="text-xs text-gray-500 italic">No actions</span>
+                                    @endcannot
+                                @endcannot
                             </div>
                         </td>
                     </tr>

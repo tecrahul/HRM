@@ -1,8 +1,7 @@
 import React from 'react';
 import { PermissionGuard } from '../shared/PermissionGuard';
-import { ViewToggle } from '../shared/ViewToggle';
 
-export function HolidaysHeader({ canCreate, onCreate, disabledCreate = false, view = 'list', onViewChange }) {
+export function HolidaysHeader({ canCreate, onCreate, disabledCreate = false }) {
     return (
         <section className="flex items-center justify-between gap-4 flex-wrap">
             <div className="leading-tight">
@@ -12,7 +11,6 @@ export function HolidaysHeader({ canCreate, onCreate, disabledCreate = false, vi
                 </p>
             </div>
             <div className="flex items-center gap-2">
-                <ViewToggle value={view} onChange={onViewChange} />
                 <PermissionGuard allowed={canCreate}>
                     <button
                         type="button"

@@ -33,68 +33,106 @@
         </div>
 
         <nav class="hrm-nav">
-            <p class="hrm-nav__title">Navigation</p>
+            <!-- Main Section -->
+            <p class="hrm-nav__title">Main</p>
             <a href="{{ route($dashboardRoute) }}" class="hrm-nav__item {{ request()->routeIs($dashboardRoute) ? 'is-active' : '' }}">
                 <span class="hrm-nav__icon"><x-heroicon-o-squares-2x2 class="h-4 w-4 text-gold-400" /></span>
                 <span>Dashboard</span>
             </a>
-            <a href="{{ route('modules.employees.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.employees.*') ? 'is-active' : '' }}">
-                <span class="hrm-nav__icon"><x-heroicon-o-users class="h-4 w-4 text-gold-400" /></span>
-                <span>{{ $isEmployee ? 'Profile' : 'Employees' }}</span>
-            </a>
-            @if ($canManageUsers)
-                <a href="{{ route('modules.departments.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.departments.*') ? 'is-active' : '' }}">
+
+            <!-- People Section -->
+            @if ($user?->can('employees.view') || $user?->can('departments.view') || $user?->can('branches.view'))
+                <div class="hrm-nav__divider"></div>
+                <p class="hrm-nav__title">People</p>
+            @endif
+            @can('employees.view')
+                <a href="{{ route('modules.employees.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.employees.*') ? 'is-active' : '' }}">
                     <span class="hrm-nav__icon"><x-heroicon-o-users class="h-4 w-4 text-gold-400" /></span>
+                    <span>{{ $isEmployee ? 'Profile' : 'Employees' }}</span>
+                </a>
+            @endcan
+            @can('departments.view')
+                <a href="{{ route('modules.departments.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.departments.*') ? 'is-active' : '' }}">
+                    <span class="hrm-nav__icon"><x-heroicon-o-building-office class="h-4 w-4 text-gold-400" /></span>
                     <span>Departments</span>
                 </a>
-                @if ($isAdmin)
-                    <a href="{{ route('modules.branches.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.branches.*') ? 'is-active' : '' }}">
-                        <span class="hrm-nav__icon"><x-heroicon-o-users class="h-4 w-4 text-gold-400" /></span>
-                        <span>Branches</span>
+            @endcan
+            @can('branches.view')
+                <a href="{{ route('modules.branches.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.branches.*') ? 'is-active' : '' }}">
+                    <span class="hrm-nav__icon"><x-heroicon-o-map-pin class="h-4 w-4 text-gold-400" /></span>
+                    <span>Branches</span>
+                </a>
+            @endcan
+
+            <!-- Workforce Section -->
+            @if ($user?->can('attendance.view') || $user?->can('leave.view') || $user?->can('holiday.view'))
+                <div class="hrm-nav__divider"></div>
+                <p class="hrm-nav__title">Workforce</p>
+            @endif
+            {{-- Attendance Menu --}}
+            @can('attendance.view')
+                <a href="{{ route('modules.attendance.overview') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.*') ? 'is-active' : '' }}">
+                    <span class="hrm-nav__icon"><x-heroicon-o-clock class="h-4 w-4 text-gold-400" /></span>
+                    <span>Attendance</span>
+                </a>
+                <a href="{{ route('modules.attendance.overview') }}" class="hrm-nav__item hrm-nav__subitem {{ request()->routeIs('modules.attendance.overview') ? 'is-active' : '' }}">
+                    <span class="hrm-nav__dot"></span>
+                    <span>Overview</span>
+                </a>
+            @endcan
+
+            {{-- Punch In/Out - For Employees, HR, Finance (not Admin/SuperAdmin) --}}
+            @can('attendance.create')
+                @if (!$isAdmin && !$isSuperAdmin)
+                    <a href="{{ route('modules.attendance.punch') }}" class="hrm-nav__item hrm-nav__subitem {{ request()->routeIs('modules.attendance.punch') || request()->routeIs('modules.attendance.punch-in') || request()->routeIs('modules.attendance.punch-out') ? 'is-active' : '' }}">
+                        <span class="hrm-nav__dot"></span>
+                        <span>Punch In/Out</span>
                     </a>
                 @endif
-            @endif
-            <a href="{{ route('modules.attendance.overview') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.*') ? 'is-active' : '' }}">
-                <span class="hrm-nav__icon"><x-heroicon-o-clock class="h-4 w-4 text-gold-400" /></span>
-                <span>Attendance</span>
-            </a>
-            <a href="{{ route('modules.attendance.overview') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.overview') ? 'is-active' : '' }}" style="padding-left: 24px;">
-                <span class="hrm-nav__dot"></span>
-                <span>Overview</span>
-            </a>
-            @if ($user?->can('attendance.create') && ! ($isAdmin || $isSuperAdmin))
-                <a href="{{ route('modules.attendance.punch') }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.punch') || request()->routeIs('modules.attendance.punch-in') || request()->routeIs('modules.attendance.punch-out') ? 'is-active' : '' }}" style="padding-left: 24px;">
-                    <span class="hrm-nav__dot"></span>
-                    <span>Punch In/Out</span>
+            @endcan
+            @can('attendance.create')
+                @if ($isAdmin || $isSuperAdmin)
+                    <a href="{{ route('modules.attendance.overview', ['action' => 'create']) }}" class="hrm-nav__item hrm-nav__subitem">
+                        <span class="hrm-nav__dot"></span>
+                        <span>Mark Attendance</span>
+                    </a>
+                @endif
+            @endcan
+            @can('leave.view')
+                <a href="{{ route('modules.leave.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.leave.*') ? 'is-active' : '' }}">
+                    <span class="hrm-nav__icon"><x-heroicon-o-calendar-days class="h-4 w-4 text-gold-400" /></span>
+                    <span>Leave</span>
                 </a>
-            @endif
-            @if ($isAdmin || $isSuperAdmin)
-                <a href="{{ route('modules.attendance.overview', ['action' => 'create']) }}" class="hrm-nav__item {{ request()->routeIs('modules.attendance.overview') ? 'is-active' : '' }}" style="padding-left: 24px;">
-                    <span class="hrm-nav__dot"></span>
-                    <span>Mark Attendance</span>
+            @endcan
+            @can('holiday.view')
+                <a href="{{ route('modules.holidays.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.holidays.*') ? 'is-active' : '' }}">
+                    <span class="hrm-nav__icon">
+                        <svg class="h-4 w-4 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M8 2v4"></path>
+                            <path d="M16 2v4"></path>
+                            <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                            <path d="M3 10h18"></path>
+                            <path d="m9.5 14 1.8 1.8 3.2-3.2"></path>
+                        </svg>
+                    </span>
+                    <span>Holidays</span>
                 </a>
-            @endif
-            <a href="{{ route('modules.payroll.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.payroll.*') ? 'is-active' : '' }}">
-                <span class="hrm-nav__icon"><x-heroicon-o-banknotes class="h-4 w-4 text-gold-400" /></span>
-                <span>Payroll</span>
-            </a>
-            <a href="{{ route('modules.leave.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.leave.*') ? 'is-active' : '' }}">
-                <span class="hrm-nav__icon"><x-heroicon-o-calendar-days class="h-4 w-4 text-gold-400" /></span>
-                <span>Leave</span>
-            </a>
-            <a href="{{ route('modules.holidays.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.holidays.*') ? 'is-active' : '' }}">
-                <span class="hrm-nav__icon">
-                    <svg class="h-4 w-4 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M8 2v4"></path>
-                        <path d="M16 2v4"></path>
-                        <rect x="3" y="5" width="18" height="16" rx="2"></rect>
-                        <path d="M3 10h18"></path>
-                        <path d="m9.5 14 1.8 1.8 3.2-3.2"></path>
-                    </svg>
-                </span>
-                <span>Holidays</span>
-            </a>
-            <div class="flex flex-col gap-1">
+            @endcan
+
+            <!-- Finance Section -->
+            @can('payroll.view')
+                <div class="hrm-nav__divider"></div>
+                <p class="hrm-nav__title">Finance</p>
+                <a href="{{ route('modules.payroll.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.payroll.*') ? 'is-active' : '' }}">
+                    <span class="hrm-nav__icon"><x-heroicon-o-banknotes class="h-4 w-4 text-gold-400" /></span>
+                    <span>Payroll</span>
+                </a>
+            @endcan
+
+            <!-- Analytics Section -->
+            @can('reports.view')
+                <div class="hrm-nav__divider"></div>
+                <p class="hrm-nav__title">Analytics</p>
                 <a href="{{ route('modules.reports.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.*') ? 'is-active' : '' }}">
                     <span class="hrm-nav__icon">
                         <svg class="h-4 w-4 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -103,25 +141,64 @@
                     </span>
                     <span>Reports</span>
                 </a>
-                <a href="{{ route('modules.reports.index') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.index') ? 'is-active' : '' }}" style="padding-left: 24px;">
+                <a href="{{ route('modules.reports.index') }}" class="hrm-nav__item hrm-nav__subitem {{ request()->routeIs('modules.reports.index') ? 'is-active' : '' }}">
                     <span class="hrm-nav__dot"></span>
                     <span>Overview</span>
                 </a>
-                <a href="{{ route('modules.reports.activity') }}" class="hrm-nav__item {{ request()->routeIs('modules.reports.activity') ? 'is-active' : '' }}" style="padding-left: 24px;">
+            @endcan
+            @can('reports.activity')
+                <a href="{{ route('modules.reports.activity') }}" class="hrm-nav__item hrm-nav__subitem {{ request()->routeIs('modules.reports.activity') ? 'is-active' : '' }}">
                     <span class="hrm-nav__dot"></span>
                     <span>Activity</span>
                 </a>
-            </div>
-            @if ($isSuperAdmin)
-                <a href="{{ route('settings.roles-permissions.index') }}" class="hrm-nav__item {{ request()->routeIs('settings.roles-permissions.*') ? 'is-active' : '' }}">
-                    <span class="hrm-nav__icon">
-                        <svg class="h-4 w-4 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                        </svg>
-                    </span>
-                    <span>Roles & Permissions</span>
+            @endcan
+
+            @can('settings.view')
+                <!-- Settings Section -->
+                <div class="hrm-nav__divider"></div>
+                <p class="hrm-nav__title">Settings</p>
+                <a href="{{ route('settings.index') }}" class="hrm-nav__item {{ request()->routeIs('settings.index') && !request()->has('section') ? 'is-active' : '' }}">
+                    <span class="hrm-nav__icon"><x-heroicon-o-cog-6-tooth class="h-4 w-4 text-gold-400" /></span>
+                    <span>Overview</span>
                 </a>
-            @endif
+                @can('settings.company')
+                    <a href="{{ route('settings.index', ['section' => 'company']) }}" class="hrm-nav__item hrm-nav__subitem {{ request()->routeIs('settings.index') && request()->get('section') === 'company' ? 'is-active' : '' }}">
+                        <span class="hrm-nav__icon hrm-nav__icon--small">
+                            <x-heroicon-o-building-office-2 class="h-4 w-4 text-gold-400" />
+                        </span>
+                        <span>Company</span>
+                    </a>
+                @endcan
+                @can('settings.auth_features')
+                    <a href="{{ route('settings.index', ['section' => 'system']) }}" class="hrm-nav__item hrm-nav__subitem {{ request()->routeIs('settings.index') && request()->get('section') === 'system' ? 'is-active' : '' }}">
+                        <span class="hrm-nav__icon hrm-nav__icon--small">
+                            <svg class="h-4 w-4 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </span>
+                        <span>System</span>
+                    </a>
+                @endcan
+                @can('settings.smtp')
+                    <a href="{{ route('settings.smtp') }}" class="hrm-nav__item hrm-nav__subitem {{ request()->routeIs('settings.smtp') ? 'is-active' : '' }}">
+                        <span class="hrm-nav__icon hrm-nav__icon--small">
+                            <x-heroicon-o-envelope class="h-4 w-4 text-gold-400" />
+                        </span>
+                        <span>SMTP</span>
+                    </a>
+                @endcan
+                @if ($isSuperAdmin)
+                    <a href="{{ route('settings.roles-permissions.index') }}" class="hrm-nav__item hrm-nav__subitem {{ request()->routeIs('settings.roles-permissions.*') ? 'is-active' : '' }}">
+                        <span class="hrm-nav__icon hrm-nav__icon--small">
+                            <svg class="h-4 w-4 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                        </span>
+                        <span>Roles & Permissions</span>
+                    </a>
+                @endif
+            @endcan
         </nav>
 
         <div class="hrm-sidebar__foot">

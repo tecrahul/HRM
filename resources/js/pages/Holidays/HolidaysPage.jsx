@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppModalPortal } from '../../components/shared/AppModalPortal';
 import { HolidayApi } from '../../services/HolidayApi';
@@ -11,6 +11,7 @@ import { HolidaysTable } from '../../components/holidays/HolidaysTable';
 import { HolidayCalendarHeader } from '../../components/holidays/HolidayCalendarHeader';
 import { HolidayCalendarView } from '../../components/holidays/HolidayCalendarView';
 import { HolidayDetailModal } from '../../components/holidays/HolidayDetailModal';
+import { ViewToggle } from '../../components/shared/ViewToggle';
 
 const EMPTY_FORM = {
     name: '',
@@ -195,6 +196,39 @@ function HolidaysPage({ payload }) {
         }
         return initial;
     });
+
+    // Search state with debounce
+    const [localSearch, setLocalSearch] = useState(filters.q || '');
+    const searchDebounceRef = useRef(null);
+
+    // Sync local search with filters
+    useEffect(() => {
+        setLocalSearch(filters.q || '');
+    }, [filters.q]);
+
+    // Debounced search handler
+    const handleSearchChange = useCallback((value) => {
+        setLocalSearch(value);
+
+        if (searchDebounceRef.current) {
+            clearTimeout(searchDebounceRef.current);
+        }
+
+        searchDebounceRef.current = setTimeout(() => {
+            fetchHolidays({ q: value }, 1).catch(() => {
+                // Error is handled by useHolidays hook via error state
+            });
+        }, 400);
+    }, [fetchHolidays]);
+
+    // Cleanup search debounce on unmount
+    useEffect(() => {
+        return () => {
+            if (searchDebounceRef.current) {
+                clearTimeout(searchDebounceRef.current);
+            }
+        };
+    }, []);
 
     // Open create form when navigated with action=create and prefill date
     useEffect(() => {
@@ -483,11 +517,9 @@ function HolidaysPage({ payload }) {
                 canCreate={capabilities.canCreate}
                 onCreate={openCreateForm}
                 disabledCreate={submitting}
-                view={view}
-                onViewChange={handleViewChange}
             />
 
-            <HolidaysInfoCards stats={stats} />
+            <HolidaysInfoCards stats={stats} holidays={holidays} isDarkMode={isDarkMode} />
 
             {error ? (
                 <section className="hrm-modern-surface rounded-2xl p-4">
@@ -530,56 +562,97 @@ function HolidaysPage({ payload }) {
                 loading={loading || initialLoading}
             />
 
-            {/* Views with smooth transitions */}
-            <section
-                className="transition-all"
-                style={{
-                    maxHeight: view === 'list' ? '2000px' : '0px',
-                    opacity: view === 'list' ? 1 : 0,
-                    transform: view === 'list' ? 'translateY(0)' : 'translateY(-8px)',
-                    overflow: 'hidden',
-                }}
-            >
-                <HolidaysTable
-                    holidays={holidays}
-                    meta={meta}
-                    loading={loading || initialLoading}
-                    listError={error}
-                    sort={filters.sort}
-                    isDarkMode={isDarkMode}
-                    canEdit={capabilities.canEdit}
-                    canDelete={capabilities.canDelete}
-                    onToggleSort={handleToggleSort}
-                    onEdit={openEditForm}
-                    onDelete={(holiday) => setDeleteTarget(holiday)}
-                    onRetry={() => fetchHolidays({}, meta.currentPage || 1).catch(() => {})}
-                    onPageChange={handlePageChange}
-                />
-            </section>
+            {/* Holiday List Section with Search and View Toggle */}
+            <section className="hrm-modern-surface rounded-2xl p-6">
+                {/* Header: Search (left) and View Toggle (right) */}
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                    {/* Search Box */}
+                    <div className="relative flex-1 max-w-sm">
+                        <span
+                            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                            style={{ color: 'var(--hr-text-muted)' }}
+                        >
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="m21 21-4.3-4.3" />
+                            </svg>
+                        </span>
+                        <input
+                            type="search"
+                            className="w-full rounded-xl border pl-10 pr-4 py-2.5 text-sm bg-transparent placeholder:text-[var(--hr-text-muted)]"
+                            style={{ borderColor: 'var(--hr-line)' }}
+                            placeholder="Search holiday name..."
+                            value={localSearch}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                        />
+                        {(loading || initialLoading) && localSearch && (
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                                <svg className="h-4 w-4 animate-spin" style={{ color: 'var(--hr-text-muted)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                                    <path d="M12 2a10 10 0 0 1 10 10" />
+                                </svg>
+                            </span>
+                        )}
+                    </div>
 
-            <section
-                className="hrm-modern-surface rounded-2xl p-6 overflow-hidden transition-all"
-                style={{
-                    maxHeight: view === 'calendar' ? '2000px' : '0px',
-                    opacity: view === 'calendar' ? 1 : 0,
-                    transform: view === 'calendar' ? 'translateY(0)' : 'translateY(-8px)',
-                    pointerEvents: view === 'calendar' ? 'auto' : 'none',
-                }}
-            >
-                <HolidayCalendarHeader
-                    year={calendarYear}
-                    month={calendarMonth}
-                    onPrev={handlePrevMonth}
-                    onNext={handleNextMonth}
-                    onToday={handleToday}
-                />
-                <HolidayCalendarView
-                    holidays={holidays}
-                    year={calendarYear}
-                    month={calendarMonth}
-                    holidayIndexUrl={capabilities.canCreate ? payload.routes?.list : ''}
-                    onSelectHoliday={openDetail}
-                />
+                    {/* View Toggle */}
+                    <ViewToggle value={view} onChange={handleViewChange} disabled={loading || initialLoading} />
+                </div>
+
+                {/* Separator Line */}
+                <div className="my-5 border-b" style={{ borderColor: 'var(--hr-line)' }} />
+
+                {/* List View Content */}
+                <div
+                    className="transition-all"
+                    style={{
+                        maxHeight: view === 'list' ? '2000px' : '0px',
+                        opacity: view === 'list' ? 1 : 0,
+                        overflow: 'hidden',
+                    }}
+                >
+                    <HolidaysTable
+                        holidays={holidays}
+                        meta={meta}
+                        loading={loading || initialLoading}
+                        listError={error}
+                        sort={filters.sort}
+                        isDarkMode={isDarkMode}
+                        canEdit={capabilities.canEdit}
+                        canDelete={capabilities.canDelete}
+                        onToggleSort={handleToggleSort}
+                        onEdit={openEditForm}
+                        onDelete={(holiday) => setDeleteTarget(holiday)}
+                        onRetry={() => fetchHolidays({}, meta.currentPage || 1).catch(() => {})}
+                        onPageChange={handlePageChange}
+                    />
+                </div>
+
+                {/* Calendar View Content */}
+                <div
+                    className="transition-all"
+                    style={{
+                        maxHeight: view === 'calendar' ? '2000px' : '0px',
+                        opacity: view === 'calendar' ? 1 : 0,
+                        overflow: 'hidden',
+                        pointerEvents: view === 'calendar' ? 'auto' : 'none',
+                    }}
+                >
+                    <HolidayCalendarHeader
+                        year={calendarYear}
+                        month={calendarMonth}
+                        onPrev={handlePrevMonth}
+                        onNext={handleNextMonth}
+                        onToday={handleToday}
+                    />
+                    <HolidayCalendarView
+                        holidays={holidays}
+                        year={calendarYear}
+                        month={calendarMonth}
+                        holidayIndexUrl={capabilities.canCreate ? payload.routes?.list : ''}
+                        onSelectHoliday={openDetail}
+                    />
+                </div>
             </section>
 
             <HolidayDetailModal

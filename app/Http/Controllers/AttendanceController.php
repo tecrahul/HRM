@@ -67,8 +67,14 @@ class AttendanceController extends Controller
             abort(Response::HTTP_FORBIDDEN);
         }
 
-        // Basic guard: middleware already enforces permission
-        return view('modules.attendance.punch-out');
+        // Get today's attendance record to show work summary
+        $todayAttendance = Attendance::where('user_id', $viewer->id)
+            ->whereDate('attendance_date', today())
+            ->first();
+
+        return view('modules.attendance.punch-out', [
+            'todayAttendance' => $todayAttendance,
+        ]);
     }
 
     public function punchPage(Request $request): RedirectResponse

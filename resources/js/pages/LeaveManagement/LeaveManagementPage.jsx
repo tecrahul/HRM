@@ -6,8 +6,7 @@ import { LeaveForm } from '../../components/leave/LeaveForm';
 import { LeaveFilters } from '../../components/leave/LeaveFilters';
 import { LeaveList } from '../../components/leave/LeaveList';
 import { LeaveModal } from '../../components/leave/LeaveModal';
-import { QuickInfoCard } from '../../components/common/QuickInfoCard';
-import { QuickInfoGrid } from '../../components/common/QuickInfoGrid';
+import { LeaveInfoCards } from '../../components/leave/LeaveInfoCards';
 
 const parsePayload = (root) => {
     if (!root) {
@@ -53,63 +52,10 @@ function ToastStack({ toasts, onDismiss }) {
     );
 }
 
-function ClipboardIcon() {
-    return (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="8" y="3" width="8" height="4" rx="1.2" />
-            <path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3" />
-        </svg>
-    );
-}
-
-function PendingIcon() {
-    return (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 7v6l4 2" />
-        </svg>
-    );
-}
-
-function ApprovedIcon() {
-    return (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="9" />
-            <path d="m8.5 12.5 2.2 2.2 4.8-5.2" />
-        </svg>
-    );
-}
-
-function RejectedIcon() {
-    return (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="9" />
-            <path d="m9 9 6 6" />
-            <path d="m15 9-6 6" />
-        </svg>
-    );
-}
-
-function BalanceIcon() {
-    return (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 7h16" />
-            <path d="M6 4h12a2 2 0 0 1 2 2v10a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V6a2 2 0 0 1 2-2Z" />
-            <path d="M8 12h8" />
-        </svg>
-    );
-}
-
-function CalendarIcon() {
-    return (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M8 2v4" />
-            <path d="M16 2v4" />
-            <rect x="3" y="5" width="18" height="16" rx="2" />
-            <path d="M3 10h18" />
-        </svg>
-    );
-}
+const readDarkMode = () => (
+    typeof document !== 'undefined'
+        && document.documentElement.classList.contains('dark')
+);
 
 function LeaveManagementPage({ payload }) {
     const formRef = useRef(null);
@@ -156,11 +102,31 @@ function LeaveManagementPage({ payload }) {
         }
         return initial;
     });
+    const [isDarkMode, setIsDarkMode] = useState(readDarkMode);
     const searchEmployees = useCallback((query) => api.searchEmployees(query), [api]);
 
     useEffect(() => {
         fetchLeaves({}, meta.currentPage || 1, true).catch(() => {});
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Dark mode observer
+    useEffect(() => {
+        if (typeof document === 'undefined') {
+            return undefined;
+        }
+
+        const root = document.documentElement;
+        const observer = new MutationObserver(() => {
+            setIsDarkMode(readDarkMode());
+        });
+
+        observer.observe(root, {
+            attributes: true,
+            attributeFilter: ['class'],
+        });
+
+        return () => observer.disconnect();
     }, []);
 
     // Open create form when navigated with action=create
@@ -336,86 +302,6 @@ function LeaveManagementPage({ payload }) {
         }
     };
 
-    const statsCards = payload.capabilities?.isEmployee
-        ? [
-            {
-                label: 'Total Requests',
-                value: stats.total ?? 0,
-                note: 'All leave applications',
-                icon: <ClipboardIcon />,
-                color: 'neutral',
-            },
-            {
-                label: 'Pending',
-                value: stats.pending ?? 0,
-                note: 'Awaiting approval',
-                icon: <PendingIcon />,
-                color: 'warning',
-            },
-            {
-                label: 'Approved',
-                value: stats.approved ?? 0,
-                note: 'Accepted requests',
-                icon: <ApprovedIcon />,
-                color: 'success',
-            },
-            {
-                label: 'Remaining Days',
-                value: Number(stats.remainingDays ?? 0).toFixed(1),
-                note: 'Current leave balance',
-                icon: <BalanceIcon />,
-                color: 'primary',
-            },
-            {
-                label: 'Next Leave',
-                value: (stats.nextLeaveDateLabel && String(stats.nextLeaveDateLabel).trim() !== '')
-                    ? stats.nextLeaveDateLabel
-                    : 'N/A',
-                note: 'Next approved start date',
-                icon: <CalendarIcon />,
-                color: 'neutral',
-            },
-        ]
-        : [
-            {
-                label: 'Total Requests',
-                value: stats.total ?? 0,
-                note: 'All tracked requests',
-                icon: <ClipboardIcon />,
-                color: 'neutral',
-            },
-            {
-                label: 'Pending',
-                value: stats.pending ?? 0,
-                note: 'Need review action',
-                icon: <PendingIcon />,
-                color: 'warning',
-            },
-            {
-                label: 'Approved',
-                value: stats.approved ?? 0,
-                note: 'Approved entries',
-                icon: <ApprovedIcon />,
-                color: 'success',
-            },
-            {
-                label: 'Rejected',
-                value: stats.rejected ?? 0,
-                note: 'Rejected entries',
-                icon: <RejectedIcon />,
-                color: 'error',
-            },
-            {
-                label: 'Next Leave',
-                value: (stats.nextLeaveDateLabel && String(stats.nextLeaveDateLabel).trim() !== '')
-                    ? stats.nextLeaveDateLabel
-                    : 'N/A',
-                note: 'Earliest upcoming approved leave',
-                icon: <CalendarIcon />,
-                color: 'neutral',
-            },
-        ];
-
     return (
         <div className="space-y-6">
             <ToastStack toasts={toasts} onDismiss={dismissToast} />
@@ -451,18 +337,11 @@ function LeaveManagementPage({ payload }) {
                 </div>
             </section>
 
-            <QuickInfoGrid>
-                {statsCards.map((statCard) => (
-                    <QuickInfoCard
-                        key={statCard.label}
-                        title={statCard.label}
-                        value={statCard.value}
-                        secondaryInfo={statCard.note}
-                        icon={statCard.icon}
-                        color={statCard.color}
-                    />
-                ))}
-            </QuickInfoGrid>
+            <LeaveInfoCards
+                stats={stats}
+                isEmployee={Boolean(payload.capabilities?.isEmployee)}
+                isDarkMode={isDarkMode}
+            />
 
             {error ? (
                 <section className="hrm-modern-surface rounded-2xl p-6">

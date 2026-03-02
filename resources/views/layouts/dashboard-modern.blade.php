@@ -993,7 +993,7 @@
     }
 @endphp
 <div id="hrmModernShell" class="hrm-modern-shell">
-    <aside id="hrmModernSidebar" class="hrm-modern-sidebar hrm-modern-surface px-4 py-5 flex flex-col gap-4">
+    <aside id="hrmModernSidebar" class="hrm-modern-sidebar hrm-modern-surface px-1 py-5 flex flex-col gap-4">
         @php
             $canSeePayroll = $user?->hasAnyRole([\App\Enums\UserRole::SUPER_ADMIN->value, \App\Enums\UserRole::ADMIN->value, \App\Enums\UserRole::HR->value, \App\Enums\UserRole::FINANCE->value]) ?? false;
             $sidebarItems = [];
@@ -1448,6 +1448,7 @@
                 </svg>
                 <span class="hrm-nav-label">{{ $isEmployee ? 'Profile' : 'Employees' }}</span>
             </a>
+            {{-- Attendance Menu --}}
             @php
                 $attendanceMenuOpen = request()->routeIs('modules.attendance.*');
                 $attendanceAction = strtolower((string) request()->query('action', ''));
@@ -1469,16 +1470,23 @@
                     </svg>
                 </button>
                 <div id="hrmAttendanceLinks" class="hrm-submenu-links flex flex-col gap-1 {{ $attendanceMenuOpen ? '' : 'hidden' }}">
+                    {{-- Overview Link --}}
                     <a href="{{ route('modules.attendance.overview') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.attendance.overview') && $attendanceAction === '' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
                         <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
                         <span class="hrm-nav-label">Overview</span>
                     </a>
-                    @if ($user?->can('attendance.create') && ! ($isAdmin || $isSuperAdmin))
-                        <a href="{{ route('modules.attendance.punch') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.attendance.punch') || request()->routeIs('modules.attendance.punch-in') || request()->routeIs('modules.attendance.punch-out') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
-                            <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
-                            <span class="hrm-nav-label">Punch In/Out</span>
-                        </a>
-                    @endif
+
+                    {{-- Punch In/Out Link - For Employees, HR, Finance (not Admin/SuperAdmin) --}}
+                    @can('attendance.create')
+                        @if (!$isAdmin && !$isSuperAdmin)
+                            <a href="{{ route('modules.attendance.punch') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.attendance.punch') || request()->routeIs('modules.attendance.punch-in') || request()->routeIs('modules.attendance.punch-out') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                                <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
+                                <span class="hrm-nav-label">Punch In/Out</span>
+                            </a>
+                        @endif
+                    @endcan
+
+                    {{-- Mark Attendance Link - For Admin/SuperAdmin only --}}
                     @if ($isAdmin || $isSuperAdmin)
                         <a href="{{ route('modules.attendance.overview', ['action' => 'create']) }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.attendance.overview') && $attendanceAction === 'create' ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
                             <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>

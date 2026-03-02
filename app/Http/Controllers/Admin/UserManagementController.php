@@ -253,6 +253,9 @@ class UserManagementController extends Controller
 
     public function edit(User $user): View
     {
+        // Authorization check - prevent editing users with higher privileges
+        $this->authorize('update', $user);
+
         $user->load('profile');
 
         return view('admin.users.edit', [
@@ -269,6 +272,9 @@ class UserManagementController extends Controller
 
     public function update(Request $request, User $user): RedirectResponse
     {
+        // Authorization check - prevent editing users with higher privileges
+        $this->authorize('update', $user);
+
         $validated = $this->validatePayload($request, $user);
         $viewer = $request->user();
 
@@ -313,6 +319,9 @@ class UserManagementController extends Controller
 
     public function destroy(Request $request, User $user): RedirectResponse
     {
+        // Authorization check - prevent deleting users with higher or equal privileges
+        $this->authorize('delete', $user);
+
         $viewer = $request->user();
 
         if ((int) $request->user()?->id === (int) $user->id) {

@@ -91,9 +91,9 @@ export function HolidaysTable({
     const canManageRows = canEdit || canDelete;
 
     return (
-        <section className="hrm-modern-surface rounded-2xl p-6">
+        <>
             {listError ? (
-                <div className="rounded-xl border px-3 py-2 text-sm text-red-600" style={{ borderColor: 'rgb(248 113 113 / 0.4)', background: 'rgb(254 242 242 / 0.72)' }}>
+                <div className="mb-4 rounded-xl border px-3 py-2 text-sm text-red-600" style={{ borderColor: 'rgb(248 113 113 / 0.4)', background: 'rgb(254 242 242 / 0.72)' }}>
                     <div className="flex items-center justify-between gap-2">
                         <span>{listError}</span>
                         <button
@@ -108,7 +108,7 @@ export function HolidaysTable({
                 </div>
             ) : null}
 
-            <div className="mt-6 overflow-x-auto">
+            <div className="overflow-x-auto">
                 <table className="w-full min-w-[980px] text-sm">
                     <thead>
                         <tr className="border-b text-left" style={{ borderColor: 'var(--hr-line)', color: 'var(--hr-text-muted)' }}>
@@ -207,6 +207,6 @@ export function HolidaysTable({
             </div>
 
             <Pagination meta={meta} loading={loading} onPageChange={onPageChange} />
-        </section>
+        </>
     );
 }
