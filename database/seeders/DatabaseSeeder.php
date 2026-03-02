@@ -53,6 +53,9 @@ class DatabaseSeeder extends Seeder
             $this->seedActivities($roles, $employees, $currentMonth);
             $this->seedAuditLogs($roles, $structures, $payrollMap, $previousMonth, $currentMonth);
         });
+
+        // Seed RBAC roles, permissions, and sync users
+        $this->call(RbacSeeder::class);
     }
 
     private function seedCompanySettings(): void
@@ -123,6 +126,9 @@ class DatabaseSeeder extends Seeder
             ['email' => 'superadmin@hrm.test'],
             [
                 'name' => 'Super Admin',
+                'first_name' => 'Super',
+                'middle_name' => null,
+                'last_name' => 'Admin',
                 'role' => UserRole::SUPER_ADMIN->value,
                 'password' => $defaultPassword,
                 'email_verified_at' => now(),
@@ -133,6 +139,9 @@ class DatabaseSeeder extends Seeder
             ['email' => 'admin@hrm.test'],
             [
                 'name' => 'System Admin',
+                'first_name' => 'System',
+                'middle_name' => null,
+                'last_name' => 'Admin',
                 'role' => UserRole::ADMIN->value,
                 'password' => $defaultPassword,
                 'email_verified_at' => now(),
@@ -143,6 +152,9 @@ class DatabaseSeeder extends Seeder
             ['email' => 'hr@hrm.test'],
             [
                 'name' => 'HR Manager',
+                'first_name' => 'HR',
+                'middle_name' => null,
+                'last_name' => 'Manager',
                 'role' => UserRole::HR->value,
                 'password' => $defaultPassword,
                 'email_verified_at' => now(),
@@ -153,6 +165,9 @@ class DatabaseSeeder extends Seeder
             ['email' => 'finance@hrm.test'],
             [
                 'name' => 'Finance Controller',
+                'first_name' => 'Finance',
+                'middle_name' => null,
+                'last_name' => 'Controller',
                 'role' => UserRole::FINANCE->value,
                 'password' => $defaultPassword,
                 'email_verified_at' => now(),
@@ -292,10 +307,19 @@ class DatabaseSeeder extends Seeder
         ]);
 
         return $employeeBlueprint->map(function (array $item, int $index) use ($defaultPassword, $roles): array {
+            // Split name into parts for structured name fields
+            $nameParts = explode(' ', $item['name']);
+            $firstName = $nameParts[0] ?? '';
+            $lastName = $nameParts[count($nameParts) - 1] ?? '';
+            $middleName = count($nameParts) > 2 ? $nameParts[1] : null;
+
             $user = User::query()->updateOrCreate(
                 ['email' => $item['email']],
                 [
                     'name' => $item['name'],
+                    'first_name' => $firstName,
+                    'middle_name' => $middleName,
+                    'last_name' => $lastName,
                     'role' => UserRole::EMPLOYEE->value,
                     'password' => $defaultPassword,
                     'email_verified_at' => now(),

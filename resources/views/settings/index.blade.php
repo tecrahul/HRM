@@ -5,7 +5,7 @@
 
 @section('content')
     @php
-        $canManageCompanyDetails = auth()->user()?->hasRole(\App\Enums\UserRole::ADMIN);
+        $canManageCompanyDetails = auth()->user()?->hasRole(\App\Enums\UserRole::ADMIN->value);
         $settingsSection = in_array(($settingsSection ?? 'overview'), ['overview', 'company', 'system'], true)
             ? $settingsSection
             : 'overview';

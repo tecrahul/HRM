@@ -20,6 +20,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\Settings\SmtpSettingsController;
+use App\Http\Controllers\Settings\RolesPermissionsController;
 use App\Http\Middleware\SyncRoleNotifications;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
@@ -107,6 +108,19 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
     Route::post('/settings/smtp/test-email', [SmtpSettingsController::class, 'sendTestEmail'])
         ->middleware('smtp-admin')
         ->name('settings.smtp.test');
+
+    // Roles & Permissions Management (Super Admin Only)
+    Route::middleware('role:super_admin')->prefix('settings/roles-permissions')->name('settings.roles-permissions.')->group(function (): void {
+        Route::get('/', [RolesPermissionsController::class, 'index'])->name('index');
+        Route::get('/roles/{role}', [RolesPermissionsController::class, 'showRole'])->name('show-role');
+        Route::get('/roles/{role}/edit', [RolesPermissionsController::class, 'editRole'])->name('edit-role');
+        Route::put('/roles/{role}', [RolesPermissionsController::class, 'updateRole'])->name('update-role');
+        Route::get('/permissions/{permission}', [RolesPermissionsController::class, 'showPermission'])->name('show-permission');
+        Route::get('/health', [RolesPermissionsController::class, 'health'])->name('health');
+        Route::post('/clear-cache', [RolesPermissionsController::class, 'clearCache'])->name('clear-cache');
+        Route::post('/sync-users', [RolesPermissionsController::class, 'syncUsers'])->name('sync-users');
+    });
+
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');

@@ -112,6 +112,16 @@
                     <span>Activity</span>
                 </a>
             </div>
+            @if ($isSuperAdmin)
+                <a href="{{ route('settings.roles-permissions.index') }}" class="hrm-nav__item {{ request()->routeIs('settings.roles-permissions.*') ? 'is-active' : '' }}">
+                    <span class="hrm-nav__icon">
+                        <svg class="h-4 w-4 text-gold-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                    </span>
+                    <span>Roles & Permissions</span>
+                </a>
+            @endif
         </nav>
 
         <div class="hrm-sidebar__foot">

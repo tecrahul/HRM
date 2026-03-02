@@ -321,7 +321,7 @@ class UserManagementController extends Controller
                 ->with('error', 'You cannot delete your own account.');
         }
 
-        if ($user->hasRole(UserRole::ADMIN) && User::query()->where('role', UserRole::ADMIN->value)->count() <= 1) {
+        if ($user->hasRole(UserRole::ADMIN->value) && User::query()->where('role', UserRole::ADMIN->value)->count() <= 1) {
             return redirect()
                 ->route('admin.users.index')
                 ->with('error', 'At least one admin account must remain.');

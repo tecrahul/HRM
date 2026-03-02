@@ -10,11 +10,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
+    use HasRoles;
+
+    /**
+     * Static cache to track if RBAC system is active (tables exist).
+     * Using static cache to avoid repeated database schema checks.
+     */
+    private static ?bool $rbacSystemActive = null;
+
+    /**
+     * Static cache for permission check results within the same request.
+     * Key: user_id:permission_name, Value: boolean result
+     */
+    private static array $permissionCheckCache = [];
 
     /**
      * The attributes that are mass assignable.
@@ -146,34 +161,79 @@ class User extends Authenticatable
         return is_string($normalized) ? $normalized : '';
     }
 
-    public function hasRole(UserRole|string $role): bool
+    /**
+     * Check if RBAC system is active (Spatie permission tables exist).
+     * Uses static caching to avoid repeated schema checks.
+     */
+    protected static function rbacActive(): bool
     {
-        $targetRole = $role instanceof UserRole ? $role->value : $role;
-
-        if ($this->role === null) {
-            return false;
+        if (self::$rbacSystemActive !== null) {
+            return self::$rbacSystemActive;
         }
 
-        $currentRole = $this->role instanceof UserRole ? $this->role->value : (string) $this->role;
+        try {
+            // Check if Spatie permission tables exist
+            self::$rbacSystemActive = Schema::hasTable('roles')
+                && Schema::hasTable('permissions')
+                && Schema::hasTable('model_has_roles');
+        } catch (\Throwable $e) {
+            // If any error occurs during schema check, assume RBAC not active
+            self::$rbacSystemActive = false;
+        }
 
-        return $currentRole === $targetRole;
+        return self::$rbacSystemActive;
     }
 
     /**
-     * @param list<string> $roles
+     * Clear static caches. Useful for testing.
      */
-    public function hasAnyRole(array $roles): bool
+    public static function clearRbacCache(): void
     {
-        foreach ($roles as $role) {
-            if ($this->hasRole($role)) {
-                return true;
+        self::$rbacSystemActive = null;
+        self::$permissionCheckCache = [];
+    }
+
+
+
+    /**
+     * Check if user has a specific permission.
+     * Supports both RBAC (Spatie) and legacy permission config.
+     *
+     * @param string|\Spatie\Permission\Contracts\Permission $permission
+     */
+    public function hasPermission($permission, ?string $guard = null): bool
+    {
+        // If RBAC is active, use Spatie's implementation
+        if (self::rbacActive()) {
+            // Use static cache for permission checks within the same request
+            $cacheKey = $this->id . ':' . (is_string($permission) ? $permission : $permission->name);
+
+            if (isset(self::$permissionCheckCache[$cacheKey])) {
+                return self::$permissionCheckCache[$cacheKey];
+            }
+
+            try {
+                // Use Spatie's hasPermissionTo method from HasPermissions trait (via HasRoles)
+                $result = parent::hasPermissionTo($permission, $guard);
+                self::$permissionCheckCache[$cacheKey] = $result;
+
+                return $result;
+            } catch (\Throwable $e) {
+                // If Spatie check fails, fall back to legacy
+                self::$permissionCheckCache[$cacheKey] = false;
+
+                return $this->hasPermissionLegacy(is_string($permission) ? $permission : $permission->name);
             }
         }
 
-        return false;
+        // Fall back to legacy permission config check
+        return $this->hasPermissionLegacy(is_string($permission) ? $permission : $permission->name);
     }
 
-    public function hasPermission(string $permission): bool
+    /**
+     * Legacy permission check using config/permissions.php mapping.
+     */
+    protected function hasPermissionLegacy(string $permission): bool
     {
         $permissionMap = config('permissions.map', []);
         $allowedRoles = $permissionMap[$permission] ?? [];
@@ -186,12 +246,36 @@ class User extends Authenticatable
     }
 
     /**
-     * @param list<string> $permissions
+     * Check if user has any of the given permissions.
+     * Supports both RBAC (Spatie) and legacy permission config.
+     *
+     * @param array|\Spatie\Permission\Contracts\Permission $permissions
      */
-    public function hasAnyPermission(array $permissions): bool
+    public function hasAnyPermission($permissions, ?string $guard = null): bool
     {
-        foreach ($permissions as $permission) {
-            if ($this->hasPermission($permission)) {
+        // If RBAC is active, use Spatie's implementation
+        if (self::rbacActive()) {
+            try {
+                // Use Spatie's hasAnyPermission method from HasPermissions trait (via HasRoles)
+                return parent::hasAnyPermission($permissions, $guard);
+            } catch (\Throwable $e) {
+                // Fall back to legacy if Spatie check fails
+                $permissionsArray = is_array($permissions) ? $permissions : [$permissions];
+                foreach ($permissionsArray as $permission) {
+                    if ($this->hasPermissionLegacy(is_string($permission) ? $permission : $permission->name)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        // Fall back to legacy permission config check
+        $permissionsArray = is_array($permissions) ? $permissions : [$permissions];
+
+        foreach ($permissionsArray as $permission) {
+            if ($this->hasPermissionLegacy(is_string($permission) ? $permission : $permission->name)) {
                 return true;
             }
         }

@@ -17,7 +17,7 @@ class EmployeeController extends Controller
     {
         $viewer = $request->user();
 
-        if ($viewer?->hasRole(UserRole::EMPLOYEE)) {
+        if ($viewer?->hasRole(UserRole::EMPLOYEE->value)) {
             return $this->employeePage($viewer);
         }
 

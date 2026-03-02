@@ -12,19 +12,69 @@ use Carbon\Carbon;
 
 class NotificationCenter
 {
+    /**
+     * Static cache to prevent repeated syncing for the same user in a single request.
+     * Key: user_id, Value: true
+     */
+    private static array $syncedUsers = [];
+
+    /**
+     * Re-entry guard to prevent infinite loops.
+     */
+    private static bool $isSyncing = false;
+
+    /**
+     * Sync notifications for a user.
+     * Uses re-entry guards to prevent performance issues.
+     */
     public static function syncFor(?User $user): void
     {
+        // Early return if no user
         if (! $user instanceof User) {
             return;
         }
 
-        if ($user->hasAnyRole([UserRole::ADMIN->value, UserRole::HR->value])) {
-            self::syncManagementNotifications($user);
+        // Re-entry guard: prevent infinite loops
+        if (self::$isSyncing) {
+            return;
         }
 
-        if ($user->hasRole(UserRole::EMPLOYEE->value)) {
-            self::syncEmployeeNotifications($user);
+        // Check if already synced this user in this request
+        if (isset(self::$syncedUsers[$user->id])) {
+            return;
         }
+
+        // Mark this user as synced
+        self::$syncedUsers[$user->id] = true;
+
+        // Set re-entry guard
+        self::$isSyncing = true;
+
+        try {
+            // Wrap permission checks in try-catch to never block requests
+            if ($user->hasAnyRole([UserRole::ADMIN->value, UserRole::HR->value])) {
+                self::syncManagementNotifications($user);
+            }
+
+            if ($user->hasRole(UserRole::EMPLOYEE->value)) {
+                self::syncEmployeeNotifications($user);
+            }
+        } catch (\Throwable $e) {
+            // Log error but don't throw - never block requests
+            \Log::debug('NotificationCenter sync error: ' . $e->getMessage());
+        } finally {
+            // Always clear re-entry guard
+            self::$isSyncing = false;
+        }
+    }
+
+    /**
+     * Clear static caches. Useful for testing.
+     */
+    public static function clearCache(): void
+    {
+        self::$syncedUsers = [];
+        self::$isSyncing = false;
     }
 
     /**
