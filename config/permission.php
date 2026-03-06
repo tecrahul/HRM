@@ -100,11 +100,11 @@ return [
      * When set to true, the method for checking permissions will be registered on the gate.
      * Set this to false if you want to implement custom logic for checking permissions.
      *
-     * ENABLED: Allows @can directives and can() method to work with Spatie permissions.
-     * The Gate::before() callback was removed from AuthServiceProvider to prevent conflicts.
+     * ENABLED: This allows $user->can('permission.name') to work with Spatie permissions.
+     * Required for attendance punch-in/punch-out and other permission checks to work correctly.
      */
 
-    'register_permission_check_method' => true,
+    'register_permission_check_method' => false,
 
     /*
      * When set to true, Laravel\Octane\Events\OperationTerminated event listener will be registered

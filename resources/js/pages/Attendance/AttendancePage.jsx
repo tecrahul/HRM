@@ -375,20 +375,13 @@ function AttendancePage({ payload }) {
 
             <AttendanceHeader
                 canCreate={Boolean(capabilities.canCreate)}
-                canEdit={Boolean(capabilities.canEdit)}
                 canApprove={Boolean(capabilities.canApprove)}
                 pendingApprovals={stats.pendingApprovals ?? 0}
                 punch={punch}
                 onOpenForm={openCreateForm}
-                onOpenPunchPanel={() => setPunchOpen(true)}
                 onPunchIn={handlePunchIn}
                 onPunchOut={handlePunchOut}
                 submitting={submitting}
-                punchLink={(punch?.nextAction === 'check_in')
-                    ? (payload.routes?.punchInPage || '#')
-                    : (punch?.nextAction === 'check_out')
-                        ? (payload.routes?.punchOutPage || '#')
-                        : (payload.routes?.smartPunchPage || '#')}
             />
 
             {!Boolean(capabilities.isEmployeeOnly) && (

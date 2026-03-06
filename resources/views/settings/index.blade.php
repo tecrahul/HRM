@@ -101,28 +101,6 @@
         <article class="ui-kpi-card">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Brand System</p>
-                    <p class="mt-2 text-3xl font-extrabold">{{ $companyLogoUrl ? 'Visual Ready' : 'Logo Pending' }}</p>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">Palette + Typography in sync</p>
-                    <div class="flex items-center gap-2 mt-3">
-                        <span class="inline-flex items-center gap-1">
-                            <span class="h-5 w-5 rounded-full border" style="background: {{ $companySettings['brand_primary_color'] }}; border-color: var(--hr-line);"></span>
-                            <span class="text-[11px] font-semibold">{{ $companySettings['brand_primary_color'] }}</span>
-                        </span>
-                        <span class="inline-flex items-center gap-1">
-                            <span class="h-5 w-5 rounded-full border" style="background: {{ $companySettings['brand_secondary_color'] }}; border-color: var(--hr-line);"></span>
-                            <span class="text-[11px] font-semibold">{{ $companySettings['brand_secondary_color'] }}</span>
-                        </span>
-                    </div>
-                </div>
-                <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(207 250 254 / 0.4); color: #0e7490;">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 3-11 18"></path><path d="M9 3h5v5"></path><path d="M5 19h5v5"></path></svg>
-                </span>
-            </div>
-        </article>
-        <article class="ui-kpi-card">
-            <div class="flex items-start justify-between gap-3">
-                <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--hr-text-muted);">Localization & Coverage</p>
                     <p class="mt-2 text-3xl font-extrabold">{{ $companySettings['currency'] }}</p>
                     <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">{{ $selectedLocaleLabel }} • TZ {{ $companySettings['timezone'] }}</p>
@@ -391,151 +369,121 @@
                     <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                 @enderror
             </div>
-            @if(false)
-            @if(false)
             <div class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                <div class="flex flex-wrap items-start gap-4">
-                    <div class="h-20 w-20 rounded-xl border p-2 flex items-center justify-center overflow-hidden" style="border-color: var(--hr-line); background: #fff;">
-                        @if ($companyLogoUrl)
-                            <img src="{{ $companyLogoUrl }}" alt="Company logo" class="max-h-full max-w-full object-contain">
-                        @else
-                            <span class="text-xs font-semibold text-center leading-tight" style="color: var(--hr-text-muted);">No Logo</span>
-                        @endif
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: rgb(99 102 241 / 0.16); color: #4f46e5;">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    </span>
+                    <div>
+                        <h4 class="text-sm font-extrabold">Company Logo</h4>
+                        <p class="text-xs" style="color: var(--hr-text-muted);">Upload and crop your company logo for branding.</p>
                     </div>
-                    <div class="flex-1 min-w-[220px]">
-                        <label for="company_logo" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Company Logo</label>
-                        <input id="company_logo" name="company_logo" type="file" accept=".jpg,.jpeg,.png,.webp,.svg" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
-                        <p class="text-xs mt-2" style="color: var(--hr-text-muted);">Recommended: square logo, PNG/SVG/WebP, max 2MB.</p>
-                        @if ($companyLogoUrl && $canManageCompanyDetails)
-                            <label class="mt-2 inline-flex items-center gap-2 text-xs" style="color: var(--hr-text-muted);">
-                                <input type="checkbox" name="remove_company_logo" value="1" class="rounded border-gray-300">
-                                Remove current logo
-                            </label>
-                        @endif
+                </div>
+                <div class="flex flex-wrap items-start gap-4">
+                    {{-- Current Logo Preview --}}
+                    <div class="shrink-0">
+                        <div id="logo-preview-container" class="h-24 w-24 rounded-xl border-2 border-dashed p-2 flex items-center justify-center overflow-hidden transition-all" style="border-color: var(--hr-line); background: #fff;">
+                            @if ($companyLogoUrl)
+                                <img id="logo-preview-image" src="{{ $companyLogoUrl }}" alt="Company logo" class="max-h-full max-w-full object-contain">
+                            @else
+                                <div id="logo-placeholder" class="text-center">
+                                    <svg class="h-8 w-8 mx-auto" style="color: var(--hr-text-muted);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                                    <span class="text-[10px] font-semibold block mt-1" style="color: var(--hr-text-muted);">No Logo</span>
+                                </div>
+                            @endif
+                        </div>
+                        <p class="text-[10px] mt-1.5 text-center" style="color: var(--hr-text-muted);">Preview</p>
+                    </div>
+
+                    {{-- Upload Controls --}}
+                    <div class="flex-1 min-w-[240px]">
+                        <input type="hidden" id="cropped_logo_data" name="cropped_logo_data" value="">
+                        <input type="file" id="company_logo_input" accept="image/jpeg,image/png,image/webp" class="hidden">
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button type="button" id="select-logo-btn" class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold border transition-colors" style="border-color: var(--hr-line); background: var(--hr-surface);" @disabled(!$canManageCompanyDetails)>
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                {{ $companyLogoUrl ? 'Change Logo' : 'Upload Logo' }}
+                            </button>
+                            @if ($companyLogoUrl && $canManageCompanyDetails)
+                                <label class="inline-flex items-center gap-2 text-sm cursor-pointer" style="color: var(--hr-text-muted);">
+                                    <input type="checkbox" id="remove_logo_checkbox" name="remove_company_logo" value="1" class="rounded border-gray-300">
+                                    Remove logo
+                                </label>
+                            @endif
+                        </div>
+
+                        <p class="text-xs mt-3" style="color: var(--hr-text-muted);">
+                            <strong>Supported formats:</strong> JPG, PNG, WebP<br>
+                            <strong>Recommended:</strong> Square image, at least 200x200px<br>
+                            <strong>Max size:</strong> 2MB
+                        </p>
                         @error('company_logo')
-                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                            <p class="text-xs text-red-600 mt-2">{{ $message }}</p>
+                        @enderror
+                        @error('cropped_logo_data')
+                            <p class="text-xs text-red-600 mt-2">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
             </div>
-            @endif
-            <div class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                <div class="flex items-center justify-between gap-3 flex-wrap">
-                    <div>
-                        <h4 class="text-sm font-extrabold">Brand Identity</h4>
-                        <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Set brand palette and typography for dashboards and emails.</p>
-                    </div>
-                </div>
-                @php
-                    $currentPrimaryColor = strtoupper((string) old('brand_primary_color', $companySettings['brand_primary_color']));
-                    if (! preg_match('/^#[0-9A-F]{6}$/', $currentPrimaryColor)) {
-                        $currentPrimaryColor = '#7C3AED';
-                    }
-                    $currentSecondaryColor = strtoupper((string) old('brand_secondary_color', $companySettings['brand_secondary_color']));
-                    if (! preg_match('/^#[0-9A-F]{6}$/', $currentSecondaryColor)) {
-                        $currentSecondaryColor = '#5EEAD4';
-                    }
-                    $brandColorPresets = [
-                        ['name' => 'Violet + Mint', 'primary' => '#7C3AED', 'secondary' => '#5EEAD4'],
-                        ['name' => 'Royal + Aqua', 'primary' => '#2563EB', 'secondary' => '#14B8A6'],
-                        ['name' => 'Indigo + Amber', 'primary' => '#4F46E5', 'secondary' => '#F59E0B'],
-                        ['name' => 'Emerald + Slate', 'primary' => '#059669', 'secondary' => '#334155'],
-                        ['name' => 'Rose + Navy', 'primary' => '#E11D48', 'secondary' => '#1E3A8A'],
-                        ['name' => 'Orange + Charcoal', 'primary' => '#EA580C', 'secondary' => '#1F2937'],
-                    ];
-                @endphp
-                <div class="mt-4 rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
-                    <p class="text-xs font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Quick Color Combinations</p>
-                    <p class="mt-1 text-xs" style="color: var(--hr-text-muted);">Choose a balanced preset or fine-tune with the color pickers below.</p>
-                    <div class="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                        @foreach ($brandColorPresets as $preset)
-                            <button
-                                type="button"
-                                class="rounded-xl border px-2.5 py-2 text-left text-xs font-semibold flex items-center gap-2"
-                                style="border-color: var(--hr-line); background: var(--hr-surface-strong);"
-                                data-brand-preset
-                                data-brand-preset-primary="{{ $preset['primary'] }}"
-                                data-brand-preset-secondary="{{ $preset['secondary'] }}"
-                            >
-                                <span class="inline-flex items-center gap-1 shrink-0">
-                                    <span class="h-4 w-4 rounded-full border" style="background: {{ $preset['primary'] }}; border-color: var(--hr-line);"></span>
-                                    <span class="h-4 w-4 rounded-full border" style="background: {{ $preset['secondary'] }}; border-color: var(--hr-line);"></span>
+
+            {{-- Logo Crop Modal --}}
+            <div id="logo-crop-modal" class="fixed inset-0 z-[9999] hidden" role="dialog" aria-modal="true" aria-labelledby="crop-modal-title">
+                <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" id="crop-modal-backdrop"></div>
+                <div class="fixed inset-0 flex items-center justify-center p-4">
+                    <div class="relative w-full max-w-lg rounded-2xl shadow-2xl" style="background: var(--hr-surface);">
+                        {{-- Modal Header --}}
+                        <div class="flex items-center justify-between gap-3 px-5 py-4 border-b" style="border-color: var(--hr-line);">
+                            <div class="flex items-center gap-3">
+                                <span class="h-10 w-10 rounded-xl flex items-center justify-center" style="background: rgb(99 102 241 / 0.16); color: #4f46e5;">
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                                 </span>
-                                <span>{{ $preset['name'] }}</span>
+                                <div>
+                                    <h3 id="crop-modal-title" class="text-base font-bold" style="color: var(--hr-text-main);">Crop Logo</h3>
+                                    <p class="text-xs" style="color: var(--hr-text-muted);">Adjust the crop area to fit your logo</p>
+                                </div>
+                            </div>
+                            <button type="button" id="crop-modal-close" class="h-8 w-8 rounded-lg flex items-center justify-center transition-colors" style="background: var(--hr-surface-strong);" aria-label="Close">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
                             </button>
-                        @endforeach
-                    </div>
-                </div>
-                <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label for="brand_primary_color" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Primary Color</label>
-                        <div class="flex items-center gap-2">
-                            <input
-                                id="brand_primary_color"
-                                name="brand_primary_color"
-                                type="text"
-                                value="{{ $currentPrimaryColor }}"
-                                class="flex-1 rounded-xl border px-3 py-2.5 bg-transparent"
-                                style="border-color: var(--hr-line);"
-                                placeholder="#7C3AED"
-                                data-brand-color-text="primary"
-                            >
-                            <input
-                                id="brand_primary_color_picker"
-                                type="color"
-                                value="{{ $currentPrimaryColor }}"
-                                class="h-10 w-12 rounded-lg border cursor-pointer p-1"
-                                style="border-color: var(--hr-line); background: var(--hr-surface);"
-                                data-brand-color-picker="primary"
-                                aria-label="Choose primary brand color"
-                            >
                         </div>
-                        <p class="mt-1 text-[11px]" style="color: var(--hr-text-muted);">Use picker for full palette (millions of colors) or paste a hex value.</p>
-                        @error('brand_primary_color')
-                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label for="brand_secondary_color" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Secondary Color</label>
-                        <div class="flex items-center gap-2">
-                            <input
-                                id="brand_secondary_color"
-                                name="brand_secondary_color"
-                                type="text"
-                                value="{{ $currentSecondaryColor }}"
-                                class="flex-1 rounded-xl border px-3 py-2.5 bg-transparent"
-                                style="border-color: var(--hr-line);"
-                                placeholder="#5EEAD4"
-                                data-brand-color-text="secondary"
-                            >
-                            <input
-                                id="brand_secondary_color_picker"
-                                type="color"
-                                value="{{ $currentSecondaryColor }}"
-                                class="h-10 w-12 rounded-lg border cursor-pointer p-1"
-                                style="border-color: var(--hr-line); background: var(--hr-surface);"
-                                data-brand-color-picker="secondary"
-                                aria-label="Choose secondary brand color"
-                            >
+
+                        {{-- Crop Area --}}
+                        <div class="p-5">
+                            <div id="crop-container" class="relative w-full overflow-hidden rounded-xl" style="height: 300px; background: #1a1a2e;">
+                                <img id="crop-image" src="" alt="Crop preview" class="max-w-full" style="display: block;">
+                            </div>
+
+                            {{-- Crop Controls --}}
+                            <div class="mt-4 flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-2">
+                                    <button type="button" id="crop-zoom-out" class="h-9 w-9 rounded-lg flex items-center justify-center border" style="border-color: var(--hr-line);" title="Zoom out">
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                    </button>
+                                    <button type="button" id="crop-zoom-in" class="h-9 w-9 rounded-lg flex items-center justify-center border" style="border-color: var(--hr-line);" title="Zoom in">
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                    </button>
+                                    <button type="button" id="crop-rotate" class="h-9 w-9 rounded-lg flex items-center justify-center border" style="border-color: var(--hr-line);" title="Rotate 90°">
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg>
+                                    </button>
+                                    <button type="button" id="crop-reset" class="h-9 w-9 rounded-lg flex items-center justify-center border" style="border-color: var(--hr-line);" title="Reset">
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                    </button>
+                                </div>
+                                <span class="text-xs" style="color: var(--hr-text-muted);">Drag to reposition</span>
+                            </div>
                         </div>
-                        <p class="mt-1 text-[11px]" style="color: var(--hr-text-muted);">Pick a complementary accent to keep contrast and readability balanced.</p>
-                        @error('brand_secondary_color')
-                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label for="brand_font_family" class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Interface Font</label>
-                        <select id="brand_font_family" name="brand_font_family" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
-                            @php
-                                $currentFont = old('brand_font_family', $companySettings['brand_font_family']);
-                            @endphp
-                            @foreach($brandFontOptions as $fontKey => $fontMeta)
-                                <option value="{{ $fontKey }}" @selected($currentFont === $fontKey) style="font-family: {{ $fontMeta['stack'] }};">{{ $fontMeta['label'] }}</option>
-                            @endforeach
-                        </select>
-                        @error('brand_font_family')
-                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                        @enderror
+
+                        {{-- Modal Footer --}}
+                        <div class="flex items-center justify-end gap-2 px-5 py-4 border-t" style="border-color: var(--hr-line);">
+                            <button type="button" id="crop-cancel-btn" class="rounded-xl px-4 py-2.5 text-sm font-semibold border" style="border-color: var(--hr-line);">
+                                Cancel
+                            </button>
+                            <button type="button" id="crop-apply-btn" class="rounded-xl px-4 py-2.5 text-sm font-semibold text-white" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+                                Apply Crop
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -735,8 +683,8 @@
             @endif
 
             @if ($isSystemSection)
-            <div id="authentication-access" class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                <h4 class="text-sm font-extrabold">Authentication Access</h4>
+            <div id="security" class="md:col-span-2 rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                <h4 class="text-sm font-extrabold">Access & Security</h4>
                 <p class="text-xs mt-1" style="color: var(--hr-text-muted);">Control whether users can sign up, reset passwords, and use two-factor authentication.</p>
                 <div class="mt-3 space-y-3">
                     <label class="flex items-start gap-3 text-sm">
@@ -795,102 +743,244 @@
         </form>
     </section>
     @endif
+
+@push('styles')
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" integrity="sha512-hvNR0F/e2J7zPPfLC9auFe3/SE0yG4aJCOd/qxew74NN7eyiSKjr7xJJMu1Jy2wf7FXITpWS1E/RY8yzuXN7VA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<style>
+    #crop-container .cropper-view-box,
+    #crop-container .cropper-face {
+        border-radius: 0.5rem;
+    }
+    #crop-container .cropper-view-box {
+        outline: 2px solid #4f46e5;
+        outline-offset: -2px;
+    }
+    #crop-container .cropper-line {
+        background-color: #4f46e5;
+    }
+    #crop-container .cropper-point {
+        background-color: #4f46e5;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+    #crop-container .cropper-modal {
+        background-color: rgba(0, 0, 0, 0.7);
+    }
+</style>
+@endpush
+
 @push('scripts')
-    <script>
-        (() => {
-            const primaryText = document.querySelector('[data-brand-color-text="primary"]');
-            const secondaryText = document.querySelector('[data-brand-color-text="secondary"]');
-            const primaryPicker = document.querySelector('[data-brand-color-picker="primary"]');
-            const secondaryPicker = document.querySelector('[data-brand-color-picker="secondary"]');
-            const presetButtons = document.querySelectorAll('[data-brand-preset]');
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js" integrity="sha512-9KkIqdfN7ipEW6B6k+Aq20PV31bjODg4AA52W+tYtAE0jE0kMx49bjJ3FgvS56wzmyfMUHbQ4Km2b7l9+Y/+Eg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+(function() {
+    'use strict';
 
-            if (
-                !(primaryText instanceof HTMLInputElement)
-                || !(secondaryText instanceof HTMLInputElement)
-                || !(primaryPicker instanceof HTMLInputElement)
-                || !(secondaryPicker instanceof HTMLInputElement)
-            ) {
-                return;
+    const selectBtn = document.getElementById('select-logo-btn');
+    const fileInput = document.getElementById('company_logo_input');
+    const croppedDataInput = document.getElementById('cropped_logo_data');
+    const previewContainer = document.getElementById('logo-preview-container');
+    const removeCheckbox = document.getElementById('remove_logo_checkbox');
+
+    const modal = document.getElementById('logo-crop-modal');
+    const modalBackdrop = document.getElementById('crop-modal-backdrop');
+    const closeBtn = document.getElementById('crop-modal-close');
+    const cancelBtn = document.getElementById('crop-cancel-btn');
+    const applyBtn = document.getElementById('crop-apply-btn');
+    const cropImage = document.getElementById('crop-image');
+
+    const zoomInBtn = document.getElementById('crop-zoom-in');
+    const zoomOutBtn = document.getElementById('crop-zoom-out');
+    const rotateBtn = document.getElementById('crop-rotate');
+    const resetBtn = document.getElementById('crop-reset');
+
+    let cropper = null;
+    let originalFileName = '';
+
+    if (!selectBtn || !fileInput || !modal || !cropImage) {
+        return;
+    }
+
+    function openModal() {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+        cropImage.src = '';
+        fileInput.value = '';
+    }
+
+    function updatePreview(dataUrl) {
+        let previewImg = previewContainer.querySelector('#logo-preview-image');
+        const placeholder = previewContainer.querySelector('#logo-placeholder');
+
+        if (!previewImg) {
+            previewImg = document.createElement('img');
+            previewImg.id = 'logo-preview-image';
+            previewImg.alt = 'Company logo';
+            previewImg.className = 'max-h-full max-w-full object-contain';
+            previewContainer.innerHTML = '';
+            previewContainer.appendChild(previewImg);
+        }
+
+        previewImg.src = dataUrl;
+
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
+
+        // Uncheck remove checkbox if it exists
+        if (removeCheckbox) {
+            removeCheckbox.checked = false;
+        }
+
+        // Visual feedback
+        previewContainer.style.borderColor = '#4f46e5';
+        previewContainer.style.borderStyle = 'solid';
+        setTimeout(() => {
+            previewContainer.style.borderColor = '';
+            previewContainer.style.borderStyle = '';
+        }, 1500);
+    }
+
+    // Select button click
+    selectBtn.addEventListener('click', function() {
+        fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            alert('Please select a valid image file (JPG, PNG, or WebP).');
+            fileInput.value = '';
+            return;
+        }
+
+        // Validate file size (2MB max)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('File size must be less than 2MB.');
+            fileInput.value = '';
+            return;
+        }
+
+        originalFileName = file.name;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            cropImage.src = event.target.result;
+            openModal();
+
+            // Initialize cropper after image loads
+            cropImage.onload = function() {
+                if (cropper) {
+                    cropper.destroy();
+                }
+                cropper = new Cropper(cropImage, {
+                    aspectRatio: 1,
+                    viewMode: 2,
+                    dragMode: 'move',
+                    autoCropArea: 0.9,
+                    restore: false,
+                    guides: true,
+                    center: true,
+                    highlight: true,
+                    cropBoxMovable: true,
+                    cropBoxResizable: true,
+                    toggleDragModeOnDblclick: false,
+                    minCropBoxWidth: 50,
+                    minCropBoxHeight: 50,
+                });
+            };
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // Zoom controls
+    zoomInBtn?.addEventListener('click', function() {
+        if (cropper) cropper.zoom(0.1);
+    });
+
+    zoomOutBtn?.addEventListener('click', function() {
+        if (cropper) cropper.zoom(-0.1);
+    });
+
+    rotateBtn?.addEventListener('click', function() {
+        if (cropper) cropper.rotate(90);
+    });
+
+    resetBtn?.addEventListener('click', function() {
+        if (cropper) cropper.reset();
+    });
+
+    // Apply crop
+    applyBtn?.addEventListener('click', function() {
+        if (!cropper) return;
+
+        const canvas = cropper.getCroppedCanvas({
+            width: 400,
+            height: 400,
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high',
+        });
+
+        if (!canvas) {
+            alert('Failed to crop image. Please try again.');
+            return;
+        }
+
+        const dataUrl = canvas.toDataURL('image/png', 0.9);
+
+        // Store cropped data in hidden input
+        croppedDataInput.value = dataUrl;
+
+        // Update preview
+        updatePreview(dataUrl);
+
+        closeModal();
+    });
+
+    // Close modal handlers
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    modalBackdrop?.addEventListener('click', closeModal);
+
+    // ESC key to close
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+
+    // Handle remove checkbox
+    if (removeCheckbox) {
+        removeCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                croppedDataInput.value = '';
+                const previewImg = previewContainer.querySelector('#logo-preview-image');
+                if (previewImg) {
+                    previewImg.style.opacity = '0.3';
+                }
+            } else {
+                const previewImg = previewContainer.querySelector('#logo-preview-image');
+                if (previewImg) {
+                    previewImg.style.opacity = '1';
+                }
             }
-
-            const hexPattern = /^#[0-9A-F]{6}$/i;
-            const normalizeHex = (value, fallback) => {
-                const normalized = String(value || '').trim().toUpperCase();
-                return hexPattern.test(normalized) ? normalized : fallback;
-            };
-
-            const applyPrimary = (value) => {
-                const color = normalizeHex(value, '#7C3AED');
-                primaryText.value = color;
-                primaryPicker.value = color;
-            };
-
-            const applySecondary = (value) => {
-                const color = normalizeHex(value, '#5EEAD4');
-                secondaryText.value = color;
-                secondaryPicker.value = color;
-            };
-
-            const setActivePreset = () => {
-                const primaryValue = normalizeHex(primaryText.value, '#7C3AED');
-                const secondaryValue = normalizeHex(secondaryText.value, '#5EEAD4');
-
-                presetButtons.forEach((button) => {
-                    if (!(button instanceof HTMLButtonElement)) {
-                        return;
-                    }
-
-                    const presetPrimary = normalizeHex(button.dataset.brandPresetPrimary, '');
-                    const presetSecondary = normalizeHex(button.dataset.brandPresetSecondary, '');
-                    const isActive = presetPrimary === primaryValue && presetSecondary === secondaryValue;
-
-                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-                    button.style.outline = isActive ? '2px solid var(--hr-accent)' : '';
-                    button.style.outlineOffset = isActive ? '1px' : '';
-                });
-            };
-
-            applyPrimary(primaryText.value);
-            applySecondary(secondaryText.value);
-            setActivePreset();
-
-            primaryPicker.addEventListener('input', () => {
-                applyPrimary(primaryPicker.value);
-                setActivePreset();
-            });
-            secondaryPicker.addEventListener('input', () => {
-                applySecondary(secondaryPicker.value);
-                setActivePreset();
-            });
-
-            primaryText.addEventListener('input', () => {
-                if (hexPattern.test(primaryText.value.trim())) {
-                    applyPrimary(primaryText.value);
-                    setActivePreset();
-                }
-            });
-            secondaryText.addEventListener('input', () => {
-                if (hexPattern.test(secondaryText.value.trim())) {
-                    applySecondary(secondaryText.value);
-                    setActivePreset();
-                }
-            });
-
-            primaryText.addEventListener('blur', () => applyPrimary(primaryText.value));
-            secondaryText.addEventListener('blur', () => applySecondary(secondaryText.value));
-
-            presetButtons.forEach((button) => {
-                if (!(button instanceof HTMLButtonElement)) {
-                    return;
-                }
-
-                button.addEventListener('click', () => {
-                    applyPrimary(button.dataset.brandPresetPrimary);
-                    applySecondary(button.dataset.brandPresetSecondary);
-                    setActivePreset();
-                });
-            });
-        })();
-    </script>
+        });
+    }
+})();
+</script>
 @endpush
 @endsection

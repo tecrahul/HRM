@@ -27,29 +27,122 @@ class CompanyProfile
     ];
 
     private const FONT_STACKS = [
-        'manrope' => [
-            'label' => 'Manrope',
-            'stack' => '"Manrope", ui-sans-serif, system-ui, sans-serif',
-        ],
+        // Sans-Serif - Modern & Clean
         'inter' => [
             'label' => 'Inter',
             'stack' => '"Inter", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'manrope' => [
+            'label' => 'Manrope',
+            'stack' => '"Manrope", ui-sans-serif, system-ui, sans-serif',
         ],
         'plus-jakarta' => [
             'label' => 'Plus Jakarta Sans',
             'stack' => '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif',
         ],
+        'dm-sans' => [
+            'label' => 'DM Sans',
+            'stack' => '"DM Sans", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'outfit' => [
+            'label' => 'Outfit',
+            'stack' => '"Outfit", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'nunito-sans' => [
+            'label' => 'Nunito Sans',
+            'stack' => '"Nunito Sans", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'source-sans' => [
+            'label' => 'Source Sans 3',
+            'stack' => '"Source Sans 3", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'open-sans' => [
+            'label' => 'Open Sans',
+            'stack' => '"Open Sans", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'lato' => [
+            'label' => 'Lato',
+            'stack' => '"Lato", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'poppins' => [
+            'label' => 'Poppins',
+            'stack' => '"Poppins", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'roboto' => [
+            'label' => 'Roboto',
+            'stack' => '"Roboto", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'montserrat' => [
+            'label' => 'Montserrat',
+            'stack' => '"Montserrat", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'work-sans' => [
+            'label' => 'Work Sans',
+            'stack' => '"Work Sans", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'rubik' => [
+            'label' => 'Rubik',
+            'stack' => '"Rubik", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'figtree' => [
+            'label' => 'Figtree',
+            'stack' => '"Figtree", ui-sans-serif, system-ui, sans-serif',
+        ],
+        // Geometric Sans
         'space-grotesk' => [
             'label' => 'Space Grotesk',
-            'stack' => '"Space Grotesk", "Manrope", ui-sans-serif, system-ui, sans-serif',
+            'stack' => '"Space Grotesk", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'albert-sans' => [
+            'label' => 'Albert Sans',
+            'stack' => '"Albert Sans", ui-sans-serif, system-ui, sans-serif',
+        ],
+        'sora' => [
+            'label' => 'Sora',
+            'stack' => '"Sora", ui-sans-serif, system-ui, sans-serif',
+        ],
+        // System Fonts
+        'system-ui' => [
+            'label' => 'System Default',
+            'stack' => 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        ],
+        'sf-pro' => [
+            'label' => 'SF Pro (Apple)',
+            'stack' => '-apple-system, BlinkMacSystemFont, "SF Pro Display", ui-sans-serif, sans-serif',
+        ],
+        'segoe-ui' => [
+            'label' => 'Segoe UI (Windows)',
+            'stack' => '"Segoe UI", "Segoe UI Web", ui-sans-serif, system-ui, sans-serif',
+        ],
+        // Serif - Professional
+        'merriweather' => [
+            'label' => 'Merriweather',
+            'stack' => '"Merriweather", Georgia, "Times New Roman", serif',
         ],
         'playfair' => [
             'label' => 'Playfair Display',
-            'stack' => '"Playfair Display", "Times New Roman", serif',
+            'stack' => '"Playfair Display", Georgia, "Times New Roman", serif',
         ],
+        'lora' => [
+            'label' => 'Lora',
+            'stack' => '"Lora", Georgia, "Times New Roman", serif',
+        ],
+        'crimson-pro' => [
+            'label' => 'Crimson Pro',
+            'stack' => '"Crimson Pro", Georgia, "Times New Roman", serif',
+        ],
+        // Monospace - Technical
         'plex-mono' => [
             'label' => 'IBM Plex Mono',
             'stack' => '"IBM Plex Mono", "SFMono-Regular", Menlo, monospace',
+        ],
+        'jetbrains-mono' => [
+            'label' => 'JetBrains Mono',
+            'stack' => '"JetBrains Mono", "SFMono-Regular", Menlo, monospace',
+        ],
+        'fira-code' => [
+            'label' => 'Fira Code',
+            'stack' => '"Fira Code", "SFMono-Regular", Menlo, monospace',
         ],
     ];
 

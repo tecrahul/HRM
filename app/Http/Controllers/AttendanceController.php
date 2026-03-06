@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\Attendance;
 use App\Models\AttendanceMonthLock;
 use App\Models\AuditLog;
@@ -47,7 +48,7 @@ class AttendanceController extends Controller
         ]);
     }
 
-    public function punchInPage(Request $request): View
+    public function punchInPage(Request $request): View|RedirectResponse
     {
         $viewer = $request->user();
 
@@ -55,11 +56,31 @@ class AttendanceController extends Controller
             abort(Response::HTTP_FORBIDDEN);
         }
 
-        // Basic guard: middleware already enforces permission
+        // Check user's current punch state
+        $today = now()->toDateString();
+        $todayRecord = Attendance::query()
+            ->where('user_id', $viewer->id)
+            ->whereDate('attendance_date', $today)
+            ->first();
+
+        $hasCheckIn = $todayRecord?->check_in_at !== null;
+        $hasCheckOut = $todayRecord?->check_out_at !== null;
+
+        // If already punched in but not out, redirect to punch-out
+        if ($hasCheckIn && ! $hasCheckOut) {
+            return redirect()->route('modules.attendance.punch-out');
+        }
+
+        // If already completed attendance for today, redirect to overview
+        if ($hasCheckIn && $hasCheckOut) {
+            return redirect()->route('modules.attendance.overview')
+                ->with('status', 'Attendance is already completed for today.');
+        }
+
         return view('modules.attendance.punch-in');
     }
 
-    public function punchOutPage(Request $request): View
+    public function punchOutPage(Request $request): View|RedirectResponse
     {
         $viewer = $request->user();
 
@@ -71,6 +92,20 @@ class AttendanceController extends Controller
         $todayAttendance = Attendance::where('user_id', $viewer->id)
             ->whereDate('attendance_date', today())
             ->first();
+
+        $hasCheckIn = $todayAttendance?->check_in_at !== null;
+        $hasCheckOut = $todayAttendance?->check_out_at !== null;
+
+        // If not punched in yet, redirect to punch-in
+        if (! $hasCheckIn) {
+            return redirect()->route('modules.attendance.punch-in');
+        }
+
+        // If already completed attendance for today, redirect to overview
+        if ($hasCheckIn && $hasCheckOut) {
+            return redirect()->route('modules.attendance.overview')
+                ->with('status', 'Attendance is already completed for today.');
+        }
 
         return view('modules.attendance.punch-out', [
             'todayAttendance' => $todayAttendance,
@@ -814,7 +849,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.create')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.create')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to check in.');
         }
 
@@ -874,7 +909,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.create')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.create')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to check out.');
         }
 
@@ -1309,13 +1344,17 @@ class AttendanceController extends Controller
     private function resolveCapabilities(User $viewer): array
     {
         $isEmployeeOnly = $this->isSelfOnlyViewer($viewer);
+        // Only Admin and Super Admin can mark attendance for others
+        // HR and Finance should use Punch In/Out for themselves
+        $isAdmin = in_array($viewer->role, [UserRole::ADMIN->value, UserRole::SUPER_ADMIN->value], true);
+        $canMarkForOthers = $viewer->can('attendance.edit') && $isAdmin;
 
         return [
             'canViewSelf' => $viewer->can('attendance.view.self'),
             'canViewDepartment' => $viewer->can('attendance.view.department'),
             'canViewAll' => $viewer->can('attendance.view.all'),
-            'canCreate' => $viewer->can('attendance.create') && ! $isEmployeeOnly,
-            'canPunchSelf' => $viewer->can('attendance.create') && $isEmployeeOnly,
+            'canCreate' => $canMarkForOthers,
+            'canPunchSelf' => $viewer->can('attendance.create'),
             'canEdit' => $viewer->can('attendance.edit'),
             'canDelete' => $viewer->can('attendance.delete'),
             'canApprove' => $viewer->can('attendance.approve'),
@@ -1587,7 +1626,8 @@ class AttendanceController extends Controller
     {
         $today = now()->toDateString();
         $isMonthLocked = $this->isMonthLockedForDate($today);
-        $canPunchSelf = $viewer->can('attendance.create') && $this->isSelfOnlyViewer($viewer) && ! $isMonthLocked;
+        // All users with attendance.create permission can punch in/out for themselves
+        $canPunchSelf = $viewer->can('attendance.create') && ! $isMonthLocked;
 
         $todayRecord = Attendance::query()
             ->where('user_id', $viewer->id)

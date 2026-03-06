@@ -25,6 +25,7 @@ return [
         'attendance.create' => [
             UserRole::EMPLOYEE->value,
             UserRole::HR->value,
+            UserRole::FINANCE->value,
             UserRole::ADMIN->value,
             UserRole::SUPER_ADMIN->value,
         ],

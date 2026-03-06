@@ -1134,8 +1134,8 @@
                     'key' => 'settings-roles',
                     'label' => 'Roles & Permissions',
                     'icon' => 'settings',
-                    'url' => route('admin.users.index'),
-                    'active' => request()->routeIs('admin.users.*'),
+                    'url' => route('settings.roles-permissions.index'),
+                    'active' => request()->routeIs('settings.roles-permissions.*'),
                 ];
 
                 foreach ($settingsItems as $it) { $it['section'] = 'Settings'; $sidebarItems[] = $it; }
@@ -1383,8 +1383,8 @@
                         <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"></path></svg>
                         <span class="hrm-nav-label">System Configuration</span>
                     </a>
-                    <a href="{{ route('admin.users.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('admin.users.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
-                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"></path></svg>
+                    <a href="{{ route('settings.roles-permissions.index') }}" class="hrm-modern-nav-link hrm-nav-l2 {{ request()->routeIs('settings.roles-permissions.*') ? 'is-active' : '' }} rounded-xl flex items-center gap-3">
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                         <span class="hrm-nav-label">Roles & Permissions</span>
                     </a>
                 </div>
@@ -1644,7 +1644,7 @@
                             <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
                             <span class="hrm-nav-label">System Configuration</span>
                         </a>
-                        <a href="{{ route('admin.users.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('admin.users.*') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
+                        <a href="{{ route('settings.roles-permissions.index') }}" class="hrm-modern-nav-link {{ request()->routeIs('settings.roles-permissions.*') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
                             <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
                             <span class="hrm-nav-label">Roles & Permissions</span>
                         </a>

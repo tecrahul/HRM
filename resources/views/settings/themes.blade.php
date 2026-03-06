@@ -25,7 +25,7 @@
             </div>
         </div>
 
-        <form id="themeStudioForm" method="POST" action="{{ route('settings.themes.update') }}" enctype="multipart/form-data" class="mt-5 grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+        <form id="themeStudioForm" method="POST" action="{{ route('settings.themes.update') }}" enctype="multipart/form-data" class="mt-5">
             @csrf
             @php
                 $currentPrimaryColor = strtoupper((string) old('brand_primary_color', $companySettings['brand_primary_color']));
@@ -49,19 +49,51 @@
                     $currentLightHeader = '#FFFFFF';
                 }
                 $brandColorPresets = [
+                    // Page 1 - Popular & Classic
                     ['name' => 'Violet + Mint', 'primary' => '#7C3AED', 'secondary' => '#5EEAD4'],
                     ['name' => 'Indigo + Amber', 'primary' => '#4F46E5', 'secondary' => '#F59E0B'],
                     ['name' => 'Emerald + Slate', 'primary' => '#059669', 'secondary' => '#334155'],
                     ['name' => 'Rose + Navy', 'primary' => '#E11D48', 'secondary' => '#1E3A8A'],
-                    ['name' => 'Orange + Charcoal', 'primary' => '#EA580C', 'secondary' => '#1F2937'],
-                    // New enterprise-grade combinations
+                    ['name' => 'Ocean Blue', 'primary' => '#0EA5E9', 'secondary' => '#0F172A'],
+                    ['name' => 'Royal Purple', 'primary' => '#7E22CE', 'secondary' => '#FCD34D'],
+                    ['name' => 'Forest Green', 'primary' => '#166534', 'secondary' => '#FEF3C7'],
+                    ['name' => 'Coral Reef', 'primary' => '#F43F5E', 'secondary' => '#22D3EE'],
+                    ['name' => 'Golden Hour', 'primary' => '#D97706', 'secondary' => '#312E81'],
+                    ['name' => 'Arctic Blue', 'primary' => '#0284C7', 'secondary' => '#F1F5F9'],
+                    ['name' => 'Berry Crush', 'primary' => '#BE185D', 'secondary' => '#A5F3FC'],
+                    ['name' => 'Olive Garden', 'primary' => '#65A30D', 'secondary' => '#1E293B'],
+
+                    // Page 2 - Enterprise & Professional
+                    ['name' => 'Corporate Blue', 'primary' => '#1D4ED8', 'secondary' => '#E5E7EB'],
+                    ['name' => 'Executive Gray', 'primary' => '#374151', 'secondary' => '#10B981'],
+                    ['name' => 'Trust Green', 'primary' => '#047857', 'secondary' => '#F3F4F6'],
+                    ['name' => 'Midnight + Teal', 'primary' => '#0F172A', 'secondary' => '#14B8A6'],
                     ['name' => 'Graphite + Lime', 'primary' => '#1F2937', 'secondary' => '#84CC16'],
                     ['name' => 'Cobalt + Coral', 'primary' => '#2563EB', 'secondary' => '#F97316'],
-                    ['name' => 'Midnight + Teal', 'primary' => '#0F172A', 'secondary' => '#14B8A6'],
+                    ['name' => 'Navy + Gold', 'primary' => '#1E3A8A', 'secondary' => '#FBBF24'],
+                    ['name' => 'Charcoal + Cyan', 'primary' => '#18181B', 'secondary' => '#06B6D4'],
+                    ['name' => 'Slate + Orange', 'primary' => '#475569', 'secondary' => '#FB923C'],
+                    ['name' => 'Steel + Emerald', 'primary' => '#64748B', 'secondary' => '#34D399'],
+                    ['name' => 'Onyx + Rose', 'primary' => '#27272A', 'secondary' => '#FB7185'],
+                    ['name' => 'Pewter + Sky', 'primary' => '#52525B', 'secondary' => '#38BDF8'],
+
+                    // Page 3 - Modern & Vibrant
+                    ['name' => 'Electric Violet', 'primary' => '#8B5CF6', 'secondary' => '#F472B6'],
+                    ['name' => 'Neon Sunset', 'primary' => '#EC4899', 'secondary' => '#FBBF24'],
+                    ['name' => 'Cyber Teal', 'primary' => '#0D9488', 'secondary' => '#A78BFA'],
+                    ['name' => 'Aurora', 'primary' => '#6366F1', 'secondary' => '#34D399'],
+                    ['name' => 'Sunset Glow', 'primary' => '#F59E0B', 'secondary' => '#7C3AED'],
+                    ['name' => 'Mint Fresh', 'primary' => '#10B981', 'secondary' => '#F43F5E'],
+                    ['name' => 'Cherry Blossom', 'primary' => '#DB2777', 'secondary' => '#86EFAC'],
+                    ['name' => 'Deep Ocean', 'primary' => '#0369A1', 'secondary' => '#FDE68A'],
+                    ['name' => 'Lavender Fields', 'primary' => '#A855F7', 'secondary' => '#FCD34D'],
+                    ['name' => 'Rustic Orange', 'primary' => '#EA580C', 'secondary' => '#1F2937'],
+                    ['name' => 'Pine Forest', 'primary' => '#15803D', 'secondary' => '#FECACA'],
+                    ['name' => 'Sapphire + Pearl', 'primary' => '#2563EB', 'secondary' => '#F8FAFC'],
                 ];
             @endphp
 
-            <!-- Left: Tabs and content -->
+            <!-- Tabs and content -->
             <div class="space-y-4">
                 <!-- Tabs -->
                 <div class="rounded-xl border p-1.5" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
@@ -73,239 +105,283 @@
 
                 <!-- Presets tab panel -->
                 <section id="tab_presets" role="tabpanel" aria-labelledby="tab_presets_btn" class="rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
-                    <h4 class="text-sm font-extrabold">Theme Presets</h4>
-                    <div id="presetsGrid" class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        @foreach ($brandColorPresets as $index => $preset)
-                            <button type="button"
-                                class="theme-card relative rounded-xl border p-2 flex flex-col gap-2 text-left"
-                                style="border-color: var(--hr-line); background: var(--hr-surface);"
-                                data-brand-preset
-                                data-index="{{ $index }}"
-                                data-brand-preset-primary="{{ $preset['primary'] }}"
-                                data-brand-preset-secondary="{{ $preset['secondary'] }}"
-                                aria-pressed="false"
-                            >
-                                <span class="selected-badge" aria-hidden="true">Selected</span>
-                                <div>
-                                    <p class="text-sm font-bold">{{ $preset['name'] }}</p>
-                                    <p class="text-xs mt-0.5" style="color: var(--hr-text-muted);">{{ $preset['primary'] }} • {{ $preset['secondary'] }}</p>
-                                </div>
-                                <div class="rounded-lg overflow-hidden border" style="border-color: var(--hr-line)">
-                                    <div class="h-12 w-full" style="background: linear-gradient(90deg, {{ $preset['primary'] }} 0%, {{ $preset['primary'] }} 50%, {{ $preset['secondary'] }} 50%, {{ $preset['secondary'] }} 100%);"></div>
-                                </div>
-                            </button>
-                        @endforeach
-                    </div>
-                    <div class="mt-3 flex items-center justify-between gap-3">
-                        <div class="flex items-center gap-1" id="presetsPagination" aria-label="Presets pages">
-                            <button type="button" class="ui-btn ui-btn-ghost" id="presetsPrev" aria-label="Previous page" style="padding: 2px 8px; font-size: 12px;">‹</button>
-                            <span class="text-xs" id="presetsPageLabel" style="color: var(--hr-text-muted);">Page 1 of 2</span>
-                            <button type="button" class="ui-btn ui-btn-ghost" id="presetsNext" aria-label="Next page" style="padding: 2px 8px; font-size: 12px;">›</button>
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h4 class="text-sm font-extrabold">Theme Presets</h4>
+                            <p class="text-xs mt-0.5" style="color: var(--hr-text-muted);">Choose from 36 professionally designed color combinations</p>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <button type="button" class="ui-btn ui-btn-secondary" id="previewSelectedBtn">Preview Selected</button>
-                            <button type="submit" class="ui-btn ui-btn-primary" id="applyThemeBtn">Apply Theme</button>
+                        <div class="flex items-center gap-2" id="presetsPagination" aria-label="Presets pages">
+                            <button type="button" class="h-8 w-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-[var(--hr-surface)]" id="presetsPrev" aria-label="Previous page" style="border-color: var(--hr-line);">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                            </button>
+                            <span class="text-xs font-semibold min-w-[80px] text-center" id="presetsPageLabel" style="color: var(--hr-text-muted);">Page 1 of 3</span>
+                            <button type="button" class="h-8 w-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-[var(--hr-surface)]" id="presetsNext" aria-label="Next page" style="border-color: var(--hr-line);">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Left: Presets Grid (2 columns) -->
+                        <div class="lg:col-span-2 space-y-4">
+                            <div id="presetsGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                @foreach ($brandColorPresets as $index => $preset)
+                                    <button type="button"
+                                        class="theme-card group relative rounded-xl border p-3 flex flex-col gap-2 text-left transition-all"
+                                        style="border-color: var(--hr-line); background: var(--hr-surface);"
+                                        data-brand-preset
+                                        data-index="{{ $index }}"
+                                        data-brand-preset-primary="{{ $preset['primary'] }}"
+                                        data-brand-preset-secondary="{{ $preset['secondary'] }}"
+                                        aria-pressed="false"
+                                    >
+                                        <span class="selected-badge" aria-hidden="true">
+                                            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+                                        </span>
+                                        <div class="rounded-lg overflow-hidden border aspect-[2/1]" style="border-color: var(--hr-line)">
+                                            <div class="h-full w-full" style="background: linear-gradient(135deg, {{ $preset['primary'] }} 0%, {{ $preset['primary'] }} 50%, {{ $preset['secondary'] }} 50%, {{ $preset['secondary'] }} 100%);"></div>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs font-bold truncate">{{ $preset['name'] }}</p>
+                                            <div class="flex items-center gap-1.5 mt-1">
+                                                <span class="h-3 w-3 rounded-full border" style="background: {{ $preset['primary'] }}; border-color: rgba(0,0,0,0.1);"></span>
+                                                <span class="h-3 w-3 rounded-full border" style="background: {{ $preset['secondary'] }}; border-color: rgba(0,0,0,0.1);"></span>
+                                            </div>
+                                        </div>
+                                    </button>
+                                @endforeach
+                            </div>
+                            <div class="flex items-center justify-between gap-3 pt-4 border-t" style="border-color: var(--hr-line);">
+                                <div class="flex items-center gap-2">
+                                    <button type="button" id="page1Btn" class="page-dot h-2 w-2 rounded-full transition-all" style="background: var(--hr-accent);" data-page="1"></button>
+                                    <button type="button" id="page2Btn" class="page-dot h-2 w-2 rounded-full transition-all" style="background: var(--hr-line);" data-page="2"></button>
+                                    <button type="button" id="page3Btn" class="page-dot h-2 w-2 rounded-full transition-all" style="background: var(--hr-line);" data-page="3"></button>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="submit" class="ui-btn ui-btn-primary" id="applyThemeBtn">Apply Theme</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Live Preview -->
+                        <div class="space-y-4">
+                            <div id="themePreviewStandalone" class="rounded-xl border overflow-hidden" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                                <div class="px-4 py-3 border-b flex items-center justify-between" style="border-color: var(--hr-line);">
+                                    <h5 class="text-xs font-bold uppercase tracking-wider" style="color: var(--hr-text-muted);">Live Preview</h5>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background: var(--hr-accent-soft); color: var(--hr-accent);">Unsaved</span>
+                                </div>
+                                <div class="p-4 space-y-4">
+                                    <!-- Mini Dashboard Preview -->
+                                    <div class="rounded-lg border p-3" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                                        <div class="flex items-center gap-3 mb-3">
+                                            <div class="h-8 w-8 rounded-lg flex items-center justify-center" style="background: color-mix(in oklab, var(--preview-primary, var(--hr-accent)), #fff 85%);">
+                                                <svg class="h-4 w-4" style="color: var(--preview-primary, var(--hr-accent));" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V8l7-5 7 5v13"/></svg>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-bold">Dashboard Card</p>
+                                                <p class="text-[11px]" style="color: var(--hr-text-muted);">Sample content preview</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" class="flex-1 rounded-lg px-3 py-2 text-xs font-semibold text-white" style="background: var(--preview-primary, var(--hr-accent));">Primary Action</button>
+                                            <button type="button" class="flex-1 rounded-lg px-3 py-2 text-xs font-semibold border" style="border-color: var(--hr-line);">Secondary</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Color Swatches -->
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="rounded-lg p-3 text-center" style="background: var(--preview-primary, var(--hr-accent));">
+                                            <p class="text-xs font-bold text-white">Primary</p>
+                                        </div>
+                                        <div class="rounded-lg p-3 text-center" style="background: var(--preview-secondary, #5EEAD4);">
+                                            <p class="text-xs font-bold" style="color: var(--hr-text-main);">Secondary</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Badges & Tags -->
+                                    <div class="flex flex-wrap gap-2">
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold" style="background: color-mix(in oklab, var(--preview-primary, var(--hr-accent)), #fff 85%); color: var(--preview-primary, var(--hr-accent));">
+                                            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                            Active
+                                        </span>
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold" style="background: var(--hr-surface-strong); border: 1px solid var(--hr-line);">Pending</span>
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold" style="background: color-mix(in oklab, var(--preview-secondary, #5EEAD4), #fff 75%); color: #0f766e;">New</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
 
                 <!-- Custom tab panel -->
                 <section id="tab_custom" role="tabpanel" aria-labelledby="tab_custom_btn" class="rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong);" hidden>
-                    <h4 class="text-sm font-extrabold">Custom Theme</h4>
-                    <p class="sr-only">Adjust brand colors</p>
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h4 class="text-sm font-extrabold">Custom Theme</h4>
+                            <p class="text-xs mt-0.5" style="color: var(--hr-text-muted);">Create your own unique color scheme</p>
+                        </div>
+                    </div>
 
-                    <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                        <div class="space-y-4">
-                            <!-- Primary color with popover -->
-                            <div class="relative">
-                                <label class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Primary Color</label>
-                                <div class="flex items-center gap-2">
-                                    <input id="brand_primary_color" name="brand_primary_color" type="text" value="{{ $currentPrimaryColor }}" class="ui-input" placeholder="#7C3AED" data-brand-color-text="primary">
-                                    <button type="button" class="ui-btn ui-btn-secondary" data-popover-open="primary" aria-haspopup="dialog" aria-expanded="false" aria-controls="popover_primary">
-                                        <span class="h-4 w-4 rounded-full inline-block" style="background: {{ $currentPrimaryColor }}"></span>
-                                        Pick
-                                    </button>
-                                </div>
-                                @error('brand_primary_color')
-                                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                @enderror
-                                <div id="popover_primary" class="color-popover" hidden>
-                                    <div class="color-popover__panel">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Left: Color Controls -->
+                        <div class="space-y-5">
+                            <!-- Brand Colors Section -->
+                            <div class="rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                                <h5 class="text-xs font-bold uppercase tracking-wider mb-4" style="color: var(--hr-text-muted);">Brand Colors</h5>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <!-- Primary Color -->
+                                    <div class="space-y-2">
+                                        <label class="block text-xs font-semibold" style="color: var(--hr-text-muted);">Primary</label>
                                         <div class="flex items-center gap-2">
-                                            <input id="brand_primary_color_picker" type="color" value="{{ $currentPrimaryColor }}" class="color-popover__picker" data-brand-color-picker="primary" aria-label="Choose primary brand color">
-                                            <input type="text" class="ui-input" data-hex-input="primary" value="{{ $currentPrimaryColor }}" aria-label="Primary HEX">
-                                        </div>
-                                        <div class="mt-2 grid grid-cols-2 gap-2">
-                                            <div>
-                                                <p class="text-[11px] uppercase tracking-[0.08em] font-bold" style="color: var(--hr-text-muted);">RGB</p>
-                                                <p class="text-sm font-semibold" data-rgb-display="primary">—</p>
+                                            <div class="relative flex-1">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 rounded-md border" id="primaryColorSwatch" style="background: {{ $currentPrimaryColor }}; border-color: rgba(0,0,0,0.1);"></span>
+                                                <input id="brand_primary_color" name="brand_primary_color" type="text" value="{{ $currentPrimaryColor }}" class="w-full rounded-lg border pl-10 pr-3 py-2 text-sm font-mono bg-transparent" style="border-color: var(--hr-line);" placeholder="#7C3AED" data-brand-color-text="primary">
                                             </div>
-                                            <div>
-                                                <p class="text-[11px] uppercase tracking-[0.08em] font-bold" style="color: var(--hr-text-muted);">Contrast (on white)</p>
-                                                <p class="text-sm font-semibold" data-contrast-display="primary">—</p>
+                                            <input id="brand_primary_color_picker" type="color" value="{{ $currentPrimaryColor }}" class="h-9 w-9 rounded-lg border cursor-pointer p-0.5" style="border-color: var(--hr-line);" data-brand-color-picker="primary" aria-label="Pick primary color">
+                                        </div>
+                                        <p class="text-[10px]" style="color: var(--hr-text-muted);">Used for buttons & highlights</p>
+                                        @error('brand_primary_color')
+                                            <p class="text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <!-- Secondary Color -->
+                                    <div class="space-y-2">
+                                        <label class="block text-xs font-semibold" style="color: var(--hr-text-muted);">Secondary</label>
+                                        <div class="flex items-center gap-2">
+                                            <div class="relative flex-1">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 rounded-md border" id="secondaryColorSwatch" style="background: {{ $currentSecondaryColor }}; border-color: rgba(0,0,0,0.1);"></span>
+                                                <input id="brand_secondary_color" name="brand_secondary_color" type="text" value="{{ $currentSecondaryColor }}" class="w-full rounded-lg border pl-10 pr-3 py-2 text-sm font-mono bg-transparent" style="border-color: var(--hr-line);" placeholder="#5EEAD4" data-brand-color-text="secondary">
                                             </div>
+                                            <input id="brand_secondary_color_picker" type="color" value="{{ $currentSecondaryColor }}" class="h-9 w-9 rounded-lg border cursor-pointer p-0.5" style="border-color: var(--hr-line);" data-brand-color-picker="secondary" aria-label="Pick secondary color">
                                         </div>
-                                        <div class="mt-3"><span class="preview-chip" data-contrast-chip="primary">Aa</span></div>
-                                        <div class="mt-3 flex justify-end gap-2">
-                                            <button type="button" class="ui-btn ui-btn-ghost" data-popover-close="primary">Close</button>
-                                        </div>
+                                        <p class="text-[10px]" style="color: var(--hr-text-muted);">Accent & complementary</p>
+                                        @error('brand_secondary_color')
+                                            <p class="text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <!-- Color Preview Bar -->
+                                <div class="mt-4 rounded-lg overflow-hidden border" style="border-color: var(--hr-line);">
+                                    <div class="h-10 w-full flex">
+                                        <div class="flex-1" id="previewPrimaryBar" style="background: {{ $currentPrimaryColor }};"></div>
+                                        <div class="flex-1" id="previewSecondaryBar" style="background: {{ $currentSecondaryColor }};"></div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Secondary color with popover -->
-                            <div class="relative">
-                                <label class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Secondary Color</label>
-                                <div class="flex items-center gap-2">
-                                    <input id="brand_secondary_color" name="brand_secondary_color" type="text" value="{{ $currentSecondaryColor }}" class="ui-input" placeholder="#5EEAD4" data-brand-color-text="secondary">
-                                    <button type="button" class="ui-btn ui-btn-secondary" data-popover-open="secondary" aria-haspopup="dialog" aria-expanded="false" aria-controls="popover_secondary">
-                                        <span class="h-4 w-4 rounded-full inline-block" style="background: {{ $currentSecondaryColor }}"></span>
-                                        Pick
-                                    </button>
-                                </div>
-                                @error('brand_secondary_color')
-                                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                @enderror
-                                <div id="popover_secondary" class="color-popover" hidden>
-                                    <div class="color-popover__panel">
-                                        <div class="flex items-center gap-2">
-                                            <input id="brand_secondary_color_picker" type="color" value="{{ $currentSecondaryColor }}" class="color-popover__picker" data-brand-color-picker="secondary" aria-label="Choose secondary brand color">
-                                            <input type="text" class="ui-input" data-hex-input="secondary" value="{{ $currentSecondaryColor }}" aria-label="Secondary HEX">
+                            <!-- Interface Colors Section -->
+                            <div class="rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                                <h5 class="text-xs font-bold uppercase tracking-wider mb-4" style="color: var(--hr-text-muted);">Interface Colors (Light Mode)</h5>
+
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div class="space-y-2">
+                                        <label class="block text-[11px] font-semibold" style="color: var(--hr-text-muted);">Background</label>
+                                        <div class="flex items-center gap-1.5">
+                                            <input type="color" value="{{ $currentLightBg }}" onchange="document.getElementById('light_bg_color').value = this.value.toUpperCase();" class="h-8 w-8 rounded-md border cursor-pointer p-0.5" style="border-color: var(--hr-line);">
+                                            <input id="light_bg_color" name="light_bg_color" type="text" value="{{ $currentLightBg }}" class="w-full rounded-md border px-2 py-1.5 text-xs font-mono bg-transparent" style="border-color: var(--hr-line);" placeholder="#F5F5F5">
                                         </div>
-                                        <div class="mt-2 grid grid-cols-2 gap-2">
-                                            <div>
-                                                <p class="text-[11px] uppercase tracking-[0.08em] font-bold" style="color: var(--hr-text-muted);">RGB</p>
-                                                <p class="text-sm font-semibold" data-rgb-display="secondary">—</p>
-                                            </div>
-                                            <div>
-                                                <p class="text-[11px] uppercase tracking-[0.08em] font-bold" style="color: var(--hr-text-muted);">Contrast (on white)</p>
-                                                <p class="text-sm font-semibold" data-contrast-display="secondary">—</p>
-                                            </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="block text-[11px] font-semibold" style="color: var(--hr-text-muted);">Sidebar</label>
+                                        <div class="flex items-center gap-1.5">
+                                            <input type="color" value="{{ $currentLightSidebar }}" onchange="document.getElementById('light_sidebar_color').value = this.value.toUpperCase();" class="h-8 w-8 rounded-md border cursor-pointer p-0.5" style="border-color: var(--hr-line);">
+                                            <input id="light_sidebar_color" name="light_sidebar_color" type="text" value="{{ $currentLightSidebar }}" class="w-full rounded-md border px-2 py-1.5 text-xs font-mono bg-transparent" style="border-color: var(--hr-line);" placeholder="#FFFFFF">
                                         </div>
-                                        <div class="mt-3"><span class="preview-chip" data-contrast-chip="secondary">Aa</span></div>
-                                        <div class="mt-3 flex justify-end gap-2">
-                                            <button type="button" class="ui-btn ui-btn-ghost" data-popover-close="secondary">Close</button>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="block text-[11px] font-semibold" style="color: var(--hr-text-muted);">Header</label>
+                                        <div class="flex items-center gap-1.5">
+                                            <input type="color" value="{{ $currentLightHeader }}" onchange="document.getElementById('light_header_color').value = this.value.toUpperCase();" class="h-8 w-8 rounded-md border cursor-pointer p-0.5" style="border-color: var(--hr-line);">
+                                            <input id="light_header_color" name="light_header_color" type="text" value="{{ $currentLightHeader }}" class="w-full rounded-md border px-2 py-1.5 text-xs font-mono bg-transparent" style="border-color: var(--hr-line);" placeholder="#FFFFFF">
                                         </div>
                                     </div>
                                 </div>
+                                @error('light_bg_color')<p class="text-xs text-red-600 mt-2">{{ $message }}</p>@enderror
+                                @error('light_sidebar_color')<p class="text-xs text-red-600 mt-2">{{ $message }}</p>@enderror
+                                @error('light_header_color')<p class="text-xs text-red-600 mt-2">{{ $message }}</p>@enderror
                             </div>
 
-                            <div class="space-y-4 mt-4">
-                                <h5 class="text-xs font-extrabold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Appearance (Light Mode)</h5>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                        <label class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Background Color</label>
-                                        <div class="flex items-center gap-2">
-                                            <input id="light_bg_color" name="light_bg_color" type="text" value="{{ $currentLightBg }}" class="ui-input" placeholder="#F5F5F5">
-                                            <input type="color" value="{{ $currentLightBg }}" onchange="document.getElementById('light_bg_color').value = this.value.toUpperCase();" class="h-9 w-10 border rounded-md" style="border-color: var(--hr-line);" />
-                                        </div>
-                                        @error('light_bg_color')
-                                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                        @enderror
+                            <!-- Background Image (Optional) -->
+                            <div class="rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                                <h5 class="text-xs font-bold uppercase tracking-wider mb-3" style="color: var(--hr-text-muted);">Background Image (Optional)</h5>
+                                <input type="file" name="light_bg_image" accept="image/*" class="w-full rounded-lg border px-3 py-2 text-sm bg-transparent" style="border-color: var(--hr-line);">
+                                @if (!empty($companySettings['light_bg_image_path']))
+                                    <div class="mt-3 flex items-center gap-3">
+                                        <img src="{{ asset('storage/' . $companySettings['light_bg_image_path']) }}" alt="Background preview" class="h-12 w-20 object-cover rounded-lg border" style="border-color: var(--hr-line);">
+                                        <label class="inline-flex items-center gap-2 text-xs cursor-pointer" style="color: var(--hr-text-muted);"><input type="checkbox" name="remove_light_bg_image" value="1" class="rounded"> Remove</label>
                                     </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Sidebar Color</label>
-                                        <div class="flex items-center gap-2">
-                                            <input id="light_sidebar_color" name="light_sidebar_color" type="text" value="{{ $currentLightSidebar }}" class="ui-input" placeholder="#FFFFFF">
-                                            <input type="color" value="{{ $currentLightSidebar }}" onchange="document.getElementById('light_sidebar_color').value = this.value.toUpperCase();" class="h-9 w-10 border rounded-md" style="border-color: var(--hr-line);" />
-                                        </div>
-                                        @error('light_sidebar_color')
-                                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Header Color</label>
-                                        <div class="flex items-center gap-2">
-                                            <input id="light_header_color" name="light_header_color" type="text" value="{{ $currentLightHeader }}" class="ui-input" placeholder="#FFFFFF">
-                                            <input type="color" value="{{ $currentLightHeader }}" onchange="document.getElementById('light_header_color').value = this.value.toUpperCase();" class="h-9 w-10 border rounded-md" style="border-color: var(--hr-line);" />
-                                        </div>
-                                        @error('light_header_color')
-                                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold uppercase tracking-[0.08em] mb-2" style="color: var(--hr-text-muted);">Background Image</label>
-                                        <input type="file" name="light_bg_image" accept="image/*" class="w-full rounded-xl border px-3 py-2.5 bg-transparent" style="border-color: var(--hr-line);">
-                                        @if (!empty($companySettings['light_bg_image_path']))
-                                            <div class="mt-2 flex items-center gap-3">
-                                                <img src="{{ asset('storage/' . $companySettings['light_bg_image_path']) }}" alt="Background preview" class="h-10 w-16 object-cover rounded-lg border" style="border-color: var(--hr-line);">
-                                                <label class="inline-flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" name="remove_light_bg_image" value="1"> Remove image</label>
-                                            </div>
-                                        @endif
-                                        @error('light_bg_image')
-                                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="flex flex-wrap items-center gap-2 mt-4">
-                                <button type="button" class="ui-btn ui-btn-secondary" id="previewChangesBtn">Preview Changes</button>
-                                <button type="submit" class="ui-btn ui-btn-primary" id="applyThemeBtn">Apply Theme</button>
-                                <button type="reset" class="ui-btn ui-btn-ghost">Reset</button>
+                                @endif
+                                @error('light_bg_image')<p class="text-xs text-red-600 mt-2">{{ $message }}</p>@enderror
                             </div>
                         </div>
 
-                        <!-- Right side of Custom tab uses the same Live Preview -->
-                        <div class="xl:hidden">
-                            <div id="themePreview" class="rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong); font-family: var(--hr-font-family, inherit); --hr-accent: var(--preview-primary, var(--hr-accent)); --hr-accent-border: var(--preview-primary, var(--hr-accent)); --hr-accent-soft: color-mix(in oklab, var(--preview-primary, var(--hr-accent)), #fff 85%);">
-                                <div class="flex items-center justify-between">
-                                    <h4 class="text-sm font-extrabold">Live Preview</h4>
-                                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background: var(--hr-accent-soft); color: var(--hr-accent);">Not saved</span>
+                        <!-- Right: Live Preview -->
+                        <div class="space-y-4">
+                            <div id="themePreview" class="rounded-xl border overflow-hidden" style="border-color: var(--hr-line); background: var(--hr-surface-strong);">
+                                <div class="px-4 py-3 border-b flex items-center justify-between" style="border-color: var(--hr-line);">
+                                    <h5 class="text-xs font-bold uppercase tracking-wider" style="color: var(--hr-text-muted);">Live Preview</h5>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background: var(--hr-accent-soft); color: var(--hr-accent);">Unsaved</span>
                                 </div>
-                                <div class="mt-3 grid grid-cols-1 gap-3">
-                                    <div class="flex items-center gap-2">
-                                        <button type="button" class="ui-btn ui-btn-primary">Primary</button>
-                                        <button type="button" class="ui-btn ui-btn-ghost">Secondary</button>
-                                    </div>
-                                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
-                                        <p class="text-xs font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Card Sample</p>
-                                        <p class="text-sm mt-2">A calmer preview of typical content.</p>
-                                        <div class="mt-3 flex items-center gap-2">
-                                            <button type="button" class="ui-btn ui-btn-primary">Action</button>
-                                            <button type="button" class="ui-btn ui-btn-ghost">Cancel</button>
+                                <div class="p-4 space-y-4">
+                                    <!-- Mini Dashboard Preview -->
+                                    <div class="rounded-lg border p-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
+                                        <div class="flex items-center gap-3 mb-3">
+                                            <div class="h-8 w-8 rounded-lg flex items-center justify-center" id="previewIconBg" style="background: var(--preview-primary, var(--hr-accent)); opacity: 0.15;">
+                                                <svg class="h-4 w-4" id="previewIcon" style="color: var(--preview-primary, var(--hr-accent));" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V8l7-5 7 5v13"/></svg>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-bold">Dashboard Card</p>
+                                                <p class="text-[11px]" style="color: var(--hr-text-muted);">Sample content preview</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" class="flex-1 rounded-lg px-3 py-2 text-xs font-semibold text-white" id="previewPrimaryBtn" style="background: var(--preview-primary, var(--hr-accent));">Primary Action</button>
+                                            <button type="button" class="flex-1 rounded-lg px-3 py-2 text-xs font-semibold border" style="border-color: var(--hr-line);">Secondary</button>
                                         </div>
                                     </div>
-                                    <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
-                                        <p class="text-xs font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Accents</p>
-                                        <div class="h-8 w-full rounded-lg mt-2" style="background: var(--preview-primary, var(--hr-accent));"></div>
-                                        <div class="h-8 w-full rounded-lg mt-2" style="background: var(--preview-secondary, var(--hr-accent-soft));"></div>
+
+                                    <!-- Color Swatches -->
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="rounded-lg p-3 text-center" id="previewPrimarySwatch" style="background: var(--preview-primary, var(--hr-accent));">
+                                            <p class="text-xs font-bold text-white">Primary</p>
+                                        </div>
+                                        <div class="rounded-lg p-3 text-center" id="previewSecondarySwatch" style="background: var(--preview-secondary, var(--hr-accent-soft));">
+                                            <p class="text-xs font-bold" style="color: var(--hr-text-main);">Secondary</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Badges & Tags -->
+                                    <div class="flex flex-wrap gap-2">
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold" id="previewBadge1" style="background: color-mix(in oklab, var(--preview-primary, var(--hr-accent)), #fff 85%); color: var(--preview-primary, var(--hr-accent));">
+                                            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                            Active
+                                        </span>
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold" style="background: var(--hr-surface); border: 1px solid var(--hr-line);">Pending</span>
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold" id="previewBadge2" style="background: color-mix(in oklab, var(--preview-secondary, #5EEAD4), #fff 75%); color: #0f766e;">New</span>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Action Buttons -->
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="ui-btn ui-btn-secondary flex-1" id="previewChangesBtn">
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    Preview
+                                </button>
+                                <button type="submit" class="ui-btn ui-btn-primary flex-1" id="applyCustomThemeBtn">
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                    Apply Theme
+                                </button>
+                            </div>
+                            <button type="reset" class="w-full text-xs text-center py-2" style="color: var(--hr-text-muted);">Reset to defaults</button>
                         </div>
                     </div>
                 </section>
             </div>
 
-            <!-- Right: Live Preview Panel for Presets tab (hidden on small screens) -->
-            <aside class="hidden xl:block">
-                <div id="themePreviewStandalone" class="rounded-xl border p-4" style="border-color: var(--hr-line); background: var(--hr-surface-strong); font-family: var(--hr-font-family, inherit); --hr-accent: var(--preview-primary, var(--hr-accent)); --hr-accent-border: var(--preview-primary, var(--hr-accent)); --hr-accent-soft: color-mix(in oklab, var(--preview-primary, var(--hr-accent)), #fff 85%);">
-                    <div class="flex items-center justify-between">
-                        <h4 class="text-sm font-extrabold">Live Preview</h4>
-                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full" style="background: var(--hr-accent-soft); color: var(--hr-accent);">Not saved</span>
-                    </div>
-                    <div class="mt-3 grid grid-cols-1 gap-3">
-                        <div class="flex items-center gap-2">
-                            <button type="button" class="ui-btn ui-btn-primary">Primary</button>
-                            <button type="button" class="ui-btn ui-btn-ghost">Secondary</button>
-                        </div>
-                        <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
-                            <p class="text-xs font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Card Sample</p>
-                            <p class="text-sm mt-2">A calmer preview of typical content.</p>
-                            <div class="mt-3 flex items-center gap-2">
-                                <button type="button" class="ui-btn ui-btn-primary">Action</button>
-                                <button type="button" class="ui-btn ui-btn-ghost">Cancel</button>
-                            </div>
-                        </div>
-                        <div class="rounded-xl border p-3" style="border-color: var(--hr-line); background: var(--hr-surface);">
-                            <p class="text-xs font-semibold uppercase tracking-[0.08em]" style="color: var(--hr-text-muted);">Accents</p>
-                            <div class="h-8 w-full rounded-lg mt-2" style="background: var(--preview-primary, var(--hr-accent));"></div>
-                            <div class="h-8 w-full rounded-lg mt-2" style="background: var(--preview-secondary, var(--hr-accent-soft));"></div>
-                        </div>
-                    </div>
-                </div>
-            </aside>
         </form>
     </section>
 
@@ -323,13 +399,18 @@
         }
 
         .theme-card { transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease; }
-        .theme-card:hover { transform: translateY(-1px); border-color: var(--hr-accent-border); }
-        .theme-card.is-active { box-shadow: 0 0 0 2px var(--hr-accent-border), 0 18px 30px -22px color-mix(in oklab, var(--hr-accent), #000 26%); }
+        .theme-card:hover { transform: translateY(-2px); border-color: var(--hr-accent-border); box-shadow: 0 4px 12px -4px rgba(0,0,0,0.15); }
+        .theme-card.is-active { border-color: var(--hr-accent); box-shadow: 0 0 0 2px var(--hr-accent-border), 0 8px 20px -8px color-mix(in oklab, var(--hr-accent), #000 30%); }
         .selected-badge {
-            position: absolute; top: 8px; right: 8px; display: none; font-size: 10px; font-weight: 800;
-            padding: 2px 6px; border-radius: 999px; background: var(--hr-accent-soft); color: var(--hr-accent);
+            position: absolute; top: 6px; right: 6px; display: none;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: var(--hr-accent); color: white;
+            align-items: center; justify-content: center;
         }
-        .theme-card.is-active .selected-badge { display: inline-block; }
+        .theme-card.is-active .selected-badge { display: flex; }
+        .page-dot { cursor: pointer; transition: all 150ms ease; }
+        .page-dot:hover { transform: scale(1.3); }
+        .page-dot.is-active { background: var(--hr-accent) !important; transform: scale(1.2); }
 
         /* Font selector removed: CSS cleaned up */
 
@@ -366,10 +447,9 @@
             const primaryPicker = document.querySelector('[data-brand-color-picker="primary"]');
             const secondaryPicker = document.querySelector('[data-brand-color-picker="secondary"]');
             const presetCards = document.querySelectorAll('[data-brand-preset]');
-            const previewPane = document.getElementById('themePreview') || document.getElementById('themePreviewStandalone');
-            const previewPaneStandalone = document.getElementById('themePreviewStandalone');
+            const previewPane = document.getElementById('themePreview');
+            const previewPanePresets = document.getElementById('themePreviewStandalone');
             const previewBtn = document.getElementById('previewChangesBtn');
-            const previewSelectedBtn = document.getElementById('previewSelectedBtn');
             const popoverOpeners = document.querySelectorAll('[data-popover-open]');
             const popoverClosers = document.querySelectorAll('[data-popover-close]');
             const hexPattern = /^#[0-9A-F]{6}$/i;
@@ -421,9 +501,9 @@
                     previewPane.style.setProperty('--preview-primary', p);
                     previewPane.style.setProperty('--preview-secondary', s);
                 }
-                if (previewPaneStandalone) {
-                    previewPaneStandalone.style.setProperty('--preview-primary', p);
-                    previewPaneStandalone.style.setProperty('--preview-secondary', s);
+                if (previewPanePresets) {
+                    previewPanePresets.style.setProperty('--preview-primary', p);
+                    previewPanePresets.style.setProperty('--preview-secondary', s);
                 }
             };
 
@@ -487,11 +567,12 @@
             primaryText.addEventListener('blur', () => { applyPrimary(primaryText.value); setPreviewVars(); });
             secondaryText.addEventListener('blur', () => { applySecondary(secondaryText.value); setPreviewVars(); });
 
-            // Preset selection + pagination (2x2 grid, 4 per page)
-            let presetPage = 1; const pageSize = 4; const totalPresets = presetCards.length; const totalPages = Math.max(1, Math.ceil(totalPresets / pageSize));
+            // Preset selection + pagination (12 per page, 3 pages)
+            let presetPage = 1; const pageSize = 12; const totalPresets = presetCards.length; const totalPages = Math.max(1, Math.ceil(totalPresets / pageSize));
             const pageLabel = document.getElementById('presetsPageLabel');
             const prevBtn = document.getElementById('presetsPrev');
             const nextBtn = document.getElementById('presetsNext');
+            const pageDots = document.querySelectorAll('.page-dot');
             const updatePage = () => {
                 presetCards.forEach((card, idx) => {
                     const page = Math.floor(idx / pageSize) + 1;
@@ -499,12 +580,25 @@
                     card.hidden = !onPage;
                 });
                 if (pageLabel) pageLabel.textContent = `Page ${presetPage} of ${totalPages}`;
-                prevBtn?.setAttribute('disabled', presetPage <= 1 ? 'true' : 'false');
-                nextBtn?.setAttribute('disabled', presetPage >= totalPages ? 'true' : 'false');
+                prevBtn?.style.setProperty('opacity', presetPage <= 1 ? '0.4' : '1');
+                prevBtn?.style.setProperty('pointer-events', presetPage <= 1 ? 'none' : 'auto');
+                nextBtn?.style.setProperty('opacity', presetPage >= totalPages ? '0.4' : '1');
+                nextBtn?.style.setProperty('pointer-events', presetPage >= totalPages ? 'none' : 'auto');
+                // Update page dots
+                pageDots.forEach((dot, idx) => {
+                    dot.classList.toggle('is-active', idx + 1 === presetPage);
+                    dot.style.background = idx + 1 === presetPage ? 'var(--hr-accent)' : 'var(--hr-line)';
+                });
             };
             updatePage();
             prevBtn?.addEventListener('click', () => { if (presetPage > 1) { presetPage--; updatePage(); } });
             nextBtn?.addEventListener('click', () => { if (presetPage < totalPages) { presetPage++; updatePage(); } });
+            pageDots.forEach((dot) => {
+                dot.addEventListener('click', () => {
+                    const page = parseInt(dot.dataset.page, 10);
+                    if (page && page !== presetPage) { presetPage = page; updatePage(); }
+                });
+            });
 
             presetCards.forEach((card) => {
                 card.addEventListener('click', () => {
@@ -546,9 +640,8 @@
                 });
             });
 
-            // Preview buttons
+            // Preview button (Custom Theme tab)
             if (previewBtn) previewBtn.addEventListener('click', () => setPreviewVars());
-            if (previewSelectedBtn) previewSelectedBtn.addEventListener('click', () => setPreviewVars());
 
             // Confirmation before apply
             const ensureConfirmModal = () => {
@@ -590,22 +683,6 @@
 
             // Default to Presets tab on load
             toggleTabs('presets');
-
-            // Mirror preview vars to standalone preview too
-            if (previewPaneStandalone) {
-                const applyPreviewVars = () => {
-                    const p = normalizeHex(primaryText.value, '#7C3AED');
-                    const s = normalizeHex(secondaryText.value, '#5EEAD4');
-                    previewPaneStandalone.style.setProperty('--preview-primary', p);
-                    previewPaneStandalone.style.setProperty('--preview-secondary', s);
-                };
-                applyPreviewVars();
-                const mirror = () => { applyPreviewVars(); };
-                [primaryText, secondaryText].forEach(el => {
-                    el.addEventListener('input', mirror);
-                    el.addEventListener('change', mirror);
-                });
-            }
 
             // Toast on success (enhanced alert)
             const status = @json(session('status'));

@@ -3,22 +3,17 @@ import { PermissionGuard } from './PermissionGuard';
 
 export function AttendanceHeader({
     canCreate,
-    canEdit,
     canApprove,
     pendingApprovals = 0,
     punch = {},
     onOpenForm,
-    onOpenPunchPanel,
     onPunchIn,
     onPunchOut,
     submitting = false,
-    punchLink = '#',
 }) {
     const showPunchIn = Boolean(punch?.canPunchSelf) && punch?.nextAction === 'check_in';
     const showPunchOut = Boolean(punch?.canPunchSelf) && punch?.nextAction === 'check_out';
     const showPunchDone = Boolean(punch?.canPunchSelf) && punch?.nextAction === 'none';
-    // Determine if user is a non-admin self puncher (no edit/create admin permissions)
-    const isNonAdminSelfPuncher = Boolean(punch?.canPunchSelf) && !canCreate && !canEdit;
 
     return (
         <section className="flex items-center justify-between gap-4 flex-wrap">
@@ -53,20 +48,8 @@ export function AttendanceHeader({
                     </button>
                 </PermissionGuard>
 
-                {/* For non-admin self users, show controlled Mark Attendance panel trigger */}
-                {isNonAdminSelfPuncher ? (
-                    <a
-                        href={punchLink}
-                        className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
-                        style={{ background: 'linear-gradient(120deg, #0ea5a4, #22c55e)', color: '#0b1f1b' }}
-                        aria-disabled={submitting ? 'true' : 'false'}
-                    >
-                        Mark Attendance
-                    </a>
-                ) : null}
-
-                {/* Keep direct punch buttons only for admins/HR or roles with edit/create admin perms */}
-                {!isNonAdminSelfPuncher && showPunchIn ? (
+                {/* Punch In/Out buttons for all non-admin users with punch capability */}
+                {showPunchIn ? (
                     <button
                         type="button"
                         className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
@@ -82,7 +65,7 @@ export function AttendanceHeader({
                     </button>
                 ) : null}
 
-                {!isNonAdminSelfPuncher && showPunchOut ? (
+                {showPunchOut ? (
                     <button
                         type="button"
                         className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"

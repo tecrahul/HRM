@@ -292,6 +292,7 @@ class SettingsController extends Controller
             'branch_directory.*.address' => ['nullable', 'string', 'max:500'],
             'branch_directory.*.is_primary' => ['nullable', 'boolean'],
             'company_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
+            'cropped_logo_data' => ['nullable', 'string'],
             'remove_company_logo' => ['nullable', 'boolean'],
         ];
         $systemRules = [
@@ -360,7 +361,7 @@ class SettingsController extends Controller
             $validated['branch_directory'] = $this->normalizeBranchDirectory($request->input('branch_directory', []));
         }
 
-        unset($validated['company_logo'], $validated['remove_company_logo']);
+        unset($validated['company_logo'], $validated['remove_company_logo'], $validated['cropped_logo_data']);
 
         $settings = CompanySetting::query()->firstOrNew([]);
         $settings->fill($validated);
@@ -371,7 +372,31 @@ class SettingsController extends Controller
                 $settings->company_logo_path = null;
             }
 
-            if ($request->hasFile('company_logo')) {
+            // Handle cropped logo data (base64)
+            $croppedLogoData = $request->input('cropped_logo_data');
+            if (filled($croppedLogoData) && str_starts_with($croppedLogoData, 'data:image/')) {
+                // Extract base64 data and mime type
+                if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $croppedLogoData, $matches)) {
+                    $extension = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+                    $imageData = base64_decode($matches[2]);
+
+                    if ($imageData !== false) {
+                        // Generate unique filename
+                        $filename = 'company-logos/' . Str::uuid() . '.' . $extension;
+
+                        // Save to storage
+                        Storage::disk('public')->put($filename, $imageData);
+
+                        // Delete old logo if exists
+                        if (filled($settings->company_logo_path) && $settings->company_logo_path !== $filename) {
+                            Storage::disk('public')->delete((string) $settings->company_logo_path);
+                        }
+
+                        $settings->company_logo_path = $filename;
+                    }
+                }
+            } elseif ($request->hasFile('company_logo')) {
+                // Fallback to regular file upload if no cropped data
                 $newLogoPath = $request->file('company_logo')->store('company-logos', 'public');
 
                 if (filled($settings->company_logo_path) && $settings->company_logo_path !== $newLogoPath) {
