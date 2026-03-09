@@ -49,8 +49,8 @@ const currentMonthValue = () => {
 
 const toWorkflowPayload = (filters, payrollMonth) => ({
     payroll_month: payrollMonth,
-    branch_id: filters.branchId || '',
-    department_id: filters.departmentId || '',
+    branch: filters.branch || '',
+    department: filters.department || '',
     employee_id: filters.employeeId || '',
 });
 
@@ -135,7 +135,7 @@ export function ProcessingPage({
     }, [payrollMonth]);
 
     const workflowFilters = useMemo(() => toWorkflowPayload(filters, payrollMonth), [filters, payrollMonth]);
-    const hasScopeFilters = Boolean(workflowFilters.branch_id || workflowFilters.department_id || workflowFilters.employee_id);
+    const hasScopeFilters = Boolean(workflowFilters.branch || workflowFilters.department || workflowFilters.employee_id);
     const workflowStatus = String(overview?.header?.status || 'draft').toLowerCase();
     const stepInstructions = {
         1: 'Select payroll month to start the workflow.',
@@ -211,15 +211,15 @@ export function ProcessingPage({
     useEffect(() => {
         loadOverview({ syncWorkflow: false });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [workflowFilters.branch_id, workflowFilters.department_id, workflowFilters.employee_id, workflowFilters.payroll_month, debouncedSearch, statusFilter, approvalPage]);
+    }, [workflowFilters.branch, workflowFilters.department, workflowFilters.employee_id, workflowFilters.payroll_month, debouncedSearch, statusFilter, approvalPage]);
 
     useEffect(() => {
         setPreview(null);
-    }, [workflowFilters.branch_id, workflowFilters.department_id, workflowFilters.employee_id]);
+    }, [workflowFilters.branch, workflowFilters.department, workflowFilters.employee_id]);
 
     useEffect(() => {
         setApprovalPage(1);
-    }, [workflowFilters.branch_id, workflowFilters.department_id, workflowFilters.employee_id, workflowFilters.payroll_month]);
+    }, [workflowFilters.branch, workflowFilters.department, workflowFilters.employee_id, workflowFilters.payroll_month]);
 
     useEffect(() => {
         if (monthConfirmed && String(initialAlert) === 'not_generated') {
@@ -479,11 +479,11 @@ export function ProcessingPage({
         if (filters.employeeId) {
             params.set('employee_id', filters.employeeId);
         }
-        if (filters.branchId) {
-            params.set('branch_id', filters.branchId);
+        if (filters.branch) {
+            params.set('branch', filters.branch);
         }
-        if (filters.departmentId) {
-            params.set('department_id', filters.departmentId);
+        if (filters.department) {
+            params.set('department', filters.department);
         }
         if (statusFilter) {
             params.set('status', statusFilter);
@@ -493,7 +493,7 @@ export function ProcessingPage({
         }
 
         return `${urls.directoryExportCsv}?${params.toString()}`;
-    }, [urls.directoryExportCsv, payrollMonth, filters.employeeId, filters.branchId, filters.departmentId, statusFilter, debouncedSearch]);
+    }, [urls.directoryExportCsv, payrollMonth, filters.employeeId, filters.branch, filters.department, statusFilter, debouncedSearch]);
     const approvalPagination = overview?.pagination ?? { currentPage: 1, lastPage: 1, total: 0 };
 
     useEffect(() => {

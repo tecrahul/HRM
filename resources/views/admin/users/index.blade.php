@@ -191,6 +191,8 @@
 
         <form id="usersFilterForm" method="GET" action="{{ route('admin.users.index') }}" class="mt-4 grid grid-cols-1 md:grid-cols-12 gap-4">
             <input type="hidden" name="page" value="{{ request('page', method_exists($users, 'currentPage') ? $users->currentPage() : 1) }}" />
+            <input type="hidden" name="branch" id="usersFilterBranch" value="{{ $filters['branch'] }}" />
+            <input type="hidden" name="department" id="usersFilterDepartment" value="{{ $filters['department'] }}" />
             <input type="text" name="q" value="{{ $filters['q'] }}" placeholder="Search name, email, department, branch..." class="md:col-span-4 rounded-xl border px-3 h-10 bg-transparent text-[13px] md:text-[14px] placeholder:text-[var(--hr-text-muted)]" style="border-color: var(--hr-line);" />
             <select name="role" class="md:col-span-2 rounded-xl border px-3 h-10 bg-transparent text-[13px] md:text-[14px]" style="border-color: var(--hr-line);">
                 <option value="">All Roles</option>
@@ -221,8 +223,8 @@
                     <x-heroicon-o-magnifying-glass class="h-4 w-4" />
                     Filter
                 </button>
-                @if(request()->hasAny(['q','role','status','sort_by','sort_dir','page']) && (request('q') || request('role') || request('status') || request('sort_by') || request('sort_dir')))
-                    <a href="{{ route('admin.users.index') }}" class="text-xs md:text-sm font-medium underline-offset-2 hover:underline" style="color: var(--hr-text-muted);">Clear</a>
+                @if(request('q') || request('role') || request('status') || request('sort_by') || request('sort_dir'))
+                    <a href="{{ route('admin.users.index', array_filter(['branch' => $filters['branch'], 'department' => $filters['department']])) }}" class="text-xs md:text-sm font-medium underline-offset-2 hover:underline" style="color: var(--hr-text-muted);">Clear</a>
                 @endif
                 <span id="usersFilterLoading" class="ml-1 hidden" aria-live="polite" aria-label="Loading">
                     <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -301,6 +303,44 @@
 
                 // Hide loading if navigation prevented (unlikely here)
                 window.addEventListener('pageshow', () => hideLoading());
+
+                // --- Global Filters sync ---
+                const branchInput = document.getElementById('usersFilterBranch');
+                const departmentInput = document.getElementById('usersFilterDepartment');
+
+                const applyGlobalFilters = (gf, resubmit) => {
+                    const branch = (gf && gf.branch) ? gf.branch : '';
+                    const department = (gf && gf.department) ? gf.department : '';
+                    if (branchInput) branchInput.value = branch;
+                    if (departmentInput) departmentInput.value = department;
+                    if (resubmit) {
+                        if (page) page.value = '1';
+                        showLoading();
+                        form.submit();
+                    }
+                };
+
+                // On page load: read localStorage and auto-submit if stored filters differ from current URL params
+                (function syncOnLoad() {
+                    try {
+                        const stored = JSON.parse(localStorage.getItem('hrm-global-filters') || '{}');
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const urlBranch = urlParams.get('branch') || '';
+                        const urlDept   = urlParams.get('department') || '';
+                        const storedBranch = stored.branch || '';
+                        const storedDept   = stored.department || '';
+                        if (storedBranch !== urlBranch || storedDept !== urlDept) {
+                            applyGlobalFilters(stored, true);
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                })();
+
+                // On global filter change event: re-submit form with new branch/department
+                window.addEventListener('globalFiltersChanged', (e) => {
+                    applyGlobalFilters(e.detail, true);
+                });
             })();
         </script>
         @endpush

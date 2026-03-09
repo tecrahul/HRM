@@ -691,12 +691,12 @@
             padding: 20px;
         }
         /* vertical rhythm between major blocks */
-        .ui-section + .ui-section,
+        /*.ui-section + .ui-section,
         .ui-kpi-grid + .ui-section,
         .ui-section + .ui-kpi-grid,
         .ui-kpi-grid + .ui-kpi-grid {
             margin-top: var(--sp-lg); /* 24px between major sections */
-        }
+	/*}*/
         .ui-alert + .ui-section,
         .ui-alert + .ui-kpi-grid {
             margin-top: var(--sp-lg); /* standardize to 24px */
@@ -764,8 +764,9 @@
             gap: 8px;
             transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
         }
-        /* spacing between adjacent buttons */
+        /* spacing between adjacent buttons (horizontal only) */
         .ui-btn + .ui-btn { margin-left: 8px; }
+        .ui-btn-stack .ui-btn + .ui-btn { margin-left: 0; }
 
         .ui-btn:hover { transform: translateY(-1px); }
 
@@ -938,6 +939,117 @@
                 transform: translateX(0);
             }
         }
+
+        /* ── Global Filter Panel ─────────────────────────────────── */
+        .hrm-filter-menu { position: relative; }
+
+        .hrm-filter-dropdown {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            width: 320px;
+            border-radius: 14px;
+            border: 1px solid var(--hr-line);
+            background: var(--hr-surface-strong);
+            box-shadow: 0 20px 40px -28px rgb(2 8 23 / 0.88);
+            z-index: var(--z-popover, 1200);
+            overflow: hidden;
+        }
+
+        .hrm-filter-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 13px 16px 11px;
+            border-bottom: 1px solid var(--hr-line);
+        }
+
+        .hrm-filter-body {
+            padding: 14px 16px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .hrm-filter-field label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.11em;
+            color: var(--hr-text-muted);
+            margin-bottom: 5px;
+        }
+
+        .hrm-filter-field .ui-select {
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+
+        .hrm-filter-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 16px 14px;
+            border-top: 1px solid var(--hr-line);
+        }
+
+        .hrm-filter-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 4px;
+            border-radius: 999px;
+            border: 2px solid var(--hr-surface-strong);
+            background: var(--hr-accent);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            line-height: 1;
+            font-weight: 700;
+        }
+
+        .hrm-filter-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px 3px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            background: var(--hr-accent-soft);
+            border: 1px solid var(--hr-accent-border);
+            color: var(--hr-text-main);
+        }
+
+        .hrm-filter-tag-close {
+            width: 14px;
+            height: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            cursor: pointer;
+            color: var(--hr-text-muted);
+            transition: color 120ms ease;
+        }
+
+        .hrm-filter-tag-close:hover { color: var(--hr-text-main); }
+
+        .hrm-filter-locked {
+            opacity: 0.65;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        #hrmActiveFilterBar {
+            border-bottom: 1px solid var(--hr-line);
+            background: var(--hr-accent-soft);
+        }
     </style>
     @stack('head')
 </head>
@@ -991,6 +1103,24 @@
             ->limit(6)
             ->get();
     }
+    // ── Global Filter data ────────────────────────────────────────────
+    try {
+        $globalFilterBranches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $globalFilterDepartments = \App\Models\Department::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+    } catch (\Exception $e) {
+        $globalFilterBranches = collect();
+        $globalFilterDepartments = collect();
+    }
+    $globalFilterUserBranch     = (string) ($user?->profile?->branch ?? '');
+    $globalFilterUserDepartment = (string) ($user?->profile?->department ?? '');
+    $globalFilterIsEmployee     = $isEmployee;
+    $globalFilterConfig = json_encode([
+        'branches'       => $globalFilterBranches->values(),
+        'departments'    => $globalFilterDepartments->values(),
+        'userBranch'     => $globalFilterUserBranch,
+        'userDepartment' => $globalFilterUserDepartment,
+        'isEmployee'     => $globalFilterIsEmployee,
+    ]);
 @endphp
 <div id="hrmModernShell" class="hrm-modern-shell">
     <aside id="hrmModernSidebar" class="hrm-modern-sidebar hrm-modern-surface px-1 py-5 flex flex-col gap-4">
@@ -1268,7 +1398,7 @@
 
                     @if ($canSeePayroll)
                     @php
-                        $payrollOpen = request()->routeIs('modules.payroll.salary-structures') || request()->routeIs('modules.payroll.processing') || request()->routeIs('modules.payroll.history') || request()->routeIs('modules.payroll.payslips');
+                        $payrollOpen = request()->routeIs('modules.payroll.dashboard') || request()->routeIs('modules.payroll.salary-structures') || request()->routeIs('modules.payroll.processing') || request()->routeIs('modules.payroll.history') || request()->routeIs('modules.payroll.payslips');
                     @endphp
                     <div class="hrm-has-children">
                         <button type="button" class="hrm-modern-nav-link hrm-nav-l2 rounded-xl flex items-center gap-3 hrm-submenu-toggle {{ $payrollOpen ? 'is-active' : '' }}" aria-expanded="{{ $payrollOpen ? 'true' : 'false' }}">
@@ -1277,12 +1407,14 @@
                             <svg class="h-4 w-4 shrink-0 ml-auto hrm-nav-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
                         </button>
                         <div class="hrm-submenu-links {{ $payrollOpen ? '' : 'hidden' }}">
+                            <a href="{{ route('modules.payroll.dashboard') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.payroll.dashboard') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Overview</span></a>
                             <a href="{{ route('modules.payroll.salary-structures') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.payroll.salary-structures') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Salary Structures</span></a>
                             <a href="{{ route('modules.payroll.processing') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.payroll.processing') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Payroll Processing</span></a>
                             <a href="{{ route('modules.payroll.history') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.payroll.history') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Payroll History</span></a>
                             <a href="{{ route('modules.payroll.payslips') }}" class="hrm-modern-nav-link hrm-nav-l3 {{ request()->routeIs('modules.payroll.payslips') ? 'is-active' : '' }} rounded-lg flex items-center gap-2"><span class="hrm-nav-bullet"></span><span class="hrm-nav-label">Payslips</span></a>
                         </div>
                         <div class="hrm-flyout">
+                            <a href="{{ route('modules.payroll.dashboard') }}">Overview</a>
                             <a href="{{ route('modules.payroll.salary-structures') }}">Salary Structures</a>
                             <a href="{{ route('modules.payroll.processing') }}">Payroll Processing</a>
                             <a href="{{ route('modules.payroll.history') }}">Payroll History</a>
@@ -1536,7 +1668,7 @@
                     <div id="hrmPayrollLinks" class="hrm-submenu-links flex flex-col gap-1 {{ $payrollMenuOpen ? '' : 'hidden' }}">
                         <a href="{{ route('modules.payroll.dashboard') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.dashboard') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
                             <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
-                            <span class="hrm-nav-label">Dashboard</span>
+                            <span class="hrm-nav-label">Overview</span>
                         </a>
                         <a href="{{ route('modules.payroll.salary-structures') }}" class="hrm-modern-nav-link {{ request()->routeIs('modules.payroll.salary-structures') ? 'is-active' : '' }} rounded-lg pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs">
                             <span class="h-1.5 w-1.5 rounded-full" style="background: currentColor;"></span>
@@ -1685,6 +1817,102 @@
 
                 <div class="ml-auto flex items-center gap-4">
                     <div class="flex items-center gap-4">
+                        {{-- ── Global Filter ──────────────────────────── --}}
+                        <div id="hrmGlobalFilterMenu" class="hrm-filter-menu">
+                            <button id="hrmGlobalFilterButton" type="button" class="hrm-header-icon-btn" aria-label="Global Filters" aria-haspopup="true" aria-expanded="false" title="Global Filters">
+                                {{-- Sliders-horizontal icon --}}
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <line x1="4" y1="21" x2="4" y2="14"></line>
+                                    <line x1="4" y1="10" x2="4" y2="3"></line>
+                                    <line x1="12" y1="21" x2="12" y2="12"></line>
+                                    <line x1="12" y1="8" x2="12" y2="3"></line>
+                                    <line x1="20" y1="21" x2="20" y2="16"></line>
+                                    <line x1="20" y1="12" x2="20" y2="3"></line>
+                                    <line x1="1" y1="14" x2="7" y2="14"></line>
+                                    <line x1="9" y1="8" x2="15" y2="8"></line>
+                                    <line x1="17" y1="16" x2="23" y2="16"></line>
+                                </svg>
+                                <span id="hrmGlobalFilterBadge" class="hrm-filter-badge" style="display:none;" aria-label="active filters"></span>
+                            </button>
+
+                            <div id="hrmGlobalFilterDropdown"
+                                 class="hrm-filter-dropdown hidden"
+                                 role="dialog"
+                                 aria-label="Global Filters"
+                                 data-filter-config="{{ $globalFilterConfig }}">
+
+                                <div class="hrm-filter-head">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--hr-accent);">
+                                            <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>
+                                        </svg>
+                                        <p class="text-sm font-bold">Global Filters</p>
+                                    </div>
+                                    <button id="hrmGlobalFilterClose" type="button" class="hrm-filter-tag-close" aria-label="Close filters panel">
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                                    </button>
+                                </div>
+
+                                <div class="hrm-filter-body">
+                                    {{-- Financial Year --}}
+                                    <div class="hrm-filter-field">
+                                        <label for="hrmFilterFY">Financial Year</label>
+                                        <select id="hrmFilterFY" class="ui-select">
+                                            <option value="">All Years</option>
+                                        </select>
+                                    </div>
+
+                                    {{-- Branch --}}
+                                    <div class="hrm-filter-field" id="hrmFilterBranchField">
+                                        <label for="hrmFilterBranch">
+                                            Branch
+                                            @if($globalFilterIsEmployee)
+                                                <svg class="inline-block ml-1 h-3 w-3 align-middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--hr-text-muted);" aria-label="Read-only"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                            @endif
+                                        </label>
+                                        <select id="hrmFilterBranch" class="ui-select {{ $globalFilterIsEmployee ? 'hrm-filter-locked' : '' }}" {{ $globalFilterIsEmployee ? 'disabled' : '' }}>
+                                            <option value="">All Branches</option>
+                                            @foreach($globalFilterBranches as $b)
+                                                <option value="{{ $b->name }}" {{ $globalFilterIsEmployee && $globalFilterUserBranch === $b->name ? 'selected' : '' }}>{{ $b->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        @if($globalFilterIsEmployee && $globalFilterUserBranch)
+                                            <p class="mt-1 text-[11px]" style="color:var(--hr-text-muted);">Auto-assigned to your branch</p>
+                                        @endif
+                                    </div>
+
+                                    {{-- Department --}}
+                                    <div class="hrm-filter-field" id="hrmFilterDeptField">
+                                        <label for="hrmFilterDept">
+                                            Department
+                                            @if($globalFilterIsEmployee)
+                                                <svg class="inline-block ml-1 h-3 w-3 align-middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--hr-text-muted);" aria-label="Read-only"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                            @endif
+                                        </label>
+                                        <select id="hrmFilterDept" class="ui-select {{ $globalFilterIsEmployee ? 'hrm-filter-locked' : '' }}" {{ $globalFilterIsEmployee ? 'disabled' : '' }}>
+                                            <option value="">All Departments</option>
+                                            @foreach($globalFilterDepartments as $d)
+                                                <option value="{{ $d->name }}" {{ $globalFilterIsEmployee && $globalFilterUserDepartment === $d->name ? 'selected' : '' }}>{{ $d->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        @if($globalFilterIsEmployee && $globalFilterUserDepartment)
+                                            <p class="mt-1 text-[11px]" style="color:var(--hr-text-muted);">Auto-assigned to your department</p>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <div class="hrm-filter-foot">
+                                    <button id="hrmFilterClear" type="button" class="ui-btn ui-btn-secondary" style="height:34px;font-size:13px;">
+                                        Clear Filters
+                                    </button>
+                                    <button id="hrmFilterApply" type="button" class="ui-btn ui-btn-primary" style="height:34px;font-size:13px;">
+                                        Apply Filters
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {{-- ────────────────────────────────────────────── --}}
+
                         <div id="hrmCommunicationMenu" class="hrm-notification-menu">
                             <button id="hrmCommunicationButton" type="button" class="hrm-header-icon-btn" aria-label="Communication" aria-haspopup="true" aria-expanded="false">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1848,6 +2076,12 @@
                 </div>
             </div>
         </header>
+
+        {{-- ── Active Filter Tags Bar (shown when filters are applied) ── --}}
+        <div id="hrmActiveFilterBar" class="hidden px-6 py-2 flex flex-wrap items-center gap-2">
+            <span class="text-[11px] font-semibold uppercase tracking-wider flex-shrink-0" style="color:var(--hr-text-muted);">Filters:</span>
+            <div id="hrmActiveFilterTagsContainer" class="flex flex-wrap gap-1.5"></div>
+        </div>
 
         <main class="hrm-main-content p-6 space-y-6">
             @yield('content')
@@ -2214,6 +2448,238 @@
         initPasswordToggles();
         initEnterpriseSidebarSubmenus();
         updateSidebarFades();
+    })();
+</script>
+
+{{-- ── Global Filter System ───────────────────────────────────────── --}}
+<script>
+    (() => {
+        const FILTER_KEY = 'hrm-global-filters';
+        const FILTER_FYS = ['2026-2027', '2025-2026', '2024-2025', '2023-2024', '2022-2023'];
+
+        const filterMenu      = document.getElementById('hrmGlobalFilterMenu');
+        const filterBtn       = document.getElementById('hrmGlobalFilterButton');
+        const filterDropdown  = document.getElementById('hrmGlobalFilterDropdown');
+        const filterClose     = document.getElementById('hrmGlobalFilterClose');
+        const filterBadge     = document.getElementById('hrmGlobalFilterBadge');
+        const filterApplyBtn  = document.getElementById('hrmFilterApply');
+        const filterClearBtn  = document.getElementById('hrmFilterClear');
+        const filterFY        = document.getElementById('hrmFilterFY');
+        const filterBranch    = document.getElementById('hrmFilterBranch');
+        const filterDept      = document.getElementById('hrmFilterDept');
+        const activeBar       = document.getElementById('hrmActiveFilterBar');
+        const activeTagsCont  = document.getElementById('hrmActiveFilterTagsContainer');
+
+        if (!filterBtn || !filterDropdown) return;
+
+        // Read config from data attribute
+        let config = {};
+        try { config = JSON.parse(filterDropdown.getAttribute('data-filter-config') || '{}'); } catch {}
+        const isEmployee    = !!config.isEmployee;
+        const userBranch    = config.userBranch || '';
+        const userDepartment = config.userDepartment || '';
+
+        // ── Populate Financial Year select ──────────────────────────
+        if (filterFY) {
+            FILTER_FYS.forEach(fy => {
+                const opt = document.createElement('option');
+                opt.value = fy;
+                opt.textContent = 'FY ' + fy.replace('-', '–');
+                filterFY.appendChild(opt);
+            });
+        }
+
+        // ── Default filter object ───────────────────────────────────
+        const getDefault = () => {
+            const now = new Date();
+            const fyStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+            return {
+                financial_year: `${fyStart}-${fyStart + 1}`,
+                branch:     isEmployee ? userBranch : '',
+                department: isEmployee ? userDepartment : '',
+            };
+        };
+
+        // ── Load filters from localStorage ─────────────────────────
+        const loadFilters = () => {
+            try {
+                const raw = localStorage.getItem(FILTER_KEY);
+                const saved = raw ? JSON.parse(raw) : {};
+                const merged = { ...getDefault(), ...saved };
+                // Employees always get their assigned branch/department
+                if (isEmployee) {
+                    merged.branch     = userBranch;
+                    merged.department = userDepartment;
+                }
+                return merged;
+            } catch {
+                return getDefault();
+            }
+        };
+
+        // ── Save filters to localStorage & dispatch event ───────────
+        const saveFilters = (filters) => {
+            localStorage.setItem(FILTER_KEY, JSON.stringify(filters));
+            window.dispatchEvent(new CustomEvent('globalFiltersChanged', {
+                detail: filters,
+                bubbles: true,
+            }));
+        };
+
+        // ── Count non-empty filter values ───────────────────────────
+        const countActive = (f) =>
+            [f.financial_year, f.branch, f.department].filter(Boolean).length;
+
+        // ── Update badge on filter icon ─────────────────────────────
+        const updateBadge = (filters) => {
+            if (!filterBadge) return;
+            const n = countActive(filters);
+            if (n > 0) {
+                filterBadge.textContent = String(n);
+                filterBadge.style.display = '';
+            } else {
+                filterBadge.style.display = 'none';
+            }
+        };
+
+        // ── Update active filter tags bar ───────────────────────────
+        const updateTagsBar = (filters) => {
+            if (!activeBar || !activeTagsCont) return;
+            activeTagsCont.innerHTML = '';
+
+            const tags = [];
+            if (filters.financial_year) tags.push({ key: 'financial_year', label: 'FY: ' + filters.financial_year.replace('-', '–') });
+            if (filters.branch)         tags.push({ key: 'branch',         label: 'Branch: ' + filters.branch });
+            if (filters.department)     tags.push({ key: 'department',     label: 'Dept: '   + filters.department });
+
+            if (tags.length === 0) { activeBar.classList.add('hidden'); return; }
+            activeBar.classList.remove('hidden');
+
+            tags.forEach(tag => {
+                const el = document.createElement('span');
+                el.className = 'hrm-filter-tag';
+                const isLocked = isEmployee && (tag.key === 'branch' || tag.key === 'department');
+                el.innerHTML = `${tag.label}` + (isLocked ? '' :
+                    `<button type="button" class="hrm-filter-tag-close" aria-label="Remove ${tag.label}">` +
+                    `<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`);
+                if (!isLocked) {
+                    el.querySelector('button')?.addEventListener('click', () => {
+                        const cur = loadFilters();
+                        if (tag.key === 'financial_year') cur.financial_year = '';
+                        if (tag.key === 'branch')         cur.branch = '';
+                        if (tag.key === 'department')     cur.department = '';
+                        if (filterFY     && tag.key === 'financial_year') filterFY.value     = '';
+                        if (filterBranch && tag.key === 'branch')         filterBranch.value = '';
+                        if (filterDept   && tag.key === 'department')     filterDept.value   = '';
+                        saveFilters(cur);
+                        updateBadge(cur);
+                        updateTagsBar(cur);
+                    });
+                }
+                activeTagsCont.appendChild(el);
+            });
+        };
+
+        // ── Sync selects to current filter state ────────────────────
+        const syncSelects = (filters) => {
+            if (filterFY)     filterFY.value     = filters.financial_year || '';
+            if (filterBranch && !isEmployee) filterBranch.value = filters.branch || '';
+            if (filterDept   && !isEmployee) filterDept.value   = filters.department || '';
+        };
+
+        // ── Toggle filter dropdown ───────────────────────────────────
+        const setFilterOpen = (open) => {
+            if (!filterMenu || !filterDropdown || !filterBtn) return;
+            filterMenu.classList.toggle('is-open', open);
+            filterDropdown.classList.toggle('hidden', !open);
+            filterBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+
+        // ── Close sibling header dropdowns ───────────────────────────
+        const closeOtherMenus = () => {
+            const ids = [
+                ['hrmNotificationMenu', 'hrmNotificationDropdown'],
+                ['hrmCommunicationMenu', 'hrmCommunicationDropdown'],
+                ['hrmProfileMenu',       'hrmProfileDropdown'],
+            ];
+            ids.forEach(([menuId, dropId]) => {
+                const m = document.getElementById(menuId);
+                const d = document.getElementById(dropId);
+                if (m && m.classList.contains('is-open')) {
+                    m.classList.remove('is-open');
+                    d?.classList.add('hidden');
+                    document.getElementById(menuId.replace('Menu', 'Button'))?.setAttribute('aria-expanded', 'false');
+                }
+            });
+        };
+
+        // ── Initialise ───────────────────────────────────────────────
+        const current = loadFilters();
+        syncSelects(current);
+        updateBadge(current);
+        updateTagsBar(current);
+        // Persist employee defaults on load
+        if (isEmployee) saveFilters(current);
+
+        // ── Button: open / close panel ───────────────────────────────
+        filterBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const isOpen = filterMenu.classList.contains('is-open');
+            if (!isOpen) closeOtherMenus();
+            setFilterOpen(!isOpen);
+        });
+
+        // ── Close button inside panel ────────────────────────────────
+        filterClose?.addEventListener('click', () => setFilterOpen(false));
+
+        // ── Apply Filters ─────────────────────────────────────────────
+        filterApplyBtn?.addEventListener('click', () => {
+            const filters = {
+                financial_year: filterFY?.value     || '',
+                branch:     isEmployee ? userBranch     : (filterBranch?.value || ''),
+                department: isEmployee ? userDepartment : (filterDept?.value   || ''),
+            };
+            saveFilters(filters);
+            updateBadge(filters);
+            updateTagsBar(filters);
+            setFilterOpen(false);
+        });
+
+        // ── Clear Filters ─────────────────────────────────────────────
+        filterClearBtn?.addEventListener('click', () => {
+            const cleared = {
+                financial_year: '',
+                branch:     isEmployee ? userBranch     : '',
+                department: isEmployee ? userDepartment : '',
+            };
+            syncSelects(cleared);
+            saveFilters(cleared);
+            updateBadge(cleared);
+            updateTagsBar(cleared);
+        });
+
+        // ── Close on outside click ────────────────────────────────────
+        document.addEventListener('click', (e) => {
+            if (filterMenu && e.target instanceof Element && !filterMenu.contains(e.target)) {
+                setFilterOpen(false);
+            }
+        });
+
+        // ── Close on Escape ───────────────────────────────────────────
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') setFilterOpen(false);
+        });
+
+        // ── Expose API for React components ──────────────────────────
+        window.hrmGlobalFilters = {
+            get:       loadFilters,
+            set:       (filters) => { saveFilters(filters); updateBadge(filters); updateTagsBar(filters); },
+            onChanged: (cb) => {
+                const h = (e) => cb(e.detail);
+                window.addEventListener('globalFiltersChanged', h);
+                return () => window.removeEventListener('globalFiltersChanged', h);
+            },
+        };
     })();
 </script>
 @stack('scripts')

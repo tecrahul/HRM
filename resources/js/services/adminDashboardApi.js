@@ -47,14 +47,19 @@ export const fetchDepartmentOptions = async (endpointUrl, params = {}, signal) =
     return Array.isArray(data?.departments) ? data.departments : [];
 };
 
-export const buildDashboardSummaryQuery = ({ branchId = '', departmentId = '' } = {}) => {
+export const buildDashboardSummaryQuery = ({ branchId = '', departmentId = '', branch = '', department = '' } = {}) => {
     const query = {};
 
-    if (String(branchId).trim() !== '') {
+    // Prefer name-based filtering (from global filters) over ID-based
+    if (String(branch).trim() !== '') {
+        query.branch = String(branch).trim();
+    } else if (String(branchId).trim() !== '') {
         query.branch_id = String(branchId).trim();
     }
 
-    if (String(departmentId).trim() !== '') {
+    if (String(department).trim() !== '') {
+        query.department = String(department).trim();
+    } else if (String(departmentId).trim() !== '') {
         query.department_id = String(departmentId).trim();
     }
 

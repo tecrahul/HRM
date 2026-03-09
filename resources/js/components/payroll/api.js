@@ -36,6 +36,8 @@ export const payrollApi = {
     getDashboardSummary: (url, params) => get(url, params),
     getDashboardAlerts: (url, params) => get(url, params),
     getDashboardActivity: (url, params) => get(url, params),
+    getDashboardTrend: (url, params) => get(url, params),
+    getDashboardDistribution: (url, params) => get(url, params),
     getSalaryStructures: (url, params) => get(url, params),
     getHistory: (url, params) => get(url, params),
     getWorkflowOverview: (url, params) => get(url, params),
@@ -73,8 +75,8 @@ export const payrollApi = {
 };
 
 export const toQueryObject = (filters = {}) => ({
-    branch_id: filters.branchId || '',
-    department_id: filters.departmentId || '',
+    branch: filters.branch || '',
+    department: filters.department || '',
     employee_id: filters.employeeId || '',
     payroll_month: filters.payrollMonth || '',
     q: filters.search || '',

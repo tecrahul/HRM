@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client';
 import axios from 'axios';
 import { AppModalPortal } from '../shared/AppModalPortal';
+import { getGlobalFilters, onFiltersChange } from '../../utils/globalFilters';
 
 const EMPTY_FORM = {
     name: '',
@@ -151,6 +152,7 @@ function DepartmentField({
 
 function DepartmentsPageApp({ payload }) {
     const routes = payload.routes ?? {};
+    const capabilities = payload.capabilities ?? { canCreate: false, canEdit: false, canDelete: false };
     const branches = Array.isArray(payload.branches) ? payload.branches : [];
     const defaultBranchId = branches[0]?.id ? String(branches[0].id) : '';
     const initialMeta = payload.departments?.meta ?? {
@@ -161,10 +163,16 @@ function DepartmentsPageApp({ payload }) {
         from: null,
         to: null,
     };
+    // Resolve branch_id from global filter branch name
+    const globalBranchName = getGlobalFilters().branch;
+    const initialGlobalBranchId = globalBranchName
+        ? String(branches.find((b) => b.name === globalBranchName)?.id ?? '')
+        : '';
+
     const initialFilters = {
         q: payload.filters?.q ?? '',
         status: ['all', 'active', 'inactive'].includes(payload.filters?.status) ? payload.filters.status : 'all',
-        branch_id: payload.filters?.branch_id ? String(payload.filters.branch_id) : '',
+        branch_id: initialGlobalBranchId || (payload.filters?.branch_id ? String(payload.filters.branch_id) : ''),
     };
     const initialEditingDepartment = payload.editingDepartment ?? null;
 
@@ -188,6 +196,16 @@ function DepartmentsPageApp({ payload }) {
 
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleteBusy, setDeleteBusy] = useState(false);
+
+    // Subscribe to global filter changes → update branch_id filter
+    useEffect(() => {
+        return onFiltersChange((gf) => {
+            const bId = gf.branch
+                ? String(branches.find((b) => b.name === gf.branch)?.id ?? '')
+                : '';
+            setFilters((prev) => ({ ...prev, branch_id: bId }));
+        });
+    }, [branches]);
 
     const formRef = useRef(null);
     const filterHydratedRef = useRef(false);
@@ -495,15 +513,17 @@ function DepartmentsPageApp({ payload }) {
                         Configure branch-linked departments for employees and operations.
                     </p>
                 </div>
-                <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{ background: 'linear-gradient(120deg, #0f766e, #0ea5a4)' }}
-                    onClick={openCreateForm}
-                    disabled={branches.length === 0}
-                >
-                    + Create Department
-                </button>
+                {capabilities.canCreate ? (
+                    <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                        style={{ background: 'linear-gradient(120deg, #0f766e, #0ea5a4)' }}
+                        onClick={openCreateForm}
+                        disabled={branches.length === 0}
+                    >
+                        + Create Department
+                    </button>
+                ) : null}
             </section>
 
             {branches.length === 0 ? (
@@ -685,25 +705,6 @@ function DepartmentsPageApp({ payload }) {
                         <select
                             className="rounded-xl border px-3 py-2.5 text-sm bg-transparent"
                             style={{ borderColor: 'var(--hr-line)' }}
-                            value={filters.branch_id}
-                            onChange={(event) => {
-                                const nextBranchId = event.target.value;
-                                setFilters((prev) => ({
-                                    ...prev,
-                                    branch_id: nextBranchId,
-                                }));
-                            }}
-                        >
-                            <option value="">All Branches</option>
-                            {branches.map((branch) => (
-                                <option key={branch.id} value={String(branch.id)}>
-                                    {branch.name}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            className="rounded-xl border px-3 py-2.5 text-sm bg-transparent"
-                            style={{ borderColor: 'var(--hr-line)' }}
                             value={filters.status}
                             onChange={(event) => {
                                 const nextStatus = event.target.value;
@@ -795,22 +796,26 @@ function DepartmentsPageApp({ payload }) {
                                     <td className="py-4 px-6">{department.createdDateLabel || 'N/A'}</td>
                                     <td className="py-4 px-6">
                                         <div className="flex items-center justify-end gap-2">
-                                            <button
-                                                type="button"
-                                                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold border"
-                                                style={{ borderColor: 'var(--hr-line)' }}
-                                                onClick={() => openEditForm(department)}
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold border text-red-600"
-                                                style={{ borderColor: 'rgb(239 68 68 / 0.32)' }}
-                                                onClick={() => askDelete(department)}
-                                            >
-                                                Delete
-                                            </button>
+                                            {capabilities.canEdit ? (
+                                                <button
+                                                    type="button"
+                                                    className="rounded-lg px-2.5 py-1.5 text-xs font-semibold border"
+                                                    style={{ borderColor: 'var(--hr-line)' }}
+                                                    onClick={() => openEditForm(department)}
+                                                >
+                                                    Edit
+                                                </button>
+                                            ) : null}
+                                            {capabilities.canDelete ? (
+                                                <button
+                                                    type="button"
+                                                    className="rounded-lg px-2.5 py-1.5 text-xs font-semibold border text-red-600"
+                                                    style={{ borderColor: 'rgb(239 68 68 / 0.32)' }}
+                                                    onClick={() => askDelete(department)}
+                                                >
+                                                    Delete
+                                                </button>
+                                            ) : null}
                                         </div>
                                     </td>
                                 </tr>

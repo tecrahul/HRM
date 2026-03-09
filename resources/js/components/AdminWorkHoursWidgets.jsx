@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { buildDashboardSummaryQuery } from '../services/adminDashboardApi';
 import { fetchAvgWorkHours, fetchMonthlyWorkHours } from '../services/workHoursApi';
 import { AnalyticsAreaChart, AnalyticsBarChart } from './common/charts';
+import { getGlobalFilters, onFiltersChange } from '../utils/globalFilters';
 
 function LoadingSkeleton() {
   return (
@@ -234,10 +235,16 @@ function WorkHoursMonthlyCard({ endpoint, baseQuery }) {
   );
 }
 
-function AdminWorkHoursWidgets({ avgEndpoint, monthlyEndpoint, initialBranchId = '', initialDepartmentId = '' }) {
+function AdminWorkHoursWidgets({ avgEndpoint, monthlyEndpoint }) {
+  const [globalFilters, setGlobalFilters] = useState(() => getGlobalFilters());
+
+  useEffect(() => {
+    return onFiltersChange((f) => setGlobalFilters({ ...f }));
+  }, []);
+
   const baseQuery = useMemo(
-    () => buildDashboardSummaryQuery({ branchId: initialBranchId, departmentId: initialDepartmentId }),
-    [initialBranchId, initialDepartmentId],
+    () => buildDashboardSummaryQuery({ branch: globalFilters.branch, department: globalFilters.department }),
+    [globalFilters.branch, globalFilters.department],
   );
 
   return (
@@ -253,14 +260,10 @@ export function mountAdminWorkHoursWidgets() {
   if (!root) return;
   const avgEndpoint = root.dataset.avgEndpoint || '';
   const monthlyEndpoint = root.dataset.monthlyEndpoint || '';
-  const initialBranchId = root.dataset.branchId || '';
-  const initialDepartmentId = root.dataset.departmentId || '';
   createRoot(root).render(
     <AdminWorkHoursWidgets
       avgEndpoint={avgEndpoint}
       monthlyEndpoint={monthlyEndpoint}
-      initialBranchId={initialBranchId}
-      initialDepartmentId={initialDepartmentId}
     />,
   );
 }

@@ -151,6 +151,8 @@ Route::middleware(['auth', SyncRoleNotifications::class])->group(function (): vo
         Route::get('/dashboard/summary', [PayrollModuleController::class, 'dashboardSummaryApi'])->name('dashboard.summary');
         Route::get('/dashboard/alerts', [PayrollModuleController::class, 'dashboardAlertsApi'])->name('dashboard.alerts');
         Route::get('/dashboard/activity', [PayrollModuleController::class, 'dashboardActivityApi'])->name('dashboard.activity');
+        Route::get('/dashboard/trend', [PayrollModuleController::class, 'dashboardTrendApi'])->name('dashboard.trend');
+        Route::get('/dashboard/distribution', [PayrollModuleController::class, 'dashboardDistributionApi'])->name('dashboard.distribution');
         Route::get('/salary-structures', [PayrollModuleController::class, 'salaryStructuresApi'])->name('salary-structures');
         Route::get('/history', [PayrollModuleController::class, 'payrollHistoryApi'])->name('history');
     });

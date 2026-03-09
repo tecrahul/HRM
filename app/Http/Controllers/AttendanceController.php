@@ -137,7 +137,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.create')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.create')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to mark attendance.');
         }
 
@@ -168,7 +168,7 @@ class AttendanceController extends Controller
             $validated['check_out_time'] ?? null,
         );
 
-        $approvalStatus = $viewer->can('attendance.approve')
+        $approvalStatus = $viewer->hasPermission('attendance.approve')
             ? Attendance::APPROVAL_APPROVED
             : Attendance::APPROVAL_PENDING;
 
@@ -243,7 +243,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.edit')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.edit')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to edit attendance records.');
         }
 
@@ -352,7 +352,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.delete')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.delete')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to delete attendance records.');
         }
 
@@ -396,7 +396,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.approve')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.approve')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to approve attendance.');
         }
 
@@ -489,7 +489,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.reject')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.reject')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to reject attendance.');
         }
 
@@ -550,7 +550,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.create')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.create')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to submit correction requests.');
         }
 
@@ -627,7 +627,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.lock.month')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.lock.month')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to lock attendance month.');
         }
 
@@ -672,7 +672,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.unlock.month')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.unlock.month')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to unlock attendance month.');
         }
 
@@ -729,7 +729,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.export')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.export')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to export attendance records.');
         }
 
@@ -806,7 +806,7 @@ class AttendanceController extends Controller
             return response()->json([]);
         }
 
-        $requiresDepartment = $viewer->can('attendance.view.department') || $viewer->can('attendance.view.all');
+        $requiresDepartment = $viewer->hasPermission('attendance.view.department') || $viewer->hasPermission('attendance.view.all');
         if ($requiresDepartment && $filters['department'] === '') {
             return response()->json([]);
         }
@@ -977,7 +977,7 @@ class AttendanceController extends Controller
     {
         $viewer = $request->user();
 
-        if (! $viewer instanceof User || ! $viewer->can('attendance.create')) {
+        if (! $viewer instanceof User || ! $viewer->hasPermission('attendance.create')) {
             abort(Response::HTTP_FORBIDDEN, 'You do not have permission to mark attendance.');
         }
 
@@ -1161,11 +1161,11 @@ class AttendanceController extends Controller
 
     private function applyAccessScope(Builder $query, User $viewer): void
     {
-        if ($viewer->can('attendance.view.all')) {
+        if ($viewer->hasPermission('attendance.view.all')) {
             return;
         }
 
-        if ($viewer->can('attendance.view.department')) {
+        if ($viewer->hasPermission('attendance.view.department')) {
             $department = (string) ($viewer->profile?->department ?? '');
 
             if ($department === '') {
@@ -1185,11 +1185,11 @@ class AttendanceController extends Controller
 
     private function canAccessAttendance(User $viewer, Attendance $attendance): bool
     {
-        if ($viewer->can('attendance.view.all')) {
+        if ($viewer->hasPermission('attendance.view.all')) {
             return true;
         }
 
-        if ($viewer->can('attendance.view.department')) {
+        if ($viewer->hasPermission('attendance.view.department')) {
             $viewerDepartment = (string) ($viewer->profile?->department ?? '');
             $attendanceDepartment = (string) ($attendance->user?->profile?->department ?? '');
 
@@ -1205,11 +1205,11 @@ class AttendanceController extends Controller
             return false;
         }
 
-        if ($viewer->can('attendance.view.all')) {
+        if ($viewer->hasPermission('attendance.view.all')) {
             return User::query()->workforce()->whereKey($targetUserId)->exists();
         }
 
-        if ($viewer->can('attendance.view.department')) {
+        if ($viewer->hasPermission('attendance.view.department')) {
             $department = (string) ($viewer->profile?->department ?? '');
             if ($department === '') {
                 return false;
@@ -1256,7 +1256,7 @@ class AttendanceController extends Controller
             ->whereIn('user_id', $employeeIds)
             ->where('approval_status', Attendance::APPROVAL_PENDING);
 
-        $pendingApprovals = $viewer->can('attendance.approve')
+        $pendingApprovals = $viewer->hasPermission('attendance.approve')
             ? (int) $pendingApprovalsQuery->count()
             : (int) $pendingApprovalsQuery->where('user_id', $viewer->id)->count();
 
@@ -1272,11 +1272,11 @@ class AttendanceController extends Controller
     {
         $query = User::query()->workforce();
 
-        if ($viewer->can('attendance.view.all')) {
+        if ($viewer->hasPermission('attendance.view.all')) {
             return $query;
         }
 
-        if ($viewer->can('attendance.view.department')) {
+        if ($viewer->hasPermission('attendance.view.department')) {
             $department = (string) ($viewer->profile?->department ?? '');
 
             if ($department === '') {
@@ -1347,24 +1347,24 @@ class AttendanceController extends Controller
         // Only Admin and Super Admin can mark attendance for others
         // HR and Finance should use Punch In/Out for themselves
         $isAdmin = in_array($viewer->role, [UserRole::ADMIN->value, UserRole::SUPER_ADMIN->value], true);
-        $canMarkForOthers = $viewer->can('attendance.edit') && $isAdmin;
+        $canMarkForOthers = $viewer->hasPermission('attendance.edit') && $isAdmin;
 
         return [
-            'canViewSelf' => $viewer->can('attendance.view.self'),
-            'canViewDepartment' => $viewer->can('attendance.view.department'),
-            'canViewAll' => $viewer->can('attendance.view.all'),
+            'canViewSelf' => $viewer->hasPermission('attendance.view.self'),
+            'canViewDepartment' => $viewer->hasPermission('attendance.view.department'),
+            'canViewAll' => $viewer->hasPermission('attendance.view.all'),
             'canCreate' => $canMarkForOthers,
-            'canPunchSelf' => $viewer->can('attendance.create'),
-            'canEdit' => $viewer->can('attendance.edit'),
-            'canDelete' => $viewer->can('attendance.delete'),
-            'canApprove' => $viewer->can('attendance.approve'),
-            'canReject' => $viewer->can('attendance.reject'),
-            'canLockMonth' => $viewer->can('attendance.lock.month'),
-            'canUnlockMonth' => $viewer->can('attendance.unlock.month'),
-            'canExport' => $viewer->can('attendance.export'),
-            'canRequestCorrection' => $viewer->can('attendance.create') && ! $isEmployeeOnly,
-            'showBranchColumn' => $viewer->can('attendance.view.all'),
-            'showDepartmentColumn' => $viewer->can('attendance.view.all') || $viewer->can('attendance.view.department'),
+            'canPunchSelf' => $viewer->hasPermission('attendance.create'),
+            'canEdit' => $viewer->hasPermission('attendance.edit'),
+            'canDelete' => $viewer->hasPermission('attendance.delete'),
+            'canApprove' => $viewer->hasPermission('attendance.approve'),
+            'canReject' => $viewer->hasPermission('attendance.reject'),
+            'canLockMonth' => $viewer->hasPermission('attendance.lock.month'),
+            'canUnlockMonth' => $viewer->hasPermission('attendance.unlock.month'),
+            'canExport' => $viewer->hasPermission('attendance.export'),
+            'canRequestCorrection' => $viewer->hasPermission('attendance.create') && ! $isEmployeeOnly,
+            'showBranchColumn' => $viewer->hasPermission('attendance.view.all'),
+            'showDepartmentColumn' => $viewer->hasPermission('attendance.view.all') || $viewer->hasPermission('attendance.view.department'),
             'isEmployeeOnly' => $isEmployeeOnly,
         ];
     }
@@ -1416,17 +1416,17 @@ class AttendanceController extends Controller
         $branch = trim((string) $request->string('branch'));
         $employeeId = trim((string) $request->string('employee_id'));
 
-        if (! $viewer->can('attendance.view.all')) {
+        if (! $viewer->hasPermission('attendance.view.all')) {
             $branch = '';
         }
 
-        if ($viewer->can('attendance.view.department') && ! $viewer->can('attendance.view.all')) {
+        if ($viewer->hasPermission('attendance.view.department') && ! $viewer->hasPermission('attendance.view.all')) {
             $department = trim((string) ($viewer->profile?->department ?? ''));
-        } elseif (! $viewer->can('attendance.view.department')) {
+        } elseif (! $viewer->hasPermission('attendance.view.department')) {
             $department = '';
         }
 
-        if (! $viewer->can('attendance.view.all') && ! $viewer->can('attendance.view.department')) {
+        if (! $viewer->hasPermission('attendance.view.all') && ! $viewer->hasPermission('attendance.view.department')) {
             $employeeId = '';
         }
 
@@ -1473,15 +1473,15 @@ class AttendanceController extends Controller
 
     private function resolveViewerRole(User $viewer): string
     {
-        if ($viewer->can('attendance.view.all') && $viewer->can('attendance.lock.month')) {
+        if ($viewer->hasPermission('attendance.view.all') && $viewer->hasPermission('attendance.lock.month')) {
             return 'admin';
         }
 
-        if ($viewer->can('attendance.view.all')) {
+        if ($viewer->hasPermission('attendance.view.all')) {
             return 'hr';
         }
 
-        if ($viewer->can('attendance.view.department')) {
+        if ($viewer->hasPermission('attendance.view.department')) {
             return 'manager';
         }
 
@@ -1508,7 +1508,7 @@ class AttendanceController extends Controller
      */
     private function resolveTargetUserId(User $viewer, array $validated): int
     {
-        if ($viewer->can('attendance.edit') || $viewer->can('attendance.view.all') || $viewer->can('attendance.view.department')) {
+        if ($viewer->hasPermission('attendance.edit') || $viewer->hasPermission('attendance.view.all') || $viewer->hasPermission('attendance.view.department')) {
             $candidate = (int) ($validated['user_id'] ?? 0);
 
             if ($candidate > 0) {
@@ -1595,21 +1595,21 @@ class AttendanceController extends Controller
             'requestedBy' => $attendance->correctionRequestedBy?->full_name,
             'notes' => $attendance->notes,
             'isMonthLocked' => $isMonthLocked,
-            'canApprove' => $viewer->can('attendance.approve')
+            'canApprove' => $viewer->hasPermission('attendance.approve')
                 && ! $isMonthLocked
                 && (string) $attendance->approval_status === Attendance::APPROVAL_PENDING
                 && $this->canAccessAttendance($viewer, $attendance),
-            'canReject' => $viewer->can('attendance.reject')
+            'canReject' => $viewer->hasPermission('attendance.reject')
                 && ! $isMonthLocked
                 && (string) $attendance->approval_status === Attendance::APPROVAL_PENDING
                 && $this->canAccessAttendance($viewer, $attendance),
-            'canEdit' => $viewer->can('attendance.edit')
+            'canEdit' => $viewer->hasPermission('attendance.edit')
                 && ! $isMonthLocked
                 && $this->canAccessAttendance($viewer, $attendance),
-            'canDelete' => $viewer->can('attendance.delete')
+            'canDelete' => $viewer->hasPermission('attendance.delete')
                 && ! $isMonthLocked
                 && $this->canAccessAttendance($viewer, $attendance),
-            'canRequestCorrection' => $viewer->can('attendance.create')
+            'canRequestCorrection' => $viewer->hasPermission('attendance.create')
                 && ! $isMonthLocked
                 && ! $this->isSelfOnlyViewer($viewer)
                 && (int) $attendance->user_id === (int) $viewer->id,
@@ -1627,7 +1627,7 @@ class AttendanceController extends Controller
         $today = now()->toDateString();
         $isMonthLocked = $this->isMonthLockedForDate($today);
         // All users with attendance.create permission can punch in/out for themselves
-        $canPunchSelf = $viewer->can('attendance.create') && ! $isMonthLocked;
+        $canPunchSelf = $viewer->hasPermission('attendance.create') && ! $isMonthLocked;
 
         $todayRecord = Attendance::query()
             ->where('user_id', $viewer->id)
@@ -1720,6 +1720,6 @@ class AttendanceController extends Controller
 
     private function isSelfOnlyViewer(User $viewer): bool
     {
-        return ! $viewer->can('attendance.view.department') && ! $viewer->can('attendance.view.all');
+        return ! $viewer->hasPermission('attendance.view.department') && ! $viewer->hasPermission('attendance.view.all');
     }
 }

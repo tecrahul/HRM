@@ -6,9 +6,9 @@ export function AttendanceHeader({
     canApprove,
     pendingApprovals = 0,
     punch = {},
+    punchInUrl = '',
+    punchOutUrl = '',
     onOpenForm,
-    onPunchIn,
-    onPunchOut,
     submitting = false,
 }) {
     const showPunchIn = Boolean(punch?.canPunchSelf) && punch?.nextAction === 'check_in';
@@ -48,37 +48,33 @@ export function AttendanceHeader({
                     </button>
                 </PermissionGuard>
 
-                {/* Punch In/Out buttons for all non-admin users with punch capability */}
-                {showPunchIn ? (
-                    <button
-                        type="button"
+                {/* Punch In/Out links — redirect to dedicated punch pages */}
+                {showPunchIn && punchInUrl ? (
+                    <a
+                        href={punchInUrl}
                         className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
                         style={{ background: 'linear-gradient(120deg, #15803d, #22c55e)' }}
-                        onClick={onPunchIn}
-                        disabled={submitting}
                     >
                         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <circle cx="12" cy="12" r="9" />
                             <path d="M12 7v5l3 2" />
                         </svg>
                         Punch In
-                    </button>
+                    </a>
                 ) : null}
 
-                {showPunchOut ? (
-                    <button
-                        type="button"
+                {showPunchOut && punchOutUrl ? (
+                    <a
+                        href={punchOutUrl}
                         className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
                         style={{ background: 'linear-gradient(120deg, #b45309, #f59e0b)' }}
-                        onClick={onPunchOut}
-                        disabled={submitting}
                     >
                         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <circle cx="12" cy="12" r="9" />
                             <path d="M12 7v5l3 2" />
                         </svg>
                         Punch Out
-                    </button>
+                    </a>
                 ) : null}
 
                 {showPunchDone ? (

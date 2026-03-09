@@ -4,7 +4,7 @@
 @section('page_heading', 'Punch Out')
 
 @section('content')
-    <div class="max-w-lg mx-auto">
+    <div class="max-w-2xl mx-auto">
         <section class="hrm-modern-surface rounded-2xl overflow-hidden border" style="border-color: var(--hr-line);">
             <!-- Compact Header -->
             <div class="px-5 py-4 border-b" style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.1) 0%, rgba(234, 88, 12, 0.05) 100%); border-color: var(--hr-line);">

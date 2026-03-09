@@ -24,11 +24,11 @@ export function UtilityPage({ page, urls, routes, filters }) {
     const [error, setError] = useState('');
 
     const query = useMemo(() => ({
-        branch_id: filters.branchId || '',
-        department_id: filters.departmentId || '',
+        branch: filters.branch || '',
+        department: filters.department || '',
         employee_id: filters.employeeId || '',
         payroll_month: filters.payrollMonth || '',
-    }), [filters.branchId, filters.departmentId, filters.employeeId, filters.payrollMonth]);
+    }), [filters.branch, filters.department, filters.employeeId, filters.payrollMonth]);
 
     const debouncedQuery = useDebouncedValue(query, 300);
 

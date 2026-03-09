@@ -30,13 +30,13 @@ export function HistoryPage({ urls, routes, filters, initialStatus = '' }) {
     const debouncedSearch = useDebouncedValue(search, 300);
 
     const query = useMemo(() => ({
-        branch_id: filters.branchId || '',
-        department_id: filters.departmentId || '',
+        branch: filters.branch || '',
+        department: filters.department || '',
         employee_id: filters.employeeId || '',
         q: debouncedSearch,
         status,
         page,
-    }), [filters.branchId, filters.departmentId, filters.employeeId, debouncedSearch, status, page]);
+    }), [filters.branch, filters.department, filters.employeeId, debouncedSearch, status, page]);
 
     useEffect(() => {
         setLoading(true);
@@ -65,18 +65,18 @@ export function HistoryPage({ urls, routes, filters, initialStatus = '' }) {
         params.set('payroll_month', filters.payrollMonth || '');
         params.set('q', debouncedSearch || '');
         params.set('status', status || '');
-        if (filters.branchId) {
-            params.set('branch_id', filters.branchId);
+        if (filters.branch) {
+            params.set('branch', filters.branch);
         }
-        if (filters.departmentId) {
-            params.set('department_id', filters.departmentId);
+        if (filters.department) {
+            params.set('department', filters.department);
         }
         if (filters.employeeId) {
             params.set('employee_id', filters.employeeId);
         }
 
         return `${urls.directoryExportCsv}?${params.toString()}`;
-    }, [urls.directoryExportCsv, filters.payrollMonth, filters.branchId, filters.departmentId, filters.employeeId, debouncedSearch, status]);
+    }, [urls.directoryExportCsv, filters.payrollMonth, filters.branch, filters.department, filters.employeeId, debouncedSearch, status]);
 
     return (
         <div className="space-y-5">

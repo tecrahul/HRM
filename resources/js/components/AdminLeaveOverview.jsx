@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { fetchAdminLeaveOverview } from '../services/adminLeaveOverviewApi';
 import { buildDashboardSummaryQuery } from '../services/adminDashboardApi';
+import { getGlobalFilters, onFiltersChange } from '../utils/globalFilters';
 import Icon from './shared/Icon';
 
 const numberFormatter = new Intl.NumberFormat();
@@ -99,7 +100,7 @@ function LeaveOverviewSkeleton() {
     );
 }
 
-function AdminLeaveOverview({ endpointUrl, initialBranchId = '', initialDepartmentId = '' }) {
+function AdminLeaveOverview({ endpointUrl }) {
     const [payload, setPayload] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -108,13 +109,18 @@ function AdminLeaveOverview({ endpointUrl, initialBranchId = '', initialDepartme
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     });
+    const [globalFilters, setGlobalFilters] = useState(() => getGlobalFilters());
+
+    useEffect(() => {
+        return onFiltersChange((f) => setGlobalFilters({ ...f }));
+    }, []);
 
     const queryParams = useMemo(
         () => buildDashboardSummaryQuery({
-            branchId: initialBranchId,
-            departmentId: initialDepartmentId,
+            branch: globalFilters.branch,
+            department: globalFilters.department,
         }),
-        [initialBranchId, initialDepartmentId],
+        [globalFilters.branch, globalFilters.department],
     );
 
     const load = useCallback(async () => {

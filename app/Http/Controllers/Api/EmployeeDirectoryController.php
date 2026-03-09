@@ -32,10 +32,14 @@ class EmployeeDirectoryController extends Controller
         $departmentName = null;
         if ($departmentId) {
             $departmentName = Department::query()->whereKey($departmentId)->value('name');
+        } elseif ($request->query('department') !== null && trim((string) $request->query('department')) !== '') {
+            $departmentName = trim((string) $request->query('department'));
         }
         $branchName = null;
         if ($branchId) {
             $branchName = Branch::query()->whereKey($branchId)->value('name');
+        } elseif ($request->query('branch') !== null && trim((string) $request->query('branch')) !== '') {
+            $branchName = trim((string) $request->query('branch'));
         }
 
         $query = User::query()

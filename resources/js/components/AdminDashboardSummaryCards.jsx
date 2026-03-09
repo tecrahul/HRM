@@ -6,6 +6,7 @@ import {
 } from '../services/adminDashboardApi';
 import { QuickInfoCard } from './common/QuickInfoCard';
 import { QuickInfoGrid } from './common/QuickInfoGrid';
+import { getGlobalFilters, onFiltersChange } from '../utils/globalFilters';
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -87,11 +88,16 @@ function SummarySkeleton() {
     );
 }
 
-function AdminDashboardSummaryCards({ endpointUrl, initialBranchId = '', initialDepartmentId = '' }) {
+function AdminDashboardSummaryCards({ endpointUrl }) {
     const [summary, setSummary] = useState(null);
     const [generatedAt, setGeneratedAt] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [globalFilters, setGlobalFilters] = useState(() => getGlobalFilters());
+
+    useEffect(() => {
+        return onFiltersChange((f) => setGlobalFilters({ ...f }));
+    }, []);
 
     const loadSummary = useCallback(async () => {
         setLoading(true);
@@ -102,8 +108,8 @@ function AdminDashboardSummaryCards({ endpointUrl, initialBranchId = '', initial
             const payload = await fetchAdminDashboardSummary(
                 endpointUrl,
                 buildDashboardSummaryQuery({
-                    branchId: initialBranchId,
-                    departmentId: initialDepartmentId,
+                    branch: globalFilters.branch,
+                    department: globalFilters.department,
                 }),
                 abortController.signal,
             );
@@ -116,7 +122,7 @@ function AdminDashboardSummaryCards({ endpointUrl, initialBranchId = '', initial
         } finally {
             setLoading(false);
         }
-    }, [endpointUrl, initialBranchId, initialDepartmentId]);
+    }, [endpointUrl, globalFilters.branch, globalFilters.department]);
 
     useEffect(() => {
         loadSummary();
@@ -245,14 +251,8 @@ export function mountAdminDashboardSummaryCards() {
     }
 
     const endpointUrl = rootElement.dataset.summaryEndpoint ?? '';
-    const initialBranchId = rootElement.dataset.branchId ?? '';
-    const initialDepartmentId = rootElement.dataset.departmentId ?? '';
 
     createRoot(rootElement).render(
-        <AdminDashboardSummaryCards
-            endpointUrl={endpointUrl}
-            initialBranchId={initialBranchId}
-            initialDepartmentId={initialDepartmentId}
-        />,
+        <AdminDashboardSummaryCards endpointUrl={endpointUrl} />,
     );
 }

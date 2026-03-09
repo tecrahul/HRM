@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getGlobalFilters, onFiltersChange } from '../../utils/globalFilters';
 import { createRoot } from 'react-dom/client';
 import { AppModalPortal } from '../../components/shared/AppModalPortal';
 import { HolidayApi } from '../../services/HolidayApi';
@@ -144,14 +145,32 @@ function HolidaysPage({ payload }) {
     } = useHolidays(api, payload);
 
     const branches = Array.isArray(payload.branches) ? payload.branches : [];
+
+    // Resolve branch_id from global filter branch name
+    const globalBranchName = getGlobalFilters().branch;
+    const resolvedGlobalBranchId = globalBranchName
+        ? String(branches.find((b) => b.name === globalBranchName)?.id ?? '')
+        : '';
+
     const defaults = payload.defaults ?? {
         q: '',
         year: new Date().getFullYear(),
-        branch_id: '',
+        branch_id: resolvedGlobalBranchId,
         holiday_type: 'all',
         status: 'all',
         sort: 'date_asc',
     };
+
+    // Subscribe to global filter changes and re-fetch holidays with updated branch
+    useEffect(() => {
+        return onFiltersChange((gf) => {
+            const bId = gf.branch
+                ? String(branches.find((b) => b.name === gf.branch)?.id ?? '')
+                : '';
+            fetchHolidays({ branch_id: bId || undefined }, 1);
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [branches]);
 
     const capabilities = payload.capabilities ?? {
         canCreate: false,

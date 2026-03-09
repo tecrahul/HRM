@@ -1,7 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DashboardPage } from './pages/DashboardPage';
 import { GlobalFilterBar } from './shared/ui';
+import { getGlobalFilters, onFiltersChange } from '../../utils/globalFilters';
 import { SalaryStructuresPage } from './pages/SalaryStructuresPage';
 import { ProcessingPage } from './pages/ProcessingPage';
 import { HistoryPage } from './pages/HistoryPage';
@@ -25,13 +26,27 @@ function PayrollWorkspaceApp({ payload }) {
     const initialStatus = String(payload?.filters?.status || '');
     const initialAlert = String(payload?.filters?.alert || '');
 
+    const gf = getGlobalFilters();
     const [filters, setFilters] = useState({
-        branchId: String(payload?.filters?.branch_id || ''),
-        departmentId: String(payload?.filters?.department_id || ''),
+        branch: gf.branch || '',
+        department: gf.department || '',
         employeeId: String(payload?.filters?.employee_id || ''),
         employee: null,
         payrollMonth: String(payload?.filters?.payroll_month || ''),
     });
+
+    // Sync global filters → payroll branch/department
+    useEffect(() => {
+        return onFiltersChange((f) => {
+            setFilters((prev) => ({
+                ...prev,
+                branch: f.branch || '',
+                department: f.department || '',
+                employeeId: '',
+                employee: null,
+            }));
+        });
+    }, []);
 
     const onFilterChange = useCallback((next) => {
         setFilters((prev) => ({ ...prev, ...next }));
@@ -40,8 +55,6 @@ function PayrollWorkspaceApp({ payload }) {
     const onClearFilters = useCallback(() => {
         setFilters((prev) => ({
             ...prev,
-            branchId: '',
-            departmentId: '',
             employeeId: '',
             employee: null,
         }));
@@ -49,7 +62,7 @@ function PayrollWorkspaceApp({ payload }) {
 
     return (
         <div className="space-y-5">
-            {page !== 'processing' ? (
+            {page !== 'processing' && page !== 'dashboard' && page !== 'salary_structures' ? (
                 <GlobalFilterBar
                     urls={urls}
                     filters={filters}
@@ -69,6 +82,7 @@ function PayrollWorkspaceApp({ payload }) {
                     csrfToken={csrfToken}
                     filters={filters}
                     initialStatus={initialStatus}
+                    permissions={permissions}
                 />
             ) : null}
 

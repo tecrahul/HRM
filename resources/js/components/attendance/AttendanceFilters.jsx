@@ -121,7 +121,8 @@ export function AttendanceFilters({
     const [employeeOptions, setEmployeeOptions] = useState([]);
     const [employeeLoading, setEmployeeLoading] = useState(false);
 
-    const employeeDisabled = canEmployeeFilter && localFilters.department === '';
+    // Department is now controlled by global filters; employee search is always available when permitted
+    const employeeDisabled = false;
 
     useEffect(() => {
         setLocalFilters({
@@ -335,44 +336,8 @@ export function AttendanceFilters({
                     </FilterField>
                 </div>
 
-                {orgFieldCount > 0 ? (
+                {canEmployeeFilter ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4">
-                        {canBranchFilter ? (
-                            <FilterField id="attendance_filter_branch" label="Branch" className={orgSpan}>
-                                <select
-                                    id="attendance_filter_branch"
-                                    className={inputClassName}
-                                    style={{ borderColor: 'var(--hr-line)' }}
-                                    value={localFilters.branch || ''}
-                                    onChange={(event) => updateField('branch', event.target.value)}
-                                    disabled={loading || submitting}
-                                >
-                                    <option value="">All Branches</option>
-                                    {(options?.branches ?? []).map((branch) => (
-                                        <option key={branch} value={branch}>{branch}</option>
-                                    ))}
-                                </select>
-                            </FilterField>
-                        ) : null}
-
-                        {canDepartmentFilter ? (
-                            <FilterField id="attendance_filter_department" label="Department" className={orgSpan}>
-                                <select
-                                    id="attendance_filter_department"
-                                    className={inputClassName}
-                                    style={{ borderColor: 'var(--hr-line)' }}
-                                    value={localFilters.department || ''}
-                                    onChange={(event) => updateField('department', event.target.value)}
-                                    disabled={loading || submitting}
-                                >
-                                    <option value="">All Departments</option>
-                                    {(options?.departments ?? []).map((department) => (
-                                        <option key={department} value={department}>{department}</option>
-                                    ))}
-                                </select>
-                            </FilterField>
-                        ) : null}
-
                         {canEmployeeFilter ? (
                             <FilterField id="attendance_filter_employee" label="Employee" className={orgSpan}>
                                 <div className="relative">

@@ -122,14 +122,36 @@ class UserManagementController extends Controller
 
     public function index(Request $request): View
     {
-        $search = (string) $request->string('q');
-        $role = (string) $request->string('role');
-        $status = (string) $request->string('status');
-        $sortBy = (string) $request->string('sort_by');
-        $sortDir = strtolower((string) $request->string('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $viewer = $request->user();
+        $viewerRole = $viewer instanceof User && $viewer->role instanceof UserRole
+            ? $viewer->role
+            : null;
+        $viewerLevel = $viewerRole ? $viewerRole->level() : 0;
+
+        // RBAC: viewer may only see users whose role level is strictly lower than their own.
+        // Super admins (level 5) see everyone; no restriction applied.
+        $allowedRoles = $viewerLevel >= 5
+            ? null
+            : collect(UserRole::cases())
+                ->filter(fn (UserRole $r): bool => $r->level() < $viewerLevel)
+                ->map(fn (UserRole $r): string => $r->value)
+                ->values()
+                ->all();
+
+        $search     = (string) $request->string('q');
+        $role       = (string) $request->string('role');
+        $status     = (string) $request->string('status');
+        $branch     = trim((string) $request->string('branch'));
+        $department = trim((string) $request->string('department'));
+        $sortBy     = (string) $request->string('sort_by');
+        $sortDir    = strtolower((string) $request->string('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        // Role values the viewer is permitted to filter by
+        $validRoles = $allowedRoles ?? UserRole::values();
 
         $users = User::query()
             ->with('profile')
+            ->when($allowedRoles !== null, fn ($q) => $q->whereIn('role', $allowedRoles))
             ->when($search !== '', function ($query) use ($search): void {
                 $safeLike = "%".str_replace(['\\\\', '%', '_'], ['\\\\\\\\', '\\%', '\\_'], $search)."%";
                 $query->where(function ($innerQuery) use ($safeLike): void {
@@ -148,12 +170,22 @@ class UserManagementController extends Controller
                         });
                 });
             })
-            ->when($role !== '' && in_array($role, UserRole::values(), true), function ($query) use ($role): void {
+            ->when($role !== '' && in_array($role, $validRoles, true), function ($query) use ($role): void {
                 $query->where('role', $role);
             })
             ->when($status !== '' && in_array($status, $this->profileStatuses(), true), function ($query) use ($status): void {
                 $query->whereHas('profile', function ($profileQuery) use ($status): void {
                     $profileQuery->where('status', $status);
+                });
+            })
+            ->when($branch !== '', function ($query) use ($branch): void {
+                $query->whereHas('profile', function ($profileQuery) use ($branch): void {
+                    $profileQuery->whereRaw('LOWER(TRIM(branch)) = ?', [mb_strtolower($branch)]);
+                });
+            })
+            ->when($department !== '', function ($query) use ($department): void {
+                $query->whereHas('profile', function ($profileQuery) use ($department): void {
+                    $profileQuery->whereRaw('LOWER(TRIM(department)) = ?', [mb_strtolower($department)]);
                 });
             })
             ->when(in_array($sortBy, ['first_name', 'last_name', 'full_name'], true), function ($query) use ($sortBy, $sortDir): void {
@@ -168,22 +200,34 @@ class UserManagementController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        // Stats scoped to what the viewer is allowed to see
+        $statsBase = $allowedRoles !== null
+            ? User::query()->whereIn('role', $allowedRoles)
+            : User::query();
+
+        // Role options in the filter dropdown restricted to visible roles
+        $roleOptions = $allowedRoles !== null
+            ? collect(UserRole::cases())->filter(fn (UserRole $r) => in_array($r->value, $allowedRoles, true))->values()->all()
+            : UserRole::cases();
+
         return view('admin.users.index', [
             'users' => $users,
             'filters' => [
-                'q' => $search,
-                'role' => $role,
-                'status' => $status,
-                'sort_by' => $sortBy,
-                'sort_dir' => $sortDir,
+                'q'          => $search,
+                'role'       => $role,
+                'status'     => $status,
+                'sort_by'    => $sortBy,
+                'sort_dir'   => $sortDir,
+                'branch'     => $branch,
+                'department' => $department,
             ],
-            'roleOptions' => UserRole::cases(),
+            'roleOptions'   => $roleOptions,
             'statusOptions' => $this->profileStatuses(),
             'stats' => [
-                'total' => User::query()->count(),
-                'admins' => User::query()->where('role', UserRole::ADMIN->value)->count(),
-                'hr' => User::query()->where('role', UserRole::HR->value)->count(),
-                'employees' => User::query()->workforce()->count(),
+                'total'     => (clone $statsBase)->count(),
+                'admins'    => (clone $statsBase)->where('role', UserRole::ADMIN->value)->count(),
+                'hr'        => (clone $statsBase)->where('role', UserRole::HR->value)->count(),
+                'employees' => (clone $statsBase)->workforce()->count(),
             ],
         ]);
     }

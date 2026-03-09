@@ -41,6 +41,8 @@ class DepartmentController extends Controller
             $editingDepartment = Department::query()->with('branch:id,name')->find($editingDepartmentId);
         }
 
+        $viewer = $request->user();
+
         return view('modules.departments.index', [
             'pagePayload' => [
                 'csrfToken' => csrf_token(),
@@ -49,6 +51,11 @@ class DepartmentController extends Controller
                     'create' => route('modules.departments.store'),
                     'updateTemplate' => $this->departmentRouteTemplate('modules.departments.update'),
                     'deleteTemplate' => $this->departmentRouteTemplate('modules.departments.destroy'),
+                ],
+                'capabilities' => [
+                    'canCreate' => $viewer?->hasPermission('departments.create') ?? false,
+                    'canEdit'   => $viewer?->hasPermission('departments.edit') ?? false,
+                    'canDelete' => $viewer?->hasPermission('departments.delete') ?? false,
                 ],
                 'filters' => $filters,
                 'departments' => $departmentsPayload,

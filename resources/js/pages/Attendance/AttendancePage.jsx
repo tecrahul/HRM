@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AttendanceApi } from '../../services/AttendanceApi';
 import { useAttendance } from '../../hooks/useAttendance';
@@ -11,6 +11,7 @@ import { AttendanceApprovalModal } from '../../components/attendance/AttendanceA
 import { AttendanceCorrectionModal } from '../../components/attendance/AttendanceCorrectionModal';
 import { PunchPanel } from '../../components/attendance/PunchPanel';
 import { usePunchAttendance } from '../../components/attendance/usePunchAttendance';
+import { getGlobalFilters, onFiltersChange } from '../../utils/globalFilters';
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const MONTH_START = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
@@ -100,11 +101,27 @@ function AttendancePage({ payload }) {
         submitCorrection,
         lockMonth,
         unlockMonth,
-        checkIn,
-        checkOut,
     } = useAttendance(api, payload);
 
     const capabilities = payload.capabilities ?? {};
+
+    // Sync global filters → attendance branch/department filters
+    useEffect(() => {
+        const initial = getGlobalFilters();
+        // Initial fetch already includes pre-selected global filters to avoid race condition
+        fetchAttendance({
+            branch: initial.branch || '',
+            department: initial.department || '',
+        }, 1, true).catch(() => {});
+        return onFiltersChange((gf) => {
+            fetchAttendance({
+                branch: gf.branch || '',
+                department: gf.department || '',
+                employee_id: '',
+            }, 1);
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const [formOpen, setFormOpen] = useState(false);
     const [editingRecord, setEditingRecord] = useState(null);
@@ -131,11 +148,6 @@ function AttendancePage({ payload }) {
         }
         return initial;
     });
-
-    useEffect(() => {
-        fetchAttendance({}, meta.currentPage || 1, true).catch(() => {});
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     useEffect(() => {
         if (!formOpen) {
@@ -334,24 +346,6 @@ function AttendancePage({ payload }) {
         }
     };
 
-    const handlePunchIn = async () => {
-        try {
-            const response = await checkIn();
-            pushToast(response?.message || 'Checked in successfully.');
-        } catch (apiError) {
-            pushToast(apiError.message || 'Unable to punch in.', 'danger');
-        }
-    };
-
-    const handlePunchOut = async () => {
-        try {
-            const response = await checkOut();
-            pushToast(response?.message || 'Checked out successfully.');
-        } catch (apiError) {
-            pushToast(apiError.message || 'Unable to punch out.', 'danger');
-        }
-    };
-
     // Punch panel state for non-admin users
     const [punchOpen, setPunchOpen] = useState(false);
     const punchCtrl = usePunchAttendance({
@@ -378,9 +372,9 @@ function AttendancePage({ payload }) {
                 canApprove={Boolean(capabilities.canApprove)}
                 pendingApprovals={stats.pendingApprovals ?? 0}
                 punch={punch}
+                punchInUrl={payload.routes?.punchInPage ?? ''}
+                punchOutUrl={payload.routes?.punchOutPage ?? ''}
                 onOpenForm={openCreateForm}
-                onPunchIn={handlePunchIn}
-                onPunchOut={handlePunchOut}
                 submitting={submitting}
             />
 

@@ -345,6 +345,108 @@ class PayrollModuleController extends Controller
         ]);
     }
 
+    public function dashboardTrendApi(Request $request): JsonResponse
+    {
+        $this->ensureManagementAccess($request);
+
+        $validated = $request->validate([
+            'period' => ['nullable', Rule::in(['current_month', 'last_3_months', 'last_6_months', 'last_12_months', 'financial_year'])],
+            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
+            'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
+        ]);
+
+        $period = $validated['period'] ?? 'last_6_months';
+        $now = now();
+
+        switch ($period) {
+            case 'current_month':
+                $from = $now->copy()->startOfMonth();
+                $to = $now->copy()->endOfMonth();
+                break;
+            case 'last_3_months':
+                $from = $now->copy()->subMonths(2)->startOfMonth();
+                $to = $now->copy()->endOfMonth();
+                break;
+            case 'last_12_months':
+                $from = $now->copy()->subMonths(11)->startOfMonth();
+                $to = $now->copy()->endOfMonth();
+                break;
+            case 'financial_year':
+                $fyStart = $now->month >= 4 ? $now->year : $now->year - 1;
+                $from = Carbon::createFromDate($fyStart, 4, 1)->startOfMonth();
+                $to = Carbon::createFromDate($fyStart + 1, 3, 31)->endOfMonth();
+                break;
+            default: // last_6_months
+                $from = $now->copy()->subMonths(5)->startOfMonth();
+                $to = $now->copy()->endOfMonth();
+                break;
+        }
+
+        $branchName = $this->resolveBranchName(isset($validated['branch_id']) ? (int) $validated['branch_id'] : null);
+        $departmentName = $this->resolveDepartmentName(isset($validated['department_id']) ? (int) $validated['department_id'] : null);
+        $employeeIds = $this->employeeQuery($branchName, $departmentName, null, null)->pluck('users.id');
+
+        $trend = DB::table('payrolls')
+            ->whereIn('user_id', $employeeIds)
+            ->whereBetween('payroll_month', [$from->toDateString(), $to->toDateString()])
+            ->selectRaw('DATE_FORMAT(payroll_month, "%Y-%m-01") as month_key')
+            ->selectRaw('SUM(net_salary) as total_payroll')
+            ->selectRaw('COUNT(*) as employee_count')
+            ->groupBy('month_key')
+            ->orderBy('month_key')
+            ->get()
+            ->map(static function ($row): array {
+                return [
+                    'month' => (string) ($row->month_key ?? ''),
+                    'monthLabel' => $row->month_key
+                        ? Carbon::parse((string) $row->month_key)->format('M Y')
+                        : '',
+                    'totalPayroll' => round((float) ($row->total_payroll ?? 0), 2),
+                    'employeeCount' => (int) ($row->employee_count ?? 0),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return response()->json(['trend' => $trend]);
+    }
+
+    public function dashboardDistributionApi(Request $request): JsonResponse
+    {
+        $this->ensureManagementAccess($request);
+
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
+            'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
+        ]);
+
+        $branchName = $this->resolveBranchName(isset($validated['branch_id']) ? (int) $validated['branch_id'] : null);
+        $departmentName = $this->resolveDepartmentName(isset($validated['department_id']) ? (int) $validated['department_id'] : null);
+        $employeeIds = $this->employeeQuery($branchName, $departmentName, null, null)->pluck('users.id');
+
+        $from = now()->subMonths(5)->startOfMonth();
+
+        $totals = DB::table('payrolls')
+            ->whereIn('user_id', $employeeIds)
+            ->where('payroll_month', '>=', $from->toDateString())
+            ->selectRaw('COALESCE(SUM(basic_pay), 0) as basic_pay')
+            ->selectRaw('COALESCE(SUM(hra), 0) as hra')
+            ->selectRaw('COALESCE(SUM(special_allowance + other_allowance), 0) as allowances')
+            ->selectRaw('COALESCE(SUM(bonus), 0) as bonus')
+            ->selectRaw('COALESCE(SUM(pf_deduction + tax_deduction + other_deduction), 0) as deductions')
+            ->first();
+
+        $distribution = [
+            ['label' => 'Basic Pay',   'value' => round((float) ($totals->basic_pay  ?? 0), 2), 'color' => '#2563eb'],
+            ['label' => 'HRA',         'value' => round((float) ($totals->hra         ?? 0), 2), 'color' => '#10b981'],
+            ['label' => 'Allowances',  'value' => round((float) ($totals->allowances  ?? 0), 2), 'color' => '#f59e0b'],
+            ['label' => 'Bonus',       'value' => round((float) ($totals->bonus       ?? 0), 2), 'color' => '#8b5cf6'],
+            ['label' => 'Deductions',  'value' => round((float) ($totals->deductions  ?? 0), 2), 'color' => '#ef4444'],
+        ];
+
+        return response()->json(['distribution' => $distribution]);
+    }
+
     public function salaryStructuresApi(Request $request): JsonResponse
     {
         $this->ensureManagementAccess($request);
@@ -626,11 +728,12 @@ class PayrollModuleController extends Controller
                 'alert' => (string) $request->string('alert'),
             ],
             'permissions' => [
-                'canGenerate' => $this->canGenerate($viewer),
-                'canApprove' => $this->canApprove($viewer),
-                'canMarkPaid' => $this->canMarkPaid($viewer),
-                'canUnlock' => PayrollWorkflow::canUnlock($viewer),
-                'role' => $viewer->role instanceof UserRole ? $viewer->role->value : (string) $viewer->role,
+                'canGenerate'        => $this->canGenerate($viewer),
+                'canApprove'         => $this->canApprove($viewer),
+                'canMarkPaid'        => $this->canMarkPaid($viewer),
+                'canUnlock'          => PayrollWorkflow::canUnlock($viewer),
+                'canManageStructure' => $this->canGenerate($viewer), // same roles: super_admin, admin, hr
+                'role'               => $viewer->role instanceof UserRole ? $viewer->role->value : (string) $viewer->role,
             ],
             'urls' => [
                 'branches' => route('api.branches.list'),
@@ -639,6 +742,8 @@ class PayrollModuleController extends Controller
                 'dashboardSummary' => route('api.payroll.dashboard.summary'),
                 'dashboardAlerts' => route('api.payroll.dashboard.alerts'),
                 'dashboardActivity' => route('api.payroll.dashboard.activity'),
+                'dashboardTrend' => route('api.payroll.dashboard.trend'),
+                'dashboardDistribution' => route('api.payroll.dashboard.distribution'),
                 'salaryStructures' => route('api.payroll.salary-structures'),
                 'payrollHistory' => route('api.payroll.history'),
                 'workflowOverview' => route('modules.payroll.workflow.overview'),

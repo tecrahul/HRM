@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { payrollApi } from '../api';
 import {
     ConfirmModal,
-    InfoCard,
     SectionHeader,
     StatusBadge,
     TableEmptyState,
@@ -12,7 +11,70 @@ import {
     useDebouncedValue,
 } from '../shared/ui';
 import { AppModalPortal } from '../../shared/AppModalPortal';
-import { QuickInfoGrid } from '../../common/QuickInfoGrid';
+
+const CARD_THEMES = {
+    blue: {
+        bg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+        border: 'rgba(59,130,246,0.2)',
+        accent: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)',
+        title: '#1e40af',
+        value: '#1e3a8a',
+        sub: '#3b82f6',
+        icon: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+    },
+    emerald: {
+        bg: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+        border: 'rgba(16,185,129,0.2)',
+        accent: 'radial-gradient(circle, #10b981 0%, transparent 70%)',
+        title: '#047857',
+        value: '#064e3b',
+        sub: '#059669',
+        icon: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    },
+    rose: {
+        bg: 'linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%)',
+        border: 'rgba(236,72,153,0.2)',
+        accent: 'radial-gradient(circle, #ec4899 0%, transparent 70%)',
+        title: '#9d174d',
+        value: '#831843',
+        sub: '#db2777',
+        icon: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
+    },
+    purple: {
+        bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+        border: 'rgba(139,92,246,0.2)',
+        accent: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)',
+        title: '#5b21b6',
+        value: '#4c1d95',
+        sub: '#7c3aed',
+        icon: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+    },
+};
+
+function StatCard({ label, value, sub, tone = 'blue', icon }) {
+    const t = CARD_THEMES[tone] ?? CARD_THEMES.blue;
+    return (
+        <article
+            className="relative overflow-hidden rounded-2xl p-5 border transition-all duration-200 hover:shadow-lg"
+            style={{ background: t.bg, borderColor: t.border }}
+        >
+            <div
+                className="absolute top-0 right-0 w-24 h-24 opacity-10"
+                style={{ background: t.accent, transform: 'translate(30%,-30%)' }}
+            />
+            <div className="relative z-10 flex items-start justify-between gap-3">
+                <div>
+                    <p className="text-xs uppercase tracking-[0.12em] font-bold" style={{ color: t.title }}>{label}</p>
+                    <p className="mt-3 text-4xl font-black" style={{ color: t.value }}>{value}</p>
+                    {sub ? <p className="mt-1 text-xs font-medium" style={{ color: t.sub }}>{sub}</p> : null}
+                </div>
+                <span className="h-12 w-12 flex-shrink-0 rounded-xl flex items-center justify-center shadow-sm text-white" style={{ background: t.icon }}>
+                    {icon}
+                </span>
+            </div>
+        </article>
+    );
+}
 
 const initialFormState = {
     basic_salary: '',
@@ -42,7 +104,7 @@ const toPayload = (form) => ({
     notes: form.notes || '',
 });
 
-export function SalaryStructuresPage({ urls, csrfToken, filters, initialStatus = 'all' }) {
+export function SalaryStructuresPage({ urls, csrfToken, filters, initialStatus = 'all', permissions = {} }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [rows, setRows] = useState([]);
@@ -71,13 +133,13 @@ export function SalaryStructuresPage({ urls, csrfToken, filters, initialStatus =
     const debouncedSearch = useDebouncedValue(search, 300);
 
     const query = useMemo(() => ({
-        branch_id: filters.branchId || '',
-        department_id: filters.departmentId || '',
+        branch: filters.branch || '',
+        department: filters.department || '',
         employee_id: filters.employeeId || '',
         q: debouncedSearch,
         status,
         page,
-    }), [filters.branchId, filters.departmentId, filters.employeeId, debouncedSearch, page, status]);
+    }), [filters.branch, filters.department, filters.employeeId, debouncedSearch, page, status]);
 
     const loadStructures = () => {
         setLoading(true);
@@ -212,14 +274,35 @@ export function SalaryStructuresPage({ urls, csrfToken, filters, initialStatus =
 
     return (
         <div className="space-y-5">
-            <section className="ui-section">
-                <SectionHeader title="Salary Structure Overview" subtitle="Configuration health and salary baseline across selected employees." />
-                <QuickInfoGrid className="mt-4">
-                    <InfoCard label="Total Employees" value={loading ? '...' : formatCount(summary?.totalEmployees ?? 0)} icon="users" />
-                    <InfoCard label="With Structure" value={loading ? '...' : formatCount(summary?.withStructure ?? 0)} tone="success" icon="shield" />
-                    <InfoCard label="Missing Structure" value={loading ? '...' : formatCount(summary?.missingStructure ?? 0)} tone="warning" icon="warning" />
-                    <InfoCard label="Average Gross Salary" value={loading ? '...' : formatMoney(summary?.averageGrossSalary ?? 0)} tone="info" icon="money" />
-                </QuickInfoGrid>
+            <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <StatCard
+                    label="Total Employees"
+                    value={loading ? '...' : formatCount(summary?.totalEmployees ?? 0)}
+                    sub="All registered employees"
+                    tone="blue"
+                    icon={<svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-3-3.87" /><path d="M7 21v-2a4 4 0 0 1 3-3.87" /><circle cx="12" cy="7" r="4" /></svg>}
+                />
+                <StatCard
+                    label="With Structure"
+                    value={loading ? '...' : formatCount(summary?.withStructure ?? 0)}
+                    sub="Salary structure configured"
+                    tone="emerald"
+                    icon={<svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>}
+                />
+                <StatCard
+                    label="Missing Structure"
+                    value={loading ? '...' : formatCount(summary?.missingStructure ?? 0)}
+                    sub="Needs attention"
+                    tone="rose"
+                    icon={<svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>}
+                />
+                <StatCard
+                    label="Avg Gross Salary"
+                    value={loading ? '...' : formatMoney(summary?.averageGrossSalary ?? 0)}
+                    sub="Across configured employees"
+                    tone="purple"
+                    icon={<svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>}
+                />
             </section>
 
             <section className="ui-section">
@@ -291,7 +374,7 @@ export function SalaryStructuresPage({ urls, csrfToken, filters, initialStatus =
                                     <td><StatusBadge status={row.status === 'with_structure' ? 'approved' : 'failed'} /></td>
                                     <td>
                                         <button type="button" className="ui-btn ui-btn-ghost" onClick={() => openEditor(row)}>
-                                            View / Edit
+                                            {permissions.canManageStructure ? 'View / Edit' : 'View'}
                                         </button>
                                     </td>
                                 </tr>
@@ -324,7 +407,7 @@ export function SalaryStructuresPage({ urls, csrfToken, filters, initialStatus =
                 <div className="app-modal-panel w-full max-w-5xl p-5" role="dialog" aria-modal="true">
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <h4 className="text-lg font-extrabold">Edit Salary Structure</h4>
+                                <h4 className="text-lg font-extrabold">{permissions.canManageStructure ? 'Edit Salary Structure' : 'View Salary Structure'}</h4>
                                 <p className="text-sm" style={{ color: 'var(--hr-text-muted)' }}>{editorRow?.employeeName} ({editorRow?.email})</p>
                             </div>
                             <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setEditorOpen(false)}>Close</button>
@@ -387,10 +470,14 @@ export function SalaryStructuresPage({ urls, csrfToken, filters, initialStatus =
                         </label>
 
                         <div className="mt-4 flex justify-end gap-2">
-                            <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setEditorOpen(false)}>Cancel</button>
-                            <button type="button" className="ui-btn ui-btn-primary" onClick={() => setConfirmOpen(true)} disabled={saving}>
-                                {saving ? 'Saving...' : 'Save Structure'}
+                            <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setEditorOpen(false)}>
+                                {permissions.canManageStructure ? 'Cancel' : 'Close'}
                             </button>
+                            {permissions.canManageStructure ? (
+                                <button type="button" className="ui-btn ui-btn-primary" onClick={() => setConfirmOpen(true)} disabled={saving}>
+                                    {saving ? 'Saving...' : 'Save Structure'}
+                                </button>
+                            ) : null}
                         </div>
 
                         <section className="mt-5 rounded-2xl border p-4" style={{ borderColor: 'var(--hr-line)' }}>

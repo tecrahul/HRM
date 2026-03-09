@@ -1321,8 +1321,10 @@ class PayrollController extends Controller
             'payroll_month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'status' => ['nullable', Rule::in(['', 'generated', 'approved', 'paid', 'failed'])],
             'q' => ['nullable', 'string', 'max:120'],
-            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
+            'branch_id'    => ['nullable', 'integer', Rule::exists('branches', 'id')],
             'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
+            'branch'        => ['nullable', 'string', 'max:200'],
+            'department'    => ['nullable', 'string', 'max:200'],
             'employee_id' => [
                 'nullable',
                 'integer',
@@ -2519,8 +2521,10 @@ class PayrollController extends Controller
 
         return [
             'payroll_month' => [$monthRule, 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
-            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
+            'branch_id'    => ['nullable', 'integer', Rule::exists('branches', 'id')],
             'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
+            'branch'        => ['nullable', 'string', 'max:200'],
+            'department'    => ['nullable', 'string', 'max:200'],
             'department' => ['nullable', 'string', 'max:120'],
             'q' => ['nullable', 'string', 'max:120'],
             'status' => ['nullable', Rule::in(['', 'generated', 'approved', 'paid', 'failed'])],
@@ -2548,6 +2552,8 @@ class PayrollController extends Controller
             if (is_string($branchName) && trim($branchName) !== '') {
                 $branch = trim($branchName);
             }
+        } elseif (filled($validated['branch'] ?? null)) {
+            $branch = trim((string) $validated['branch']);
         }
 
         $department = null;

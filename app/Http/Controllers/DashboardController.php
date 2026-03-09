@@ -28,6 +28,8 @@ class DashboardController extends BaseController
         $filterContext = $this->resolveAdminEmployeeFilterContext(
             $validatedFilters['branch_id'],
             $validatedFilters['department_id'],
+            $validatedFilters['branch'] ?? null,
+            $validatedFilters['department'] ?? null,
         );
         $employeeIds = $this->filteredEmployeeIds($filterContext);
 
@@ -96,6 +98,8 @@ class DashboardController extends BaseController
         $filterContext = $this->resolveAdminEmployeeFilterContext(
             $validatedFilters['branch_id'],
             $validatedFilters['department_id'],
+            $validatedFilters['branch'] ?? null,
+            $validatedFilters['department'] ?? null,
         );
         $employeeIds = $this->filteredEmployeeIds($filterContext);
 
@@ -231,6 +235,8 @@ class DashboardController extends BaseController
         $filterContext = $this->resolveAdminEmployeeFilterContext(
             $validatedFilters['branch_id'],
             $validatedFilters['department_id'],
+            $validatedFilters['branch'] ?? null,
+            $validatedFilters['department'] ?? null,
         );
         $employeeIds = $this->filteredEmployeeIds($filterContext);
 
@@ -545,13 +551,17 @@ class DashboardController extends BaseController
     private function validatedAdminEmployeeFilters(Request $request): array
     {
         $validated = $request->validate([
-            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
-            'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
+            'branch_id'    => ['nullable', 'integer', Rule::exists('branches', 'id')],
+            'department_id'=> ['nullable', 'integer', Rule::exists('departments', 'id')],
+            'branch'       => ['nullable', 'string', 'max:200'],
+            'department'   => ['nullable', 'string', 'max:200'],
         ]);
 
         return [
-            'branch_id' => isset($validated['branch_id']) ? (int) $validated['branch_id'] : null,
-            'department_id' => isset($validated['department_id']) ? (int) $validated['department_id'] : null,
+            'branch_id'    => isset($validated['branch_id']) ? (int) $validated['branch_id'] : null,
+            'department_id'=> isset($validated['department_id']) ? (int) $validated['department_id'] : null,
+            'branch'       => isset($validated['branch']) ? trim($validated['branch']) : null,
+            'department'   => isset($validated['department']) ? trim($validated['department']) : null,
         ];
     }
 
@@ -563,18 +573,16 @@ class DashboardController extends BaseController
      *  departmentNameKey:string|null
      * }
      */
-    private function resolveAdminEmployeeFilterContext(?int $branchId, ?int $departmentId): array
+    private function resolveAdminEmployeeFilterContext(?int $branchId, ?int $departmentId, ?string $branchName = null, ?string $departmentName = null): array
     {
-        $branchName = null;
-        if ($branchId !== null) {
+        if ($branchName === null && $branchId !== null) {
             $resolvedBranchName = Branch::query()->whereKey($branchId)->value('name');
             if (is_string($resolvedBranchName) && trim($resolvedBranchName) !== '') {
                 $branchName = trim($resolvedBranchName);
             }
         }
 
-        $departmentName = null;
-        if ($departmentId !== null) {
+        if ($departmentName === null && $departmentId !== null) {
             $resolvedDepartmentName = Department::query()->whereKey($departmentId)->value('name');
             if (is_string($resolvedDepartmentName) && trim($resolvedDepartmentName) !== '') {
                 $departmentName = trim($resolvedDepartmentName);
@@ -584,8 +592,8 @@ class DashboardController extends BaseController
         return [
             'branchId' => $branchId,
             'departmentId' => $departmentId,
-            'branchNameKey' => $branchName !== null ? mb_strtolower(trim($branchName)) : null,
-            'departmentNameKey' => $departmentName !== null ? mb_strtolower(trim($departmentName)) : null,
+            'branchNameKey' => ($branchName !== null && trim($branchName) !== '') ? mb_strtolower(trim($branchName)) : null,
+            'departmentNameKey' => ($departmentName !== null && trim($departmentName) !== '') ? mb_strtolower(trim($departmentName)) : null,
         ];
     }
 
@@ -623,6 +631,8 @@ class DashboardController extends BaseController
         $filterContext = $this->resolveAdminEmployeeFilterContext(
             $validatedFilters['branch_id'],
             $validatedFilters['department_id'],
+            $validatedFilters['branch'] ?? null,
+            $validatedFilters['department'] ?? null,
         );
         $employeeIds = $this->filteredEmployeeIds($filterContext);
 
@@ -730,6 +740,8 @@ class DashboardController extends BaseController
         $filterContext = $this->resolveAdminEmployeeFilterContext(
             $validatedFilters['branch_id'],
             $validatedFilters['department_id'],
+            $validatedFilters['branch'] ?? null,
+            $validatedFilters['department'] ?? null,
         );
 
         try {
@@ -884,6 +896,8 @@ class DashboardController extends BaseController
         $filterContext = $this->resolveAdminEmployeeFilterContext(
             $validatedFilters['branch_id'],
             $validatedFilters['department_id'],
+            $validatedFilters['branch'] ?? null,
+            $validatedFilters['department'] ?? null,
         );
         $employeeIds = $this->filteredEmployeeIds($filterContext);
 

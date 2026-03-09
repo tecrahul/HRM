@@ -78,7 +78,6 @@ export function HolidaysFilters({
         return (
             draft.year !== defaultYear ||
             draft.month !== '' ||
-            draft.branch_id !== '' ||
             draft.holiday_type !== 'all' ||
             draft.status !== 'all'
         );
@@ -102,7 +101,7 @@ export function HolidaysFilters({
 
             <form onSubmit={applyFilters}>
                 {/* Filter Grid - Professional 5-column layout */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* Year */}
                     <div>
                         <label htmlFor="holiday_year" className="block text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--hr-text-muted)' }}>
@@ -145,25 +144,6 @@ export function HolidaysFilters({
                             <option value="public">Public</option>
                             <option value="company">Company</option>
                             <option value="optional">Optional</option>
-                        </select>
-                    </div>
-
-                    {/* Branch */}
-                    <div>
-                        <label htmlFor="holiday_branch" className="block text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--hr-text-muted)' }}>
-                            Branch
-                        </label>
-                        <select
-                            id="holiday_branch"
-                            className="w-full rounded-lg border px-3 py-2 text-sm bg-transparent"
-                            style={{ borderColor: 'var(--hr-line)' }}
-                            value={draft.branch_id}
-                            onChange={(event) => setField('branch_id', event.target.value)}
-                        >
-                            <option value="">All Branches</option>
-                            {(branches ?? []).map((branch) => (
-                                <option key={branch.id} value={String(branch.id)}>{branch.name}</option>
-                            ))}
                         </select>
                     </div>
 

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { fetchAdminAttendanceOverview } from '../services/adminAttendanceApi';
 import { buildDashboardSummaryQuery } from '../services/adminDashboardApi';
+import { getGlobalFilters, onFiltersChange } from '../utils/globalFilters';
 import { AnalyticsDonutChart } from './common/charts/AnalyticsDonutChart';
 import { ChartLegend } from './common/charts/ChartLegend';
 import Icon from './shared/Icon';
@@ -90,8 +91,6 @@ function AttendanceSkeleton() {
 function AdminAttendanceOverview({
     absentUrl,
     endpointUrl,
-    initialBranchId = '',
-    initialDepartmentId = '',
 }) {
     const [payload, setPayload] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -101,13 +100,18 @@ function AdminAttendanceOverview({
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     });
+    const [globalFilters, setGlobalFilters] = useState(() => getGlobalFilters());
+
+    useEffect(() => {
+        return onFiltersChange((f) => setGlobalFilters({ ...f }));
+    }, []);
 
     const queryParams = useMemo(
         () => buildDashboardSummaryQuery({
-            branchId: initialBranchId,
-            departmentId: initialDepartmentId,
+            branch: globalFilters.branch,
+            department: globalFilters.department,
         }),
-        [initialBranchId, initialDepartmentId],
+        [globalFilters.branch, globalFilters.department],
     );
 
     const absentEmployeesUrl = useMemo(() => {

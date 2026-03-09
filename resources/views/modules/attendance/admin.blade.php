@@ -789,6 +789,42 @@
 
 @push('scripts')
     <script>
+        // ── Sync global header filters (branch / department) to Attendance Directory ──
+        (() => {
+            const FILTER_KEY = 'hrm-global-filters';
+            const departmentSelect = document.getElementById('attendance_filter_department');
+            const branchSelect     = document.getElementById('attendance_filter_branch');
+            const filterForm       = departmentSelect?.closest('form');
+
+            if (!departmentSelect || !branchSelect || !filterForm) return;
+
+            const applyGlobalFilters = (filters, submit = false) => {
+                if (filters.department !== undefined) departmentSelect.value = filters.department || '';
+                if (filters.branch     !== undefined) branchSelect.value     = filters.branch     || '';
+                if (submit) filterForm.submit();
+            };
+
+            // On page load: apply only when URL has no explicit department/branch
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (!urlParams.has('department') && !urlParams.has('branch')) {
+                    const raw = localStorage.getItem(FILTER_KEY);
+                    if (raw) {
+                        const saved = JSON.parse(raw);
+                        if (saved.department || saved.branch) {
+                            applyGlobalFilters(saved, true);
+                        }
+                    }
+                }
+            } catch (_e) {}
+
+            // React to live changes from the header filter panel
+            window.addEventListener('globalFiltersChanged', (e) => {
+                applyGlobalFilters(e.detail, true);
+            });
+        })();
+    </script>
+    <script>
         (() => {
             const formShell = document.querySelector('[data-attendance-form-shell]');
             if (!formShell) {

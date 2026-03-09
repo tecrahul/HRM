@@ -528,7 +528,18 @@
             </div>
         </section>
 
-        <div id="employee-directory-root" data-api-url="{{ route('api.employees.index') }}"></div>
+        @php
+            $empDirPermissions = [
+                'canEditEmployee'   => $canManageUsers,
+                'canViewPayroll'    => auth()->user()?->hasPermission('payroll.view') || auth()->user()?->hasPermission('payroll.view.all'),
+                'canViewAttendance' => auth()->user()?->hasPermission('attendance.view.department') || auth()->user()?->hasPermission('attendance.view.all'),
+            ];
+        @endphp
+        <div
+            id="employee-directory-root"
+            data-api-url="{{ route('api.employees.index') }}"
+            data-permissions='@json($empDirPermissions)'
+        ></div>
 
         {{-- LEGACY_SSR_DIRECTORY_START
         <section class="emp-toolbar rounded-3xl p-6">
